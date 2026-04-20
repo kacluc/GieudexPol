@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "pMtm4+Jkyn4=",
+  "success": true,
+  "projectFilePath": "/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.API/GieudexPol.API.csproj",
+  "expectedPackageFiles": [
+    "/Users/kamilferdyn/.nuget/packages/microsoft.aspnetcore.openapi/10.0.5/microsoft.aspnetcore.openapi.10.0.5.nupkg.sha512",
+    "/Users/kamilferdyn/.nuget/packages/microsoft.openapi/2.0.0/microsoft.openapi.2.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="GieudexPol.API/GieudexPol.API.csproj" />
+  <Project Path="GieudexPol.Application/GieudexPol.Application.csproj" />
+  <Project Path="GieudexPol.Domain/GieudexPol.Domain.csproj" />
+  <Project Path="GieudexPol.Infrastructure/GieudexPol.Infrastructure.csproj" />
+</Solution>

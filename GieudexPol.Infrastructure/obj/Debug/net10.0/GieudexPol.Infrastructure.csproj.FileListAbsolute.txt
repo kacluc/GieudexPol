@@ -1,0 +1,15 @@
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/bin/Debug/net10.0/GieudexPol.Infrastructure.deps.json
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/bin/Debug/net10.0/GieudexPol.Infrastructure.dll
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/bin/Debug/net10.0/GieudexPol.Infrastructure.pdb
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/bin/Debug/net10.0/GieudexPol.Domain.dll
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/bin/Debug/net10.0/GieudexPol.Domain.pdb
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/GieudexPol.Infrastructure.csproj.AssemblyReference.cache
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/GieudexPol.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/GieudexPol.Infrastructure.AssemblyInfoInputs.cache
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/GieudexPol.Infrastructure.AssemblyInfo.cs
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/GieudexPol.Infrastructure.csproj.CoreCompileInputs.cache
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/GieudexP.43666E68.Up2Date
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/GieudexPol.Infrastructure.dll
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/refint/GieudexPol.Infrastructure.dll
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/GieudexPol.Infrastructure.pdb
+/Users/kamilferdyn/Uczelnia/Tworzenie aplikacji internetowych i bazodanowych/GieudexPol-main/GieudexPol.Infrastructure/obj/Debug/net10.0/ref/GieudexPol.Infrastructure.dll
