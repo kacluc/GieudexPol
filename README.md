@@ -47,7 +47,7 @@ Szybkość powiadomień: Skrócenie czasu od wystąpienia okazji rynkowej do poi
 
 ### 1. Analiza i wybór agenta AI
 W procesie tworzenia systemu wykorzystano agenta **Cline** działającego w środowisku VS Code. 
-* **Model:** Claude 3.5 Sonnet (wybrany ze względu na wysoką precyzję w logice finansowej).
+* **Model:** Gemini-2-5-flash (wybrany ze względu na wysoką precyzję w logice finansowej).
 * **Metodologia pracy:** **Agentic Loop (Pętla Agencyjna)**. Agent nie tylko generuje kod, ale posiada uprawnienia do zarządzania strukturą plików, uruchamiania terminala (CLI) oraz debugowania błędów kompilacji w czasie rzeczywistym.
 
 ### 2. Wybór architektury
