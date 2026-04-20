@@ -38,7 +38,7 @@ Szybkość powiadomień: Skrócenie czasu od wystąpienia okazji rynkowej do poi
 | **Frontend** | Angular 17+ | Reaktywny interfejs spekulanta |
 | **Backend** | .NET 8 Core | Wydajne WebAPI w architekturze N-Tier |
 | **Baza Danych** | MS SQL Server | Relacyjny magazyn danych i historii kursów |
-| **AI Agent** | **Cline** (Claude 3.5 Sonnet) | Autonomiczny agent (VS Code) wspomagający rozwój i audyt kodu |
+| **AI Agent** | **Cline** (Gemini-2.5-flash) | Autonomiczny agent (VS Code) wspomagający rozwój i audyt kodu |
 | **Dokumentacja** | PlantUML | Diagramy architektury i przepływu danych |
 
 ---
@@ -47,7 +47,7 @@ Szybkość powiadomień: Skrócenie czasu od wystąpienia okazji rynkowej do poi
 
 ### 1. Analiza i wybór agenta AI
 W procesie tworzenia systemu wykorzystano agenta **Cline** działającego w środowisku VS Code. 
-* **Model:** Gemini-2-5-flash (wybrany ze względu na wysoką precyzję w logice finansowej).
+* **Model:** Gemini-2.5-flash (wybrany ze względu na wysoką precyzję w logice finansowej).
 * **Metodologia pracy:** **Agentic Loop (Pętla Agencyjna)**. Agent nie tylko generuje kod, ale posiada uprawnienia do zarządzania strukturą plików, uruchamiania terminala (CLI) oraz debugowania błędów kompilacji w czasie rzeczywistym.
 
 ### 2. Wybór architektury
