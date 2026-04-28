@@ -1,0 +1,78 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+
+package "GieudexPol.Domain.Entities" {
+
+    class User {
+        + Guid Id
+        + String Username
+        + String PasswordHash
+        + String Role
+        + Boolean IsTwoFactorEnabled
+        + List<Wallet> Wallets
+        + List<Transaction> Transactions
+        + List<UserAlert> Alerts
+    }
+
+    class Wallet {
+        + Guid Id
+        + Guid UserId
+        + Guid CurrencyId
+        + Decimal Balance
+        + User User
+        + Currency Currency
+    }
+
+    class Currency {
+        + Guid Id
+        + String Symbol
+        + String Name
+        + Boolean IsActive
+        + List<ExchangeRate> Rates
+    }
+
+    class ExchangeRate {
+        + Guid Id
+        + Guid CurrencyId
+        + Decimal BuyPrice
+        + Decimal SellPrice
+        + DateTime Timestamp
+        + Currency Currency
+    }
+
+    class Transaction {
+        + Guid Id
+        + Guid UserId
+        + Guid CurrencyId
+        + Decimal Amount
+        + Decimal Price
+        + Decimal Commission
+        + TransactionType Type
+        + DateTime CreatedAt
+    }
+
+    class UserAlert {
+        + Guid Id
+        + Guid UserId
+        + Guid CurrencyId
+        + Decimal TargetPrice
+        + Boolean IsTriggered
+        + DateTime CreatedAt
+    }
+
+    enum TransactionType {
+        Buy
+        Sell
+    }
+
+    User "1" *-- "many" Wallet
+    User "1" *-- "many" Transaction
+    User "1" *-- "many" UserAlert
+    Currency "1" *-- "many" ExchangeRate
+    Currency "1" -- "many" Wallet
+    Currency "1" -- "many" Transaction
+}
+
+@enduml

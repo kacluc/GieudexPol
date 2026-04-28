@@ -12,4 +12,6 @@ namespace GieudexPol.Domain.Entities
         public ICollection<Wallet> Wallets { get; set; }
         public ICollection<UserAlert> UserAlerts { get; set; }
     }
+
+    
 }
