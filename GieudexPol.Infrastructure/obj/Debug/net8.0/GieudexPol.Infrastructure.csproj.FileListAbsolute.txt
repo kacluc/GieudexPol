@@ -1,0 +1,16 @@
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\bin\Debug\net8.0\GieudexPol.Infrastructure.deps.json
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\bin\Debug\net8.0\GieudexPol.Infrastructure.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\bin\Debug\net8.0\GieudexPol.Infrastructure.pdb
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\bin\Debug\net8.0\GieudexPol.Domain.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\bin\Debug\net8.0\GieudexPol.Domain.pdb
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexPol.Infrastructure.csproj.AssemblyReference.cache
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexPol.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexPol.Infrastructure.AssemblyInfoInputs.cache
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexPol.Infrastructure.AssemblyInfo.cs
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexPol.Infrastructure.csproj.CoreCompileInputs.cache
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexPol.Infrastructure.sourcelink.json
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexP.43666E68.Up2Date
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexPol.Infrastructure.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\refint\GieudexPol.Infrastructure.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\GieudexPol.Infrastructure.pdb
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Infrastructure\obj\Debug\net8.0\ref\GieudexPol.Infrastructure.dll

@@ -1,0 +1,12 @@
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\bin\Debug\net8.0\GieudexPol.Domain.deps.json
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\bin\Debug\net8.0\GieudexPol.Domain.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\bin\Debug\net8.0\GieudexPol.Domain.pdb
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\GieudexPol.Domain.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\GieudexPol.Domain.AssemblyInfoInputs.cache
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\GieudexPol.Domain.AssemblyInfo.cs
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\GieudexPol.Domain.csproj.CoreCompileInputs.cache
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\GieudexPol.Domain.sourcelink.json
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\GieudexPol.Domain.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\refint\GieudexPol.Domain.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\GieudexPol.Domain.pdb
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Domain\obj\Debug\net8.0\ref\GieudexPol.Domain.dll

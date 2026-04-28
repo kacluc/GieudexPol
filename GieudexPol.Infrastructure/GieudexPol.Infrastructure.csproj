@@ -2,10 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GieudexPol.Domain\GieudexPol.Domain.csproj" />
+    <ProjectReference Include="..\GieudexPol.Application\GieudexPol.Application.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

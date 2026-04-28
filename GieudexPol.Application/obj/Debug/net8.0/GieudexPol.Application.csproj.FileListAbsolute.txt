@@ -1,0 +1,16 @@
+C:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\bin\Debug\net8.0\GieudexPol.Application.deps.json
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\bin\Debug\net8.0\GieudexPol.Application.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\bin\Debug\net8.0\GieudexPol.Application.pdb
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\bin\Debug\net8.0\GieudexPol.Domain.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\bin\Debug\net8.0\GieudexPol.Domain.pdb
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexPol.Application.csproj.AssemblyReference.cache
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexPol.Application.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexPol.Application.AssemblyInfoInputs.cache
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexPol.Application.AssemblyInfo.cs
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexPol.Application.csproj.CoreCompileInputs.cache
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexPol.Application.sourcelink.json
+C:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexP.FE40F9B8.Up2Date
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexPol.Application.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\refint\GieudexPol.Application.dll
+c:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\GieudexPol.Application.pdb
+C:\Users\wojci\Documents\Programowanie2\GieudexPol\GieudexPol.Application\obj\Debug\net8.0\ref\GieudexPol.Application.dll
