@@ -18,6 +18,9 @@ namespace GieudexPol.Tests
             _currencyService = new CurrencyService(_mockCurrencyRepository.Object);
         }
 
+        /// <summary>
+        /// Testuje scenariusz pobierania waluty po jej istnieniu (sukces).
+        /// </summary>
         [Fact]
         public async Task GetByIdAsync_ReturnsCurrencyWhenExists()
         {
@@ -35,6 +38,9 @@ namespace GieudexPol.Tests
             _mockCurrencyRepository.Verify(r => r.GetByIdAsync(1), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje scenariusz pobierania waluty, która nie istnieje (powinno zwrócić null).
+        /// </summary>
         [Fact]
         public async Task GetByIdAsync_ReturnsNullWhenNotFound()
         {
@@ -50,6 +56,9 @@ namespace GieudexPol.Tests
             _mockCurrencyRepository.Verify(r => r.GetByIdAsync(99), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje pobranie wszystkich dostępnych walut z systemu.
+        /// </summary>
         [Fact]
         public async Task GetAllAsync_ReturnsAllCurrencies()
         {
@@ -71,6 +80,9 @@ namespace GieudexPol.Tests
             _mockCurrencyRepository.Verify(r => r.GetAllAsync(), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje, czy usługa wywołuje odpowiednio metodę dodawania waluty do repozytorium.
+        /// </summary>
         [Fact]
         public async Task AddAsync_CallsRepositoryAdd()
         {
@@ -84,6 +96,9 @@ namespace GieudexPol.Tests
             _mockCurrencyRepository.Verify(r => r.AddAsync(newCurrency), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje, czy usługa wywołuje odpowiednio metodę aktualizacji waluty w repozytorium.
+        /// </summary>
         [Fact]
         public async Task UpdateAsync_CallsRepositoryUpdate()
         {
@@ -97,6 +112,9 @@ namespace GieudexPol.Tests
             _mockCurrencyRepository.Verify(r => r.UpdateAsync(updatedCurrency), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje, czy usługa wywołuje odpowiednio metodę usuwania waluty z repozytorium.
+        /// </summary>
         [Fact]
         public async Task DeleteAsync_CallsRepositoryDelete()
         {
@@ -110,6 +128,9 @@ namespace GieudexPol.Tests
             _mockCurrencyRepository.Verify(r => r.DeleteAsync(currencyToDelete), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje pobranie waluty na podstawie symbolu (sukces).
+        /// </summary>
         [Fact]
         public async Task GetBySymbolAsync_ReturnsCurrencyWhenExists()
         {
@@ -127,6 +148,9 @@ namespace GieudexPol.Tests
             _mockCurrencyRepository.Verify(r => r.GetBySymbolAsync("eur"), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje pobranie waluty na podstawie symbolu, który nie istnieje (powinno zwrócić null).
+        /// </summary>
         [Fact]
         public async Task GetBySymbolAsync_ReturnsNullWhenNotFound()
         {

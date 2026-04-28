@@ -1,3 +1,7 @@
+/// <summary>
+/// Klasa testująca usługę kursów wymiany walut (ExchangeRateService).
+/// Testy te weryfikują logikę zarządzania, wyszukiwania i aktualizacji starych danych o parach walutowych.
+/// </summary>
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
 using Moq;
@@ -19,6 +23,9 @@ namespace GieudexPol.Tests
             _exchangeRateService = new ExchangeRateService(_mockExchangeRateRepository.Object);
         }
 
+        /// <summary>
+        /// Testuje pobieranie konkretnego kursu wymiany po jego ID (sukces).
+        /// </summary>
         [Fact]
         public async Task GetByIdAsync_RetrievesCorrectRateById()
         {
@@ -36,6 +43,9 @@ namespace GieudexPol.Tests
             _mockExchangeRateRepository.Verify(r => r.GetByIdAsync(id), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje pobieranie kursu wymiany, który nie istnieje (powinno zwrócić null).
+        /// </summary>
         [Fact]
         public async Task GetByIdAsync_ReturnsNullWhenNotFound()
         {
@@ -50,6 +60,9 @@ namespace GieudexPol.Tests
             Assert.Null(result);
         }
 
+        /// <summary>
+        /// Testuje pobranie wszystkich dostępnych kursów wymiany.
+        /// </summary>
         [Fact]
         public async Task GetAllAsync_RetrievesAllAvailableRates()
         {
@@ -70,6 +83,9 @@ namespace GieudexPol.Tests
             _mockExchangeRateRepository.Verify(r => r.GetAllAsync(), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje dodawanie nowego kursu wymiany do repozytorium.
+        /// </summary>
         [Fact]
         public async Task AddAsync_AddsNewExchangeRateSuccessfully()
         {
@@ -86,6 +102,9 @@ namespace GieudexPol.Tests
                 rate.BaseCurrencySymbol == "JPY" && rate.TargetCurrencySymbol == "USD")), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje aktualizację istniejącego kursu wymiany w repozytorium.
+        /// </summary>
         [Fact]
         public async Task UpdateAsync_UpdatesExistingExchangeRateSuccessfully()
         {
@@ -102,6 +121,9 @@ namespace GieudexPol.Tests
                 rate.Id == 1 && rate.BaseCurrencySymbol == "USD" && rate.TargetCurrencySymbol == "EUR")), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje usunięcie kursu wymiany z repozytorium.
+        /// </summary>
         [Fact]
         public async Task DeleteAsync_DeletesExchangeRateSuccessfully()
         {
@@ -117,6 +139,9 @@ namespace GieudexPol.Tests
             _mockExchangeRateRepository.Verify(r => r.DeleteAsync(It.Is<ExchangeRate>(e => e.Id == 2)), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje pobranie kursu wymiany dla konkretnej pary walut (sukces).
+        /// </summary>
         [Fact]
         public async Task GetByCurrencyPairAsync_RetrievesRateForSpecificPair()
         {
@@ -135,6 +160,9 @@ namespace GieudexPol.Tests
             _mockExchangeRateRepository.Verify(r => r.GetByCurrencyPairAsync(baseSymbol, targetSymbol), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje pobranie kursu dla pary walut, która nie istnieje (powinno zwrócić null).
+        /// </summary>
         [Fact]
         public async Task GetByCurrencyPairAsync_ReturnsNullWhenNoMatchingPairFound()
         {

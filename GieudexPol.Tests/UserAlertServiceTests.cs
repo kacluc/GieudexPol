@@ -1,3 +1,7 @@
+/// <summary>
+/// Klasa testująca usługę powiadomień użytkowników (UserAlertService).
+/// Testy te weryfikują logikę sprawdzania salda kont i wysyłania alertów o niskim poziomie środków.
+/// </summary>
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
 using Moq;
@@ -10,7 +14,11 @@ namespace GieudexPol.Tests
 {
     // Użycie IClassFixture (lub podobnego mechanizmu) jest najlepsze, ale dla uproszczenia 
     // i z uwagi na brak możliwości zmian w atrybutach testów, będziemy re-mockować zależności przed każdym teście.
-    public class UserAlertServiceTests
+/// <summary>
+/// Klasa testująca usługę powiadomień użytkowników (UserAlertService).
+/// Testy te weryfikują logikę sprawdzania salda oraz wysyłania alertów o niskim poziomie środków.
+/// </summary>
+public class UserAlertServiceTests
     {
         private readonly Mock<IUserRepository> _mockUserRepository;
 
@@ -20,6 +28,9 @@ namespace GieudexPol.Tests
             _mockUserRepository = new Mock<IUserRepository>();
         }
 
+        /// <summary>
+        /// Testuje scenariusz wysłania alertu o niskim saldzie, gdy saldo jest poniżej ustalonego progu.
+        /// </summary>
         [Fact]
         public async Task CheckAndSendLowBalanceAlertAsync_SendsAlertWhenBelowThreshold()
         {
@@ -46,6 +57,9 @@ namespace GieudexPol.Tests
             _mockUserRepository.Verify(r => r.GetByIdAsync(userId), Times.Once());
         }
 
+        /// <summary>
+        /// Testuje scenariusz, w którym saldo jest znacznie wyższe niż próg alertu (alert nie powinien być wysłany).
+        /// </summary>
         [Fact]
         public async Task CheckAndSendLowBalanceAlertAsync_DoesNotSendAlertWhenAboveThreshold()
         {
@@ -72,6 +86,9 @@ namespace GieudexPol.Tests
              _mockUserRepository.Verify(r => r.GetByIdAsync(userId), Times.Once()); 
         }
 
+        /// <summary>
+        /// Testuje sytuację, gdy użytkownik nie istnieje w systemie, co powinno spowodować wyjątek.
+        /// </summary>
         [Fact]
         public async Task CheckAndSendLowBalanceAlertAsync_ThrowsExceptionIfUserNotFound()
         {
