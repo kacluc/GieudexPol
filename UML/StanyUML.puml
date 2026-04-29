@@ -1,0 +1,16 @@
+@startuml
+[*] --> Created : Utworzenie alertu
+Created --> Active : Aktywacja przez system
+
+state Active {
+  [*] --> Monitoring : Sprawdzanie ceny
+  Monitoring --> Monitoring : Cena != TargetPrice
+}
+
+Active --> Triggered : Cena osiąga TargetPrice
+Triggered --> Inactive : Powiadomienie wysłane
+Active --> Inactive : Ręczne wyłączenie (IsActive = false)
+
+Inactive --> Active : Reaktywacja
+Inactive --> [*] : Usunięcie alertu
+@enduml

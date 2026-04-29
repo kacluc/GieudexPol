@@ -1,0 +1,27 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Użytkownik" as UserActor
+actor "Administrator" as AdminActor
+
+rectangle "System GieudexPol" {
+  (Zarządzanie Portfelem) as UC1
+  (Składanie Zlecenia - Transaction) as UC2
+  (Ustawianie Alertu Cenowego) as UC3
+  (Podgląd Kursów - ExchangeRates) as UC4
+  
+  (Zarządzanie Walutami) as UC5
+  (Zarządzanie Prowizjami) as UC6
+  (Monitorowanie Użytkowników) as UC7
+}
+
+UserActor --> UC1
+UserActor --> UC2
+UserActor --> UC3
+UserActor --> UC4
+
+AdminActor --> UC5
+AdminActor --> UC6
+AdminActor --> UC7
+@enduml

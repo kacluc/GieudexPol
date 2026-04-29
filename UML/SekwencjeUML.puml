@@ -1,0 +1,19 @@
+@startuml
+actor Użytkownik
+participant "Wallet" as W
+participant "ExchangeRate" as ER
+participant "Transaction" as T
+participant "Currency" as C
+
+Użytkownik -> ER : Sprawdź aktualny kurs (BuyPrice/SellPrice)
+Użytkownik -> W : Sprawdź dostępne saldo (Balance)
+Użytkownik -> T : Utwórz nową transakcję (TransactionType)
+
+activate T
+T -> C : Pobierz informacje o walucie (Symbol)
+T -> T : Oblicz prowizję (Commission)
+T -> W : Zaktualizuj stan posiadania (UserId, CurrencyId)
+deactivate T
+
+Użytkownik <-- T : Potwierdzenie operacji i Timestamp
+@enduml
