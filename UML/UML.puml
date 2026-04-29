@@ -73,6 +73,7 @@ package "GieudexPol.Domain.Entities" {
     Currency "1" *-- "many" ExchangeRate
     Currency "1" -- "many" Wallet
     Currency "1" -- "many" Transaction
+    Transaction -- TransactionType
 }
 
 @enduml
