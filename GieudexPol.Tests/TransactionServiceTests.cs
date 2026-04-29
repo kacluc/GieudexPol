@@ -12,41 +12,28 @@ using System.Threading.Tasks;
 
 namespace GieudexPol.Tests
 {
-    /// <summary>
-    /// Zawiera mock dla repozytorium transakcji i instancję usługi do testowania.
-    /// </summary>
     public class TransactionServiceTests
     {
-        private readonly Mock<ITransactionRepository> _mockTransactionRepository;
-        private readonly TransactionService _transactionService;
-
-        /// <summary>
-        /// Konstruktor, inicjalizujący mocki i usługę pod testowanie.
-        /// </summary>
-        public TransactionServiceTests()
-        {
-            _mockTransactionRepository = new Mock<ITransactionRepository>();
-            _transactionService = new TransactionService(_mockTransactionRepository.Object);
-        }
-
         /// <summary>
         /// Testuje pobranie konkretnej transakcji po jej ID (sukces).
         /// </summary>
         [Fact]
         public async Task GetByIdAsync_ReturnsTransactionWhenExists()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockTransactionRepository = new Mock<ITransactionRepository>();
+            var transactionService = new TransactionService(mockTransactionRepository.Object);
             var expectedTransaction = new Transaction { Id = 1, UserId = 2 };
-            _mockTransactionRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>()))
+            mockTransactionRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>()))
                 .ReturnsAsync(expectedTransaction);
 
             // Act
-            var result = await _transactionService.GetByIdAsync(1);
+            var result = await transactionService.GetByIdAsync(1);
 
             // Assert
             Assert.NotNull(result);
             Assert.Equal(2, result.UserId);
-            _mockTransactionRepository.Verify(r => r.GetByIdAsync(1), Times.Once());
+            mockTransactionRepository.Verify(r => r.GetByIdAsync(1), Times.Once());
         }
 
         /// <summary>
@@ -55,16 +42,19 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task GetByIdAsync_ReturnsNullWhenNotFound()
         {
-            // Arrange
-            _mockTransactionRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>()))
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockTransactionRepository = new Mock<ITransactionRepository>();
+            var transactionService = new TransactionService(mockTransactionRepository.Object);
+
+            mockTransactionRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>()))
                 .ReturnsAsync((Transaction)null);
 
             // Act
-            var result = await _transactionService.GetByIdAsync(99);
+            var result = await transactionService.GetByIdAsync(99);
 
             // Assert
             Assert.Null(result);
-            _mockTransactionRepository.Verify(r => r.GetByIdAsync(99), Times.Once());
+            mockTransactionRepository.Verify(r => r.GetByIdAsync(99), Times.Once());
         }
 
         /// <summary>
@@ -73,22 +63,25 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task GetAllAsync_ReturnsAllTransactions()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockTransactionRepository = new Mock<ITransactionRepository>();
+            var transactionService = new TransactionService(mockTransactionRepository.Object);
+
             var transactions = new List<Transaction>
             {
                 new Transaction { Id = 1, UserId = 2 },
                 new Transaction { Id = 2, UserId = 1 }
             };
-            _mockTransactionRepository.Setup(r => r.GetAllAsync())
+            mockTransactionRepository.Setup(r => r.GetAllAsync())
                 .ReturnsAsync(transactions);
 
             // Act
-            var result = await _transactionService.GetAllAsync();
+            var result = await transactionService.GetAllAsync();
 
             // Assert
             Assert.NotNull(result);
             Assert.Equal(2, result.Count());
-            _mockTransactionRepository.Verify(r => r.GetAllAsync(), Times.Once());
+            mockTransactionRepository.Verify(r => r.GetAllAsync(), Times.Once());
         }
 
         /// <summary>
@@ -97,14 +90,17 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task AddAsync_CallsRepositoryAdd()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockTransactionRepository = new Mock<ITransactionRepository>();
+            var transactionService = new TransactionService(mockTransactionRepository.Object);
+
             var newTransaction = new Transaction { UserId = 1 };
 
             // Act
-            await _transactionService.AddAsync(newTransaction);
+            await transactionService.AddAsync(newTransaction);
 
             // Assert
-            _mockTransactionRepository.Verify(r => r.AddAsync(newTransaction), Times.Once());
+            mockTransactionRepository.Verify(r => r.AddAsync(newTransaction), Times.Once());
         }
 
         /// <summary>
@@ -113,14 +109,17 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task UpdateAsync_CallsRepositoryUpdate()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockTransactionRepository = new Mock<ITransactionRepository>();
+            var transactionService = new TransactionService(mockTransactionRepository.Object);
+
             var updatedTransaction = new Transaction { Id = 1, UserId = 2 };
 
             // Act
-            await _transactionService.UpdateAsync(updatedTransaction);
+            await transactionService.UpdateAsync(updatedTransaction);
 
             // Assert
-            _mockTransactionRepository.Verify(r => r.UpdateAsync(updatedTransaction), Times.Once());
+            mockTransactionRepository.Verify(r => r.UpdateAsync(updatedTransaction), Times.Once());
         }
 
         /// <summary>
@@ -129,14 +128,17 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task DeleteAsync_CallsRepositoryDelete()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockTransactionRepository = new Mock<ITransactionRepository>();
+            var transactionService = new TransactionService(mockTransactionRepository.Object);
+
             var transactionToDelete = new Transaction { Id = 1 };
 
             // Act
-            await _transactionService.DeleteAsync(transactionToDelete);
+            await transactionService.DeleteAsync(transactionToDelete);
 
             // Assert
-            _mockTransactionRepository.Verify(r => r.DeleteAsync(transactionToDelete), Times.Once());
+            mockTransactionRepository.Verify(r => r.DeleteAsync(transactionToDelete), Times.Once());
         }
 
         /// <summary>
@@ -145,23 +147,26 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task GetUserTransactionsAsync_ReturnsByUser()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockTransactionRepository = new Mock<ITransactionRepository>();
+            var transactionService = new TransactionService(mockTransactionRepository.Object);
+
             var transactions = new List<Transaction>
             {
                 new Transaction { Id = 1, UserId = 2 },
                 new Transaction { Id = 3, UserId = 2 }
             };
             int targetUserId = 2;
-            _mockTransactionRepository.Setup(r => r.GetUserTransactionsAsync(targetUserId))
+            mockTransactionRepository.Setup(r => r.GetUserTransactionsAsync(targetUserId))
                 .ReturnsAsync(transactions);
 
             // Act
-            var result = await _transactionService.GetUserTransactionsAsync(targetUserId);
+            var result = await transactionService.GetUserTransactionsAsync(targetUserId);
 
             // Assert
             Assert.NotNull(result);
             Assert.Equal(2, result.Count());
-            _mockTransactionRepository.Verify(r => r.GetUserTransactionsAsync(targetUserId), Times.Once());
+            mockTransactionRepository.Verify(r => r.GetUserTransactionsAsync(targetUserId), Times.Once());
         }
 
         /// <summary>
@@ -170,19 +175,22 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task GetUserTransactionsAsync_ReturnsEmptyListWhenNoneFound()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockTransactionRepository = new Mock<ITransactionRepository>();
+            var transactionService = new TransactionService(mockTransactionRepository.Object);
+
             var emptyList = new List<Transaction>();
             int targetUserId = 99; // Non-existent user ID
-            _mockTransactionRepository.Setup(r => r.GetUserTransactionsAsync(targetUserId))
+            mockTransactionRepository.Setup(r => r.GetUserTransactionsAsync(targetUserId))
                 .ReturnsAsync(emptyList);
 
             // Act
-            var result = await _transactionService.GetUserTransactionsAsync(targetUserId);
+            var result = await transactionService.GetUserTransactionsAsync(targetUserId);
 
             // Assert
             Assert.NotNull(result);
             Assert.Empty(result);
-            _mockTransactionRepository.Verify(r => r.GetUserTransactionsAsync(targetUserId), Times.Once());
+            mockTransactionRepository.Verify(r => r.GetUserTransactionsAsync(targetUserId), Times.Once());
         }
     }
 }

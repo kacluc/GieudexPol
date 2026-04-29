@@ -10,18 +10,7 @@ using System.Threading.Tasks;
 /// </summary>
 public class UserServiceTests
 {
-    private readonly Mock<IUserRepository> _mockUserRepository;
-    private readonly UserService _userService;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="UserServiceTests"/> class.
-    /// Sets up mock dependencies for testing purposes.
-    /// </summary>
-    public UserServiceTests()
-    {
-        _mockUserRepository = new Mock<IUserRepository>();
-        _userService = new UserService(_mockUserRepository.Object);
-    }
+// Usunięto pola poziomu klasy i konstruktor, aby zapewnić niezależną inicjalizację dla każdego testu.
 
     /// <summary>
     /// Tests that GetByIdAsync returns the expected user when a valid ID is provided.

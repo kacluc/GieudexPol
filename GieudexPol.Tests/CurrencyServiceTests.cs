@@ -7,35 +7,31 @@ using System.Threading.Tasks;
 
 namespace GieudexPol.Tests
 {
-    public class CurrencyServiceTests
+    // Klasa testująca usługę zarządzania walutami (CurrencyService). 
+// Przyjęcie struktury, gdzie mocki i usługi są inicjalizowane w każdym teście zapewnia izolację stanów.
+public class CurrencyServiceTests
     {
-        private readonly Mock<ICurrencyRepository> _mockCurrencyRepository;
-        private readonly CurrencyService _currencyService;
-
-        public CurrencyServiceTests()
-        {
-            _mockCurrencyRepository = new Mock<ICurrencyRepository>();
-            _currencyService = new CurrencyService(_mockCurrencyRepository.Object);
-        }
-
         /// <summary>
         /// Testuje scenariusz pobierania waluty po jej istnieniu (sukces).
         /// </summary>
         [Fact]
         public async Task GetByIdAsync_ReturnsCurrencyWhenExists()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            var currencyService = new CurrencyService(mockCurrencyRepository.Object);
+
             var expectedCurrency = new Currency { Id = 1, Symbol = "USD" };
-            _mockCurrencyRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>()))
+            mockCurrencyRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>()))
                 .ReturnsAsync(expectedCurrency);
 
             // Act
-            var result = await _currencyService.GetByIdAsync(1);
+            var result = await currencyService.GetByIdAsync(1);
 
             // Assert
             Assert.NotNull(result);
             Assert.Equal("USD", result.Symbol);
-            _mockCurrencyRepository.Verify(r => r.GetByIdAsync(1), Times.Once());
+            mockCurrencyRepository.Verify(r => r.GetByIdAsync(1), Times.Once());
         }
 
         /// <summary>
@@ -44,16 +40,19 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task GetByIdAsync_ReturnsNullWhenNotFound()
         {
-            // Arrange
-            _mockCurrencyRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>()))
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            var currencyService = new CurrencyService(mockCurrencyRepository.Object);
+
+            mockCurrencyRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>()))
                 .ReturnsAsync((Currency)null);
 
             // Act
-            var result = await _currencyService.GetByIdAsync(99);
+            var result = await currencyService.GetByIdAsync(99);
 
             // Assert
             Assert.Null(result);
-            _mockCurrencyRepository.Verify(r => r.GetByIdAsync(99), Times.Once());
+            mockCurrencyRepository.Verify(r => r.GetByIdAsync(99), Times.Once());
         }
 
         /// <summary>
@@ -62,22 +61,25 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task GetAllAsync_ReturnsAllCurrencies()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            var currencyService = new CurrencyService(mockCurrencyRepository.Object);
+
             var currencies = new List<Currency>
             {
                 new Currency { Id = 1, Symbol = "USD" },
                 new Currency { Id = 2, Symbol = "EUR" }
             };
-            _mockCurrencyRepository.Setup(r => r.GetAllAsync())
+            mockCurrencyRepository.Setup(r => r.GetAllAsync())
                 .ReturnsAsync(currencies);
 
             // Act
-            var result = await _currencyService.GetAllAsync();
+            var result = await currencyService.GetAllAsync();
 
             // Assert
             Assert.NotNull(result);
             Assert.Equal(2, result.Count());
-            _mockCurrencyRepository.Verify(r => r.GetAllAsync(), Times.Once());
+            mockCurrencyRepository.Verify(r => r.GetAllAsync(), Times.Once());
         }
 
         /// <summary>
@@ -86,14 +88,17 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task AddAsync_CallsRepositoryAdd()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            var currencyService = new CurrencyService(mockCurrencyRepository.Object);
+
             var newCurrency = new Currency { Symbol = "JPY" };
 
             // Act
-            await _currencyService.AddAsync(newCurrency);
+            await currencyService.AddAsync(newCurrency);
 
             // Assert
-            _mockCurrencyRepository.Verify(r => r.AddAsync(newCurrency), Times.Once());
+            mockCurrencyRepository.Verify(r => r.AddAsync(newCurrency), Times.Once());
         }
 
         /// <summary>
@@ -102,14 +107,17 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task UpdateAsync_CallsRepositoryUpdate()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            var currencyService = new CurrencyService(mockCurrencyRepository.Object);
+
             var updatedCurrency = new Currency { Id = 1, Symbol = "updatedUSD" };
 
             // Act
-            await _currencyService.UpdateAsync(updatedCurrency);
+            await currencyService.UpdateAsync(updatedCurrency);
 
             // Assert
-            _mockCurrencyRepository.Verify(r => r.UpdateAsync(updatedCurrency), Times.Once());
+            mockCurrencyRepository.Verify(r => r.UpdateAsync(updatedCurrency), Times.Once());
         }
 
         /// <summary>
@@ -118,14 +126,17 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task DeleteAsync_CallsRepositoryDelete()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            var currencyService = new CurrencyService(mockCurrencyRepository.Object);
+
             var currencyToDelete = new Currency { Id = 1 };
 
             // Act
-            await _currencyService.DeleteAsync(currencyToDelete);
+            await currencyService.DeleteAsync(currencyToDelete);
 
             // Assert
-            _mockCurrencyRepository.Verify(r => r.DeleteAsync(currencyToDelete), Times.Once());
+            mockCurrencyRepository.Verify(r => r.DeleteAsync(currencyToDelete), Times.Once());
         }
 
         /// <summary>
@@ -134,18 +145,21 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task GetBySymbolAsync_ReturnsCurrencyWhenExists()
         {
-            // Arrange
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            var currencyService = new CurrencyService(mockCurrencyRepository.Object);
+
             var expectedCurrency = new Currency { Id = 2, Symbol = "EUR" };
-            _mockCurrencyRepository.Setup(r => r.GetBySymbolAsync("eur"))
+            mockCurrencyRepository.Setup(r => r.GetBySymbolAsync("eur"))
                 .ReturnsAsync(expectedCurrency);
 
             // Act
-            var result = await _currencyService.GetBySymbolAsync("eur");
+            var result = await currencyService.GetBySymbolAsync("eur");
 
             // Assert
             Assert.NotNull(result);
             Assert.Equal("EUR", result.Symbol);
-            _mockCurrencyRepository.Verify(r => r.GetBySymbolAsync("eur"), Times.Once());
+            mockCurrencyRepository.Verify(r => r.GetBySymbolAsync("eur"), Times.Once());
         }
 
         /// <summary>
@@ -154,16 +168,19 @@ namespace GieudexPol.Tests
         [Fact]
         public async Task GetBySymbolAsync_ReturnsNullWhenNotFound()
         {
-            // Arrange
-            _mockCurrencyRepository.Setup(r => r.GetBySymbolAsync("nonexistent"))
+            // Arrange: Inicjalizacja dla każdego testu zapewnia izolację stanów.
+            var mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            var currencyService = new CurrencyService(mockCurrencyRepository.Object);
+
+            mockCurrencyRepository.Setup(r => r.GetBySymbolAsync("nonexistent"))
                 .ReturnsAsync((Currency)null);
 
             // Act
-            var result = await _currencyService.GetBySymbolAsync("nonexistent");
+            var result = await currencyService.GetBySymbolAsync("nonexistent");
 
             // Assert
             Assert.Null(result);
-            _mockCurrencyRepository.Verify(r => r.GetBySymbolAsync("nonexistent"), Times.Once());
+            mockCurrencyRepository.Verify(r => r.GetBySymbolAsync("nonexistent"), Times.Once());
         }
     }
 }
