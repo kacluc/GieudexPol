@@ -2,7 +2,6 @@ using GieudexPol.Application.DTOs;
 using GieudexPol.Domain.Entities;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace GieudexPol.Application.Interfaces
@@ -13,7 +12,6 @@ namespace GieudexPol.Application.Interfaces
         Task<IEnumerable<ExchangeRateChartPointDto>> GetChartDataAsync(string currencyCode, string sourceCode, DateTime from, DateTime to);
         Task<IEnumerable<ExchangeRateChartPointDto>> GetRatesForChartAsync(string currencySymbol, string sourceCode, DateTime from, DateTime to);
         Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode);
-        Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesFromNbpAsync(CancellationToken cancellationToken = default);
         Task<bool> ExistsAsync(int currencyId, int rateSourceId, DateTime effectiveDate);
     }
 }

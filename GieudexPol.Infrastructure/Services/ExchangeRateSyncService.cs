@@ -8,21 +8,17 @@ namespace GieudexPol.Infrastructure.Services
 {
     public class ExchangeRateSyncService : IExchangeRateSyncService
     {
-        private const int MaxNbpRangeDays = 93;
-        private const string NbpSourceCode = "NBP";
-        private const string NbpSourceName = "Narodowy Bank Polski";
-
         private readonly ApplicationDbContext _context;
-        private readonly INbpExchangeRateClient _nbpClient;
+        private readonly IExternalExchangeRateClient _exchangeRateClient;
         private readonly ILogger<ExchangeRateSyncService> _logger;
 
         public ExchangeRateSyncService(
             ApplicationDbContext context,
-            INbpExchangeRateClient nbpClient,
+            IExternalExchangeRateClient exchangeRateClient,
             ILogger<ExchangeRateSyncService> logger)
         {
             _context = context;
-            _nbpClient = nbpClient;
+            _exchangeRateClient = exchangeRateClient;
             _logger = logger;
         }
 
@@ -51,31 +47,35 @@ namespace GieudexPol.Infrastructure.Services
                 To = to
             };
 
-            _logger.LogInformation("Starting NBP exchange rate sync from {From} to {To}.", from, to);
+            _logger.LogInformation(
+                "Starting {SourceCode} exchange rate sync from {From} to {To}.",
+                _exchangeRateClient.SourceCode,
+                from,
+                to);
 
-            var rateSource = await GetOrCreateNbpRateSourceAsync(cancellationToken);
+            var rateSource = await GetOrCreateRateSourceAsync(cancellationToken);
             var currencies = await _context.Currencies.ToDictionaryAsync(
                 currency => currency.Symbol,
                 cancellationToken);
             var existingRates = await LoadExistingRateKeysAsync(rateSource.Id, from, to, cancellationToken);
 
-            foreach (var (rangeFrom, rangeTo) in SplitIntoNbpRanges(from, to))
+            foreach (var (rangeFrom, rangeTo) in SplitIntoRanges(from, to, _exchangeRateClient.MaxRangeDays))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var rangeLabel = $"{rangeFrom:yyyy-MM-dd} - {rangeTo:yyyy-MM-dd}";
                 result.ProcessedRanges.Add(rangeLabel);
-                _logger.LogInformation("Fetching NBP table C range {Range}.", rangeLabel);
+                _logger.LogInformation("Fetching {SourceCode} buy/sell rates range {Range}.", _exchangeRateClient.SourceCode, rangeLabel);
 
-                IReadOnlyList<NbpExchangeRateTableDto> tables;
+                IReadOnlyList<ExternalExchangeRateTableDto> tables;
                 try
                 {
-                    tables = await _nbpClient.GetTableCRatesAsync(rangeFrom, rangeTo, cancellationToken);
+                    tables = await _exchangeRateClient.GetBuySellRatesAsync(rangeFrom, rangeTo, cancellationToken);
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
                 {
                     result.Warnings.Add($"Range {rangeLabel}: {ex.Message}");
-                    _logger.LogWarning(ex, "NBP range {Range} failed.", rangeLabel);
+                    _logger.LogWarning(ex, "{SourceCode} range {Range} failed.", _exchangeRateClient.SourceCode, rangeLabel);
                     continue;
                 }
 
@@ -83,7 +83,7 @@ namespace GieudexPol.Infrastructure.Services
 
                 if (tables.Count == 0)
                 {
-                    result.Warnings.Add($"Range {rangeLabel}: NBP returned no table C data.");
+                    result.Warnings.Add($"Range {rangeLabel}: {_exchangeRateClient.SourceCode} returned no buy/sell rate data.");
                     continue;
                 }
 
@@ -93,14 +93,14 @@ namespace GieudexPol.Infrastructure.Services
 
                     foreach (var rate in table.Rates)
                     {
-                        var currencyCode = rate.Code.Trim().ToUpperInvariant();
+                        var currencyCode = rate.CurrencyCode.Trim().ToUpperInvariant();
 
                         if (!currencies.TryGetValue(currencyCode, out var currency))
                         {
                             currency = new Currency
                             {
                                 Symbol = currencyCode,
-                                Name = rate.Currency,
+                                Name = rate.CurrencyName,
                                 IsActive = true
                             };
 
@@ -119,8 +119,8 @@ namespace GieudexPol.Infrastructure.Services
                         {
                             Currency = currency,
                             RateSource = rateSource,
-                            BuyPrice = rate.Bid,
-                            SellPrice = rate.Ask,
+                            BuyPrice = rate.BuyPrice,
+                            SellPrice = rate.SellPrice,
                             EffectiveDate = effectiveDate,
                             FetchedAt = DateTime.UtcNow
                         }, cancellationToken);
@@ -134,7 +134,8 @@ namespace GieudexPol.Infrastructure.Services
             await _context.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation(
-                "Finished NBP exchange rate sync. Added {Added}, skipped {Skipped}, tables fetched {TablesFetched}.",
+                "Finished {SourceCode} exchange rate sync. Added {Added}, skipped {Skipped}, tables fetched {TablesFetched}.",
+                _exchangeRateClient.SourceCode,
                 result.Added,
                 result.Skipped,
                 result.TablesFetched);
@@ -142,22 +143,22 @@ namespace GieudexPol.Infrastructure.Services
             return result;
         }
 
-        private async Task<RateSource> GetOrCreateNbpRateSourceAsync(CancellationToken cancellationToken)
+        private async Task<RateSource> GetOrCreateRateSourceAsync(CancellationToken cancellationToken)
         {
             var rateSource = await _context.RateSources
-                .FirstOrDefaultAsync(source => source.Code == NbpSourceCode, cancellationToken);
+                .FirstOrDefaultAsync(source => source.Code == _exchangeRateClient.SourceCode, cancellationToken);
 
             if (rateSource != null)
             {
-                rateSource.Name = NbpSourceName;
+                rateSource.Name = _exchangeRateClient.SourceName;
                 rateSource.IsActive = true;
                 return rateSource;
             }
 
             rateSource = new RateSource
             {
-                Code = NbpSourceCode,
-                Name = NbpSourceName,
+                Code = _exchangeRateClient.SourceCode,
+                Name = _exchangeRateClient.SourceName,
                 IsActive = true
             };
 
@@ -188,13 +189,13 @@ namespace GieudexPol.Infrastructure.Services
             return keys.ToHashSet();
         }
 
-        private static IEnumerable<(DateTime From, DateTime To)> SplitIntoNbpRanges(DateTime from, DateTime to)
+        private static IEnumerable<(DateTime From, DateTime To)> SplitIntoRanges(DateTime from, DateTime to, int maxRangeDays)
         {
             var rangeFrom = from.Date;
 
             while (rangeFrom <= to.Date)
             {
-                var rangeTo = rangeFrom.AddDays(MaxNbpRangeDays - 1);
+                var rangeTo = rangeFrom.AddDays(maxRangeDays - 1);
                 if (rangeTo > to.Date)
                 {
                     rangeTo = to.Date;

@@ -5,19 +5,15 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace GieudexPol.Infrastructure.Repositories
 {
     public class ExchangeRateRepository : GenericRepository<ExchangeRate>, IExchangeRateRepository
     {
-        public ExchangeRateRepository(ApplicationDbContext context, INbpExchangeRateClient nbpExchangeRateClient) : base(context)
+        public ExchangeRateRepository(ApplicationDbContext context) : base(context)
         {
-            _nbpExchangeRateClient = nbpExchangeRateClient;
         }
-
-        private readonly INbpExchangeRateClient _nbpExchangeRateClient;
 
         public async Task<ExchangeRate> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
         {
@@ -99,32 +95,6 @@ namespace GieudexPol.Infrastructure.Repositories
                     SellPrice = er.SellPrice
                 })
                 .ToListAsync();
-        }
-
-        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesFromNbpAsync(CancellationToken cancellationToken = default)
-        {
-            var nbpRates = await _nbpExchangeRateClient.GetLatestExchangeRatesAsync(cancellationToken);
-
-            var latestRates = new List<ExchangeRateTableRowDto>();
-
-            foreach (var table in nbpRates)
-            {
-                foreach (var rate in table.Rates)
-                {
-                    latestRates.Add(new ExchangeRateTableRowDto
-                    {
-                        CurrencyCode = rate.Currency,
-                        CurrencyName = rate.Currency,
-                        SourceCode = table.Table,
-                        SourceName = table.Table,
-                        EffectiveDate = table.EffectiveDate,
-                        BuyPrice = rate.Bid,
-                        SellPrice = rate.Ask
-                    });
-                }
-            }
-
-            return latestRates;
         }
 
         public async Task<bool> ExistsAsync(int currencyId, int rateSourceId, DateTime effectiveDate)

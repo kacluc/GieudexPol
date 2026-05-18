@@ -20,10 +20,12 @@ services:
     container_name: gieudexpol-api
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=gieudexpol-db,1433;Database=GieudexPolDB;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True
+      - ConnectionStrings__DefaultConnection=Server=gieudexpol-db,1433;Database=GieudexPolDB;User Id=sa;Password=YourStrong!Passw0rd;Encrypt=False;TrustServerCertificate=True
       - Jwt__Key=YourSuperSecretKeyForJWTAuthenticationAtLeast32CharactersLong!
       - Jwt__Issuer=GieudexPol
       - Jwt__Audience=GieudexPolClient
+      - NbpApi__BaseUrl=https://api.nbp.pl/api/
+      - NbpSync__StartDate=2026-01-01
       - PORT=80
     ports:
       - "5010:80"

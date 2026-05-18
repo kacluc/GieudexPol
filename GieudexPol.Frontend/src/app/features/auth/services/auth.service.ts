@@ -13,7 +13,7 @@ interface AuthResponse {
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'https://localhost:7082/api/Auth'; // Zmień na swój adres API
+  private apiUrl = '/api/Auth';
 
   constructor(private http: HttpClient, private router: Router) { }
 

@@ -52,10 +52,10 @@ namespace GieudexPol.Tests
                 .Returns(Task.CompletedTask);
 
             var client = _factory.CreateClient();
-            var requestBody = new { userId = 1, fromCurrencyId = 1, amountFrom = 10m, toCurrencyId = 2, amountTo = 5m };
+            var requestBody = new { fromCurrencyId = 1, amountFrom = 10m, toCurrencyId = 2, amountTo = 5m };
 
             // Act
-            var response = await client.PostAsJsonAsync("api/wallet/trade", requestBody);
+            var response = await client.PostAsJsonAsync("api/Wallets/trade?userId=1", requestBody);
 
             // Assert
             Assert.True(response.IsSuccessStatusCode);
@@ -65,7 +65,7 @@ namespace GieudexPol.Tests
         public async Task ExecuteTrade_InsufficientFunds_ReturnsBadRequest()
         {
             // Arrange
-            var expectedException = new InvalidOperationException("Transaction failed: Insufficient funds in Wallet.");
+            var expectedException = new InvalidOperationException("Insufficient funds in Wallet.");
             _mockWalletService.Setup(s => s.ExecuteTradeTransactionAsync(
                     It.IsAny<int>(), 
                     It.IsAny<int>(), 
@@ -76,10 +76,10 @@ namespace GieudexPol.Tests
                 .ThrowsAsync(expectedException);
 
             var client = _factory.CreateClient();
-            var requestBody = new { userId = 1, fromCurrencyId = 1, amountFrom = 500m, toCurrencyId = 2, amountTo = 1m };
+            var requestBody = new { fromCurrencyId = 1, amountFrom = 500m, toCurrencyId = 2, amountTo = 1m };
 
             // Act
-            var response = await client.PostAsJsonAsync("api/wallet/trade", requestBody);
+            var response = await client.PostAsJsonAsync("api/Wallets/trade?userId=1", requestBody);
 
             // Assert
             Assert.False(response.IsSuccessStatusCode);
@@ -101,10 +101,10 @@ namespace GieudexPol.Tests
                 .ThrowsAsync(internalException);
 
             var client = _factory.CreateClient();
-            var requestBody = new { userId = 1, fromCurrencyId = 1, amountFrom = 10m, toCurrencyId = 2, amountTo = 5m };
+            var requestBody = new { fromCurrencyId = 1, amountFrom = 10m, toCurrencyId = 2, amountTo = 5m };
 
             // Act
-            var response = await client.PostAsJsonAsync("api/wallet/trade", requestBody);
+            var response = await client.PostAsJsonAsync("api/Wallets/trade?userId=1", requestBody);
 
             // Assert
             Assert.False(response.IsSuccessStatusCode);

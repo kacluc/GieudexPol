@@ -1,13 +1,18 @@
 using GieudexPol.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AuthUser = GieudexPol.Domain.Auth.User;
 
 namespace GieudexPol.Infrastructure.Data
 {
     public static class DevelopmentDataSeeder
     {
         private const string DevelopmentSourceCode = "MOCK_BANK_A";
+        public const string DevelopmentUserEmail = "dev@gieudexpol.local";
+        public const string DevelopmentUserPassword = "DevPassword123!";
+        private static readonly Guid DevelopmentUserAuthId = new("11111111-1111-1111-1111-111111111111");
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
@@ -23,19 +28,47 @@ namespace GieudexPol.Infrastructure.Data
             }
 
             var addedCurrencies = await SeedCurrenciesAsync(context);
+            var addedUsers = await SeedUsersAsync(context);
+            var addedWallets = await SeedWalletsAsync(context);
             var rateSource = await SeedRateSourceAsync(context);
             var addedRates = await SeedExchangeRatesAsync(context, rateSource);
 
             logger.LogInformation(
-                "Development seed completed. Added {CurrencyCount} currencies and {RateCount} exchange rates.",
+                "Development seed completed. Added {CurrencyCount} currencies, {UserCount} users, {WalletCount} wallets and {RateCount} exchange rates.",
                 addedCurrencies,
+                addedUsers,
+                addedWallets,
                 addedRates);
+        }
+
+        private static async Task<int> SeedUsersAsync(ApplicationDbContext context)
+        {
+            var existingUser = await context.Users.AnyAsync(user => user.Username == DevelopmentUserEmail);
+            if (existingUser)
+            {
+                return 0;
+            }
+
+            var authUser = new AuthUser(DevelopmentUserAuthId, DevelopmentUserEmail, DevelopmentUserPassword);
+            var passwordHash = new PasswordHasher<AuthUser>().HashPassword(authUser, DevelopmentUserPassword);
+
+            await context.Users.AddAsync(new User
+            {
+                AuthId = DevelopmentUserAuthId,
+                Username = DevelopmentUserEmail,
+                PasswordHash = passwordHash,
+                Role = "User"
+            });
+
+            await context.SaveChangesAsync();
+            return 1;
         }
 
         private static async Task<int> SeedCurrenciesAsync(ApplicationDbContext context)
         {
             var seedCurrencies = new[]
             {
+                new Currency { Symbol = "PLN", Name = "Polish Zloty", IsActive = true },
                 new Currency { Symbol = "EUR", Name = "Euro", IsActive = true },
                 new Currency { Symbol = "USD", Name = "US Dollar", IsActive = true },
                 new Currency { Symbol = "CHF", Name = "Swiss Franc", IsActive = true },
@@ -60,6 +93,75 @@ namespace GieudexPol.Infrastructure.Data
             await context.SaveChangesAsync();
 
             return currenciesToAdd.Count;
+        }
+
+        private static async Task<int> SeedWalletsAsync(ApplicationDbContext context)
+        {
+            var developmentUser = await context.Users
+                .FirstOrDefaultAsync(user => user.Username == DevelopmentUserEmail);
+
+            if (developmentUser == null)
+            {
+                return 0;
+            }
+
+            var seedBalances = new Dictionary<string, decimal>
+            {
+                ["PLN"] = 10000m,
+                ["EUR"] = 1000m,
+                ["USD"] = 1000m,
+                ["CHF"] = 500m,
+                ["GBP"] = 500m
+            };
+
+            var symbols = seedBalances.Keys.ToList();
+            var currencies = await context.Currencies
+                .Where(currency => symbols.Contains(currency.Symbol))
+                .ToDictionaryAsync(currency => currency.Symbol);
+
+            var existingWallets = await context.Wallets
+                .Where(wallet => wallet.UserId == developmentUser.Id)
+                .ToListAsync();
+
+            var existingWalletsByCurrencyId = existingWallets.ToDictionary(wallet => wallet.CurrencyId);
+            var walletsToAdd = new List<Wallet>();
+            var updatedWallets = 0;
+
+            foreach (var (symbol, balance) in seedBalances)
+            {
+                if (!currencies.TryGetValue(symbol, out var currency))
+                {
+                    continue;
+                }
+
+                if (existingWalletsByCurrencyId.TryGetValue(currency.Id, out var existingWallet))
+                {
+                    if (existingWallet.Balance < balance)
+                    {
+                        existingWallet.Balance = balance;
+                        updatedWallets++;
+                    }
+
+                    continue;
+                }
+
+                walletsToAdd.Add(new Wallet
+                {
+                    UserId = developmentUser.Id,
+                    CurrencyId = currency.Id,
+                    Balance = balance
+                });
+            }
+
+            if (walletsToAdd.Count == 0 && updatedWallets == 0)
+            {
+                return 0;
+            }
+
+            await context.Wallets.AddRangeAsync(walletsToAdd);
+            await context.SaveChangesAsync();
+
+            return walletsToAdd.Count + updatedWallets;
         }
 
         private static async Task<RateSource> SeedRateSourceAsync(ApplicationDbContext context)

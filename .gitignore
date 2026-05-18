@@ -21,6 +21,7 @@ TestResults/
 *.coveragexml
 coverage/
 **/coverage/
+GieudexPol.API/DataProtectionKeys/
 
 # NuGet
 *.nupkg

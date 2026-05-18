@@ -1,56 +1,69 @@
 using GieudexPol.Domain.Auth;
 using Microsoft.AspNetCore.Identity;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using AuthUser = GieudexPol.Domain.Auth.User;
+using AppUser = GieudexPol.Domain.Entities.User;
 
 namespace GieudexPol.Infrastructure.Auth
 {
     public class UserRepository : IUserRepository
     {
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ApplicationDbContext _context;
+        private readonly PasswordHasher<AuthUser> _passwordHasher = new();
 
-        public UserRepository(UserManager<ApplicationUser> userManager)
+        public UserRepository(ApplicationDbContext context)
         {
-            _userManager = userManager;
+            _context = context;
         }
 
-        public async Task<User> GetByEmailAsync(string email)
+        public async Task<AuthUser> GetByEmailAsync(string email)
         {
-            var applicationUser = await _userManager.FindByEmailAsync(email);
+            var applicationUser = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(user => user.Username == email);
+
             if (applicationUser == null)
             {
                 return null;
             }
-            return new User(Guid.Parse(applicationUser.Id), applicationUser.Email, applicationUser.PasswordHash);
+
+            return new AuthUser(applicationUser.AuthId, applicationUser.Username, applicationUser.PasswordHash);
         }
 
-        public async Task AddAsync(User user)
+        public async Task AddAsync(AuthUser user)
         {
-            var applicationUser = new ApplicationUser { UserName = user.Email, Email = user.Email };
-            var result = await _userManager.CreateAsync(applicationUser, user.HashedPassword);
-            if (!result.Succeeded)
+            var existingUser = await _context.Users.AnyAsync(applicationUser => applicationUser.Username == user.Email);
+            if (existingUser)
             {
-                throw new System.Exception("Failed to create user."); // Obsługa błędów rejestracji
+                throw new UserAlreadyExistsException(user.Email);
             }
-            user.UpdatePassword(applicationUser.PasswordHash); // Aktualizacja hasła po zahashowaniu przez UserManager
+
+            var hashedPassword = _passwordHasher.HashPassword(user, user.HashedPassword);
+
+            await _context.Users.AddAsync(new AppUser
+            {
+                AuthId = user.Id,
+                Username = user.Email,
+                PasswordHash = hashedPassword,
+                Role = "User"
+            });
+
+            await _context.SaveChangesAsync();
+            user.UpdatePassword(hashedPassword);
         }
 
-        public async Task UpdateAsync(User user)
+        public async Task UpdateAsync(AuthUser user)
         {
-            var applicationUser = await _userManager.FindByEmailAsync(user.Email);
+            var applicationUser = await _context.Users.FirstOrDefaultAsync(entity => entity.AuthId == user.Id);
             if (applicationUser == null)
             {
                 throw new UserNotFoundException(user.Email);
             }
 
-            applicationUser.Email = user.Email;
-            applicationUser.UserName = user.Email; // Aktualizacja UserName, jeśli zmieniamy email
-            applicationUser.PasswordHash = user.HashedPassword; // Zakładamy, że HashedPassword jest już zahashowany
+            applicationUser.Username = user.Email;
+            applicationUser.PasswordHash = user.HashedPassword;
 
-            var result = await _userManager.UpdateAsync(applicationUser);
-            if (!result.Succeeded)
-            {
-                throw new System.Exception("Failed to update user."); // Obsługa błędów aktualizacji
-            }
+            await _context.SaveChangesAsync();
         }
     }
 }

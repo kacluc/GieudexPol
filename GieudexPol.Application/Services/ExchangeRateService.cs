@@ -11,12 +11,10 @@ namespace GieudexPol.Application.Services
     public class ExchangeRateService : IExchangeRateService
     {
         private readonly IExchangeRateRepository _exchangeRateRepository;
-        private readonly INbpExchangeRateClient _nbpExchangeRateClient;
 
-        public ExchangeRateService(IExchangeRateRepository exchangeRateRepository, INbpExchangeRateClient nbpExchangeRateClient)
+        public ExchangeRateService(IExchangeRateRepository exchangeRateRepository)
         {
             _exchangeRateRepository = exchangeRateRepository;
-            _nbpExchangeRateClient = nbpExchangeRateClient;
         }
 
         public async Task<ExchangeRate> GetByIdAsync(int id)
@@ -78,10 +76,6 @@ namespace GieudexPol.Application.Services
 
         public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode)
         {
-            if (sourceCode == "NBP")
-            {
-                return await _exchangeRateRepository.GetLatestRatesFromNbpAsync();
-            }
             return await _exchangeRateRepository.GetLatestRatesAsync(sourceCode);
         }
     }

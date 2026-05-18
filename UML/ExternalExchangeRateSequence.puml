@@ -1,0 +1,169 @@
+@startuml
+title External exchange rate integration - sequence diagram
+
+actor "User" as User
+participant "ExchangeRateDashboard\nAngular /rates" as Frontend
+participant "ExchangeRateApiService" as FrontendApi
+participant "ExchangeRatesController" as Controller
+participant "NbpExchangeRateStartupSyncService\nIHostedService" as StartupSync
+participant "ExchangeRateService" as ReadService
+participant "ExchangeRateSyncService" as SyncService
+participant "IExternalExchangeRateClient" as ExternalClient
+participant "NbpExchangeRateClient" as NbpClient
+database "ApplicationDbContext\nSQL Server" as Db
+participant "External provider API\nNBP table C" as ProviderApi
+
+== API startup synchronization ==
+
+StartupSync -> Db: wait for database availability
+activate Db
+Db --> StartupSync: database available
+deactivate Db
+
+StartupSync -> Db: apply EF Core migrations
+activate Db
+Db --> StartupSync: migrations applied or already current
+deactivate Db
+
+StartupSync -> Db: read latest local rate date for source NBP
+activate Db
+Db --> StartupSync: latest date or null
+deactivate Db
+
+alt no local NBP rates
+    StartupSync -> StartupSync: syncFrom = configured start date
+else local NBP rates exist
+    StartupSync -> StartupSync: syncFrom = latest date + 1 day
+end
+
+alt missing dates exist
+    StartupSync -> SyncService: SyncNbpRatesAsync(syncFrom, today)
+    activate SyncService
+
+    SyncService -> Db: find or create RateSource for provider
+    activate Db
+    Db --> SyncService: RateSource
+    deactivate Db
+
+    SyncService -> Db: load currencies and existing rate keys
+    activate Db
+    Db --> SyncService: Currency[], existing keys
+    deactivate Db
+
+    loop provider-supported date chunks
+        SyncService -> ExternalClient: GetBuySellRatesAsync(rangeFrom, rangeTo)
+        activate ExternalClient
+        ExternalClient -> NbpClient: concrete provider implementation
+        activate NbpClient
+        NbpClient -> ProviderApi: GET /api/exchangerates/tables/C/{from}/{to}/?format=json
+        activate ProviderApi
+
+        alt provider returns rates
+            ProviderApi --> NbpClient: table data with bid/ask
+            deactivate ProviderApi
+            NbpClient --> ExternalClient: ExternalExchangeRateTableDto[]
+        else provider returns no data
+            ProviderApi --> NbpClient: 404 or empty range
+            deactivate ProviderApi
+            NbpClient --> ExternalClient: empty list
+        end
+
+        deactivate NbpClient
+        ExternalClient --> SyncService: provider-neutral DTOs
+        deactivate ExternalClient
+
+        loop each table and rate item
+            alt currency does not exist
+                SyncService -> Db: add Currency
+            end
+
+            alt exchange rate already exists
+                SyncService -> SyncService: skipped++
+            else new exchange rate
+                SyncService -> Db: add ExchangeRate
+                SyncService -> SyncService: added++
+            end
+        end
+    end
+
+    SyncService -> Db: SaveChangesAsync()
+    activate Db
+    Db --> SyncService: saved
+    deactivate Db
+
+    SyncService --> StartupSync: NbpSyncResultDto
+    deactivate SyncService
+else local NBP data is current
+    StartupSync -> StartupSync: skip synchronization
+end
+
+== Frontend reads local data ==
+
+User -> Frontend: opens /rates and selects filters
+activate Frontend
+
+Frontend -> FrontendApi: getChartData(currency, source, from, to)
+activate FrontendApi
+FrontendApi -> Controller: GET /api/ExchangeRates/chart
+activate Controller
+Controller -> ReadService: GetChartDataAsync(currency, source, from, to)
+activate ReadService
+ReadService -> Db: read ExchangeRates from local database
+activate Db
+Db --> ReadService: chart points
+deactivate Db
+ReadService --> Controller: ExchangeRateChartResponseDto
+deactivate ReadService
+Controller --> FrontendApi: 200 OK
+deactivate Controller
+FrontendApi --> Frontend: chart response
+deactivate FrontendApi
+
+Frontend -> FrontendApi: getLatestRates(source)
+activate FrontendApi
+FrontendApi -> Controller: GET /api/ExchangeRates/latest
+activate Controller
+Controller -> ReadService: GetLatestRatesAsync(source)
+activate ReadService
+ReadService -> Db: read newest local ExchangeRate per currency
+activate Db
+Db --> ReadService: latest rows
+deactivate Db
+ReadService --> Controller: ExchangeRateTableRowDto[]
+deactivate ReadService
+Controller --> FrontendApi: 200 OK
+deactivate Controller
+FrontendApi --> Frontend: latest rates
+deactivate FrontendApi
+
+Frontend -> Frontend: render buy/sell chart and latest-rate table
+
+== Manual synchronization fallback ==
+
+alt local chart data missing for NBP
+    Frontend -> FrontendApi: syncNbpRates(from, to)
+    activate FrontendApi
+    FrontendApi -> Controller: POST /api/ExchangeRates/sync/nbp
+    activate Controller
+    Controller -> SyncService: SyncNbpRatesAsync(from, to)
+    activate SyncService
+    SyncService -> ExternalClient: GetBuySellRatesAsync(...)
+    ExternalClient -> NbpClient: concrete provider call
+    NbpClient -> ProviderApi: GET NBP table C
+    ProviderApi --> NbpClient: rates
+    NbpClient --> ExternalClient: provider-neutral DTOs
+    ExternalClient --> SyncService: rates
+    SyncService -> Db: insert missing rates and save
+    SyncService --> Controller: NbpSyncResultDto
+    deactivate SyncService
+    Controller --> FrontendApi: 200 OK
+    deactivate Controller
+    FrontendApi --> Frontend: sync result
+    deactivate FrontendApi
+
+    Frontend -> FrontendApi: reload chart and latest rates from backend
+end
+
+deactivate Frontend
+
+@enduml

@@ -1,19 +1,18 @@
 <div class="card">
-  <h2 class="mb-4">💰 Zarządzanie Portfelem</h2>
+  <h2 class="mb-4">Zarzadzanie portfelem</h2>
 
-  <!-- Komunikat o wyniku transakcji -->
   @if (tradeMessage) {
-    <div [class]="'p-3 mb-4 rounded ' + (tradeMessage.startsWith('✅') ? 'bg-success text-white' : 'bg-danger text-white')">
+    <div [class]="'p-3 mb-4 rounded ' + (tradeMessage.startsWith('Sukces') ? 'bg-success text-white' : 'bg-danger text-white')">
       {{ tradeMessage }}
     </div>
   }
 
   <div class="balance-summary mb-5">
-    <h3 class="mb-3">Aktualne Saldo</h3>
+    <h3 class="mb-3">Aktualne saldo</h3>
     <ul class="list-group">
       @for (currency of availableCurrencies; track currency) {
         <li class="list-group-item d-flex justify-content-between align-items-center">
-          <strong>{{ currency }}</strong>: {{ currentBalance[currency]?.toFixed(2) || '0.00' }} PLN
+          <strong>{{ currency }}</strong>: {{ currentBalance[currency]?.toFixed(2) || '0.00' }} {{ currency }}
         </li>
       } @empty {
         <li class="list-group-item text-muted">Brak danych o saldzie portfela.</li>
@@ -21,42 +20,38 @@
     </ul>
   </div>
 
-  <!-- Formularz transakcji wymiany -->
   <div class="trade-form p-4 border rounded">
-    <h3 class="mb-4">Wymiana Walut</h3>
-    <form (ngSubmit)="executeTrade(fromCurrency.value, toCurrency.value, amount)">
-      <!-- Kontrola waluty źródłowej -->
+    <h3 class="mb-4">Wymiana walut</h3>
+    <form (ngSubmit)="executeTrade(fromCurrency, toCurrency, amount)">
       <div class="input-group mb-3">
-        <label for="fromCurrency" class="form-label">Waluta źródłowa:</label>
-        <select id="fromCurrency" [(ngModel)]="fromCurrency.value" name="fromCurrency" required class="form-select">
+        <label for="fromCurrency" class="form-label">Waluta zrodlowa:</label>
+        <select id="fromCurrency" [(ngModel)]="fromCurrency" name="fromCurrency" required class="form-select">
           @for (currency of availableCurrencies; track currency) {
             <option [value]="currency">{{ currency }}</option>
           } @empty {
-            <option disabled selected value="">Brak walut dostępnych</option>
+            <option disabled selected value="">Brak walut dostepnych</option>
           }
         </select>
       </div>
 
-      <!-- Kontrola waluty docelowej -->
       <div class="input-group mb-3">
         <label for="toCurrency" class="form-label">Waluta docelowa:</label>
-        <select id="toCurrency" [(ngModel)]="toCurrency.value" name="toCurrency" required class="form-select">
+        <select id="toCurrency" [(ngModel)]="toCurrency" name="toCurrency" required class="form-select">
           @for (currency of availableCurrencies; track currency) {
             <option [value]="currency">{{ currency }}</option>
           } @empty {
-            <option disabled selected value="">Brak walut dostępnych</option>
+            <option disabled selected value="">Brak walut dostepnych</option>
           }
         </select>
       </div>
 
-      <!-- Kontrola kwoty -->
       <div class="input-group mb-4">
         <label for="amount" class="form-label">Kwota do wymiany:</label>
         <input type="number" id="amount" [(ngModel)]="amount" name="amount" required min="0.01" step="any" class="form-control">
       </div>
 
-      <button type="submit" [disabled]="isLoading || fromCurrency.value === toCurrency.value" class="btn btn-primary">
-        {{ isLoading ? 'Ładowanie...' : 'Wykonaj Wymianę' }}
+      <button type="submit" [disabled]="isLoading || fromCurrency === toCurrency" class="btn btn-primary">
+        {{ isLoading ? 'Ladowanie...' : 'Wykonaj wymiane' }}
       </button>
     </form>
   </div>

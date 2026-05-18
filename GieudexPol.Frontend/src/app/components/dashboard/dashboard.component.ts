@@ -1,39 +1,45 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common'; // Potrzebne dla *ngIf i *ngFor
+import { CommonModule } from '@angular/common';
 import { WalletService } from '../../features/wallet/services/wallet.service';
 import { AuthService } from '../../features/auth/services/auth.service';
+
 @Component({
   selector: 'app-dashboard',
-  standalone: true, 
-  imports: [CommonModule], // CommonModule jest wystarczający dla *ngIf itp.
+  standalone: true,
+  imports: [CommonModule],
   templateUrl: './dashboard.component.html'
 })
 export class DashboardComponent implements OnInit {
-  // Saldo i dane użytkownika
-  userEmail: string = '';
+  userEmail = '';
   currentBalance: { [key: string]: number } = {};
-  availableCurrencies: string[] = []; // Nowa tablica do przechowywania kluczy walut
-  isLoading: boolean = true;
-  constructor(private walletService: WalletService, private authService: AuthService) {} 
+  availableCurrencies: string[] = [];
+  isLoading = true;
+  errorMessage: string | null = null;
+
+  constructor(private walletService: WalletService, private authService: AuthService) {}
+
   ngOnInit(): void {
     this.loadDashboardData();
   }
+
   async loadDashboardData(): Promise<void> {
-    // Pobieranie danych użytkownika z pamięci lokalnej (z AuthService)
-    this.userEmail = localStorage.getItem('userEmail') || 'Niewiadoma'; 
-    console.log('Ładowanie danych Dashboardu...');
-    await new Promise(resolve => setTimeout(resolve, 500)); // Symulowany delay API
-    // Wywołanie usługi do pobrania aktualnego salda portfela
-    // Zakładamy, że WalletService ma metodę getBalance() zwracającą { [key: string]: number }
-    this.currentBalance = await this.walletService.getBalance(); 
-    
-    if (this.currentBalance) {
-        this.availableCurrencies = Object.keys(this.currentBalance); // Uzupełniamy listę walut
-    } else {
-        this.availableCurrencies = [];
+    this.userEmail = localStorage.getItem('userEmail') || 'Niewiadoma';
+    this.isLoading = true;
+    this.errorMessage = null;
+
+    try {
+      this.currentBalance = await this.walletService.getBalance();
+      this.availableCurrencies = Object.keys(this.currentBalance ?? {});
+    } catch (error) {
+      console.error('Nie udalo sie zaladowac danych dashboardu:', error);
+      this.currentBalance = {};
+      this.availableCurrencies = [];
+      this.errorMessage = 'Nie mozna zaladowac danych dashboardu. Sprawdz, czy API dziala na http://localhost:5265.';
+    } finally {
+      this.isLoading = false;
     }
-    this.isLoading = false;
   }
+
   logout(): void {
     this.authService.logout();
   }

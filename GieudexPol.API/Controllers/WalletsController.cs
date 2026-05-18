@@ -3,6 +3,7 @@ using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace GieudexPol.API.Controllers
@@ -26,7 +27,7 @@ namespace GieudexPol.API.Controllers
             {
                 return NotFound();
             }
-            return Ok(wallets);
+            return Ok(wallets.Select(WalletResponse.FromWallet));
         }
 
         [HttpGet("{id}")]
@@ -37,7 +38,7 @@ namespace GieudexPol.API.Controllers
             {
                 return NotFound();
             }
-            return Ok(wallet);
+            return Ok(WalletResponse.FromWallet(wallet));
         }
 
         [HttpPost]
@@ -75,7 +76,9 @@ namespace GieudexPol.API.Controllers
                 );
                 return Ok("Trade executed successfully.");
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Niewystarczające środki"))
+            catch (InvalidOperationException ex) when (
+                ex.Message.Contains("Insufficient funds", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("Niewystarczające środki", StringComparison.OrdinalIgnoreCase))
             {
                 return BadRequest(new { error = "Transaction failed", message = ex.Message });
             }
@@ -93,5 +96,42 @@ namespace GieudexPol.API.Controllers
         public decimal AmountFrom { get; set; }
         public int ToCurrencyId { get; set; }
         public decimal AmountTo { get; set; }
+    }
+
+    public class WalletResponse
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public int CurrencyId { get; set; }
+        public decimal Balance { get; set; }
+        public WalletCurrencyResponse? Currency { get; set; }
+
+        public static WalletResponse FromWallet(Wallet wallet)
+        {
+            return new WalletResponse
+            {
+                Id = wallet.Id,
+                UserId = wallet.UserId,
+                CurrencyId = wallet.CurrencyId,
+                Balance = wallet.Balance,
+                Currency = wallet.Currency == null
+                    ? null
+                    : new WalletCurrencyResponse
+                    {
+                        Id = wallet.Currency.Id,
+                        Symbol = wallet.Currency.Symbol,
+                        Name = wallet.Currency.Name,
+                        IsActive = wallet.Currency.IsActive
+                    }
+            };
+        }
+    }
+
+    public class WalletCurrencyResponse
+    {
+        public int Id { get; set; }
+        public string Symbol { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
     }
 }

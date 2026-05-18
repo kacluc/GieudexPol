@@ -14,6 +14,7 @@ export class NavbarComponent {
   public navItems = [
     { label: 'Dashboard', path: '' }, // Link do głównego widoku
     { label: 'Portfel', path: 'wallet' }, // Nowy moduł Portfela
+    { label: 'Kursy walut', path: 'rates' },
     { label: 'Historia Transakcji', path: '/history' } // Założona trasa dla historii
   ];
 

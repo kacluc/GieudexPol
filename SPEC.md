@@ -71,3 +71,160 @@
     1.  `git clone ...`
     2.  `docker-compose up -d` (Builds all necessary services: DB, API, Frontend).
 *   **Database Initialization:** Use `dotnet ef database update` to apply migrations and seed initial data if needed.
+
+## 6. External Exchange Rate Integration
+
+### Purpose
+
+The exchange rate module is responsible for importing buy and sell currency rates from external providers, storing them in the local SQL Server database, and exposing the stored data to the Angular frontend. The frontend does not call external providers directly. It communicates only with the GieudexPol backend.
+
+The first supported external provider is:
+
+*   `NBP` - Narodowy Bank Polski, using table `C`, because table `C` contains buy (`bid`) and sell (`ask`) rates.
+
+The implementation is intentionally provider-oriented instead of NBP-only. External providers are represented by the common `IExternalExchangeRateClient` interface. NBP is currently one implementation: `NbpExchangeRateClient`.
+
+### Main Design Rules
+
+*   External exchange rate providers are hidden behind `IExternalExchangeRateClient`.
+*   Provider-specific HTTP details stay in Infrastructure, for example `NbpExchangeRateClient`.
+*   Synchronization logic is handled by `ExchangeRateSyncService`.
+*   Rates are saved to `ExchangeRates` and linked to `Currencies` and `RateSources`.
+*   Frontend reads rates only from backend endpoints.
+*   Local database is the source of truth for charts and latest-rate tables.
+*   Duplicate rates are skipped by the unique key: `CurrencyId + RateSourceId + EffectiveDate`.
+
+### Startup Synchronization
+
+When the API starts, `NbpExchangeRateStartupSyncService` runs in the background as an `IHostedService`.
+
+Startup flow:
+
+1.  The API waits until the database is reachable.
+2.  EF Core migrations are applied automatically.
+3.  The service checks the latest locally stored `ExchangeRate` for `RateSource.Code = "NBP"`.
+4.  If no NBP rates exist, synchronization starts from `NbpSync:StartDate`, currently `2026-01-01`.
+5.  If rates already exist, synchronization starts from the day after the latest stored NBP rate.
+6.  The synchronization range ends at `DateTime.Today`.
+7.  If the database or external API is unavailable, the API still starts and logs a warning.
+
+This means the first application run fills the database from the configured start date, and later runs only append missing days.
+
+### External Provider Contract
+
+The common contract is:
+
+```csharp
+public interface IExternalExchangeRateClient
+{
+    string SourceCode { get; }
+    string SourceName { get; }
+    int MaxRangeDays { get; }
+
+    Task<IReadOnlyList<ExternalExchangeRateTableDto>> GetBuySellRatesAsync(
+        DateTime from,
+        DateTime to,
+        CancellationToken cancellationToken = default);
+}
+```
+
+For NBP:
+
+*   `SourceCode = "NBP"`
+*   `SourceName = "Narodowy Bank Polski"`
+*   `MaxRangeDays = 93`
+*   API base URL: `https://api.nbp.pl/api/`
+*   endpoint pattern: `exchangerates/tables/C/{from}/{to}/?format=json`
+
+The NBP response is mapped to provider-neutral DTOs:
+
+*   `ExternalExchangeRateTableDto`
+*   `ExternalExchangeRateItemDto`
+
+This lets future providers reuse the same synchronization service. A new provider should implement `IExternalExchangeRateClient` and map its own response format into the common DTO model.
+
+### Synchronization Logic
+
+`ExchangeRateSyncService` performs the actual import:
+
+1.  Validates the date range.
+2.  Finds or creates a `RateSource` for the provider.
+3.  Loads existing rates for the provider and selected date range.
+4.  Splits the date range into provider-supported chunks.
+5.  Calls `IExternalExchangeRateClient.GetBuySellRatesAsync`.
+6.  Creates missing `Currency` rows.
+7.  Adds new `ExchangeRate` rows.
+8.  Skips existing rates for the same currency, source and effective date.
+9.  Saves changes to the database.
+10. Returns a synchronization result with added/skipped counters, processed ranges and warnings.
+
+For NBP, table `C` provides:
+
+*   `code` -> `Currency.Symbol`
+*   `currency` -> `Currency.Name`
+*   `bid` -> `ExchangeRate.BuyPrice`
+*   `ask` -> `ExchangeRate.SellPrice`
+*   `effectiveDate` -> `ExchangeRate.EffectiveDate`
+
+### Backend Endpoints
+
+The frontend uses the following backend endpoints:
+
+```http
+GET /api/ExchangeRates/chart?currency=EUR&source=NBP&from=2026-01-01&to=2026-05-18
+```
+
+Returns chart points from the local database.
+
+```http
+GET /api/ExchangeRates/latest?source=NBP
+```
+
+Returns the newest locally stored rate for each currency from the selected source.
+
+```http
+POST /api/ExchangeRates/sync/nbp?from=2026-01-01&to=2026-05-18
+```
+
+Manually triggers NBP synchronization. This endpoint still contains `nbp` in the route because NBP is currently the only external provider exposed for manual sync. The internal synchronization design is provider-neutral.
+
+### Frontend Display
+
+The Angular route `/rates` displays the exchange rate dashboard without authentication guard for development and testing.
+
+The view:
+
+*   lets the user choose currency, source and date range,
+*   loads chart data from `/api/ExchangeRates/chart`,
+*   loads the latest table from `/api/ExchangeRates/latest`,
+*   can trigger NBP synchronization when local NBP chart data is missing,
+*   renders buy and sell prices from backend DTOs.
+
+### Configuration
+
+Relevant configuration values:
+
+```json
+{
+  "NbpApi": {
+    "BaseUrl": "https://api.nbp.pl/api/"
+  },
+  "NbpSync": {
+    "StartDate": "2026-01-01"
+  }
+}
+```
+
+Docker Compose passes the same values through environment variables:
+
+```text
+NbpApi__BaseUrl=https://api.nbp.pl/api/
+NbpSync__StartDate=2026-01-01
+```
+
+### Diagrams
+
+PlantUML diagrams for this module:
+
+*   `UML/ExternalExchangeRateClassDiagram.puml` - class diagram for the external exchange rate integration.
+*   `UML/ExternalExchangeRateSequence.puml` - sequence diagram for startup sync, manual sync and frontend read flow.

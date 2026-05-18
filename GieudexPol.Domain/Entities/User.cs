@@ -6,6 +6,7 @@ namespace GieudexPol.Domain.Entities
     public class User
     {
         public int Id { get; set; }
+        public Guid AuthId { get; set; }
         public string Username { get; set; }
         public string PasswordHash { get; set; }
         public string Role { get; set; } // Admin/User

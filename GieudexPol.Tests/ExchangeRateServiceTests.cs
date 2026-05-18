@@ -13,13 +13,11 @@ namespace GieudexPol.Tests
     {
         private readonly Mock<IExchangeRateRepository> _mockExchangeRateRepository;
         private readonly ExchangeRateService _exchangeRateService;
-        private readonly Mock<INbpExchangeRateClient> _nbpClientMock = new Mock<INbpExchangeRateClient>();
 
         public ExchangeRateServiceTests()
         {
             _mockExchangeRateRepository = new Mock<IExchangeRateRepository>();
-            // _exchangeRateService = new ExchangeRateService(_mockExchangeRateRepository.Object);
-            _exchangeRateService = new ExchangeRateService(_mockExchangeRateRepository.Object, _nbpClientMock.Object);
+            _exchangeRateService = new ExchangeRateService(_mockExchangeRateRepository.Object);
         }
 
         [Fact]

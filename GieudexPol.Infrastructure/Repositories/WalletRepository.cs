@@ -24,7 +24,10 @@ namespace GieudexPol.Infrastructure.Repositories
         // Dodano brakującą metodę z Twojego interfejsu IWalletRepository
         public async Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId)
         {
-            return await _dbSet.Where(w => w.UserId == userId).ToListAsync();
+            return await _dbSet
+                .Include(w => w.Currency)
+                .Where(w => w.UserId == userId)
+                .ToListAsync();
         }
 
         // Prywatna lub publiczna metoda pomocnicza używana w kodzie poniżej
@@ -68,7 +71,9 @@ namespace GieudexPol.Infrastructure.Repositories
 
         public async Task<Wallet> GetByIdAsync(int id)
         {
-            return await _dbSet.FindAsync(id);
+            return await _dbSet
+                .Include(w => w.Currency)
+                .FirstOrDefaultAsync(w => w.Id == id);
         }
 
         public async Task AddAsync(Wallet entity)

@@ -21,6 +21,22 @@ namespace GieudexPol.Infrastructure
         {
             // Configure entity relationships and constraints
             modelBuilder.Entity<User>()
+                .Property(u => u.Username)
+                .HasMaxLength(256);
+
+            modelBuilder.Entity<User>()
+                .Property(u => u.AuthId)
+                .HasDefaultValueSql("NEWID()");
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.AuthId)
+                .IsUnique();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Username)
+                .IsUnique();
+
+            modelBuilder.Entity<User>()
                 .HasMany(u => u.Wallets)
                 .WithOne(w => w.User)
                 .HasForeignKey(w => w.UserId);
