@@ -17,6 +17,4 @@ namespace GieudexPol.Domain.Entities
         public ICollection<Transaction> SentTransactions { get; set; }
         public ICollection<Transaction> ReceivedTransactions { get; set; }
     }
-
-    
 }

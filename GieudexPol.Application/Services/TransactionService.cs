@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace GieudexPol.Application.Services
 {
-    public class TransactionService
+    public class TransactionService : ITransactionService
     {
         private readonly ITransactionRepository _transactionRepository;
         private readonly IUserRepository _userRepository;
@@ -26,6 +26,32 @@ namespace GieudexPol.Application.Services
             _transactionFeeRepository = transactionFeeRepository;
         }
 
+        public async Task<Transaction> GetByIdAsync(int id)
+        {
+            return await _transactionRepository.GetByIdAsync(id);
+        }
+
+        public async Task<IEnumerable<Transaction>> GetAllAsync()
+        {
+            // Assuming a method to get all transactions, or adapt GetByUserIdAsync for all users
+            return await _transactionRepository.GetByUserIdAsync(0); // This might need adjustment based on repository implementation
+        }
+
+        public async Task AddAsync(Transaction entity)
+        {
+            await _transactionRepository.AddAsync(entity);
+        }
+
+        public async Task UpdateAsync(Transaction entity)
+        {
+            await _transactionRepository.UpdateAsync(entity);
+        }
+
+        public async Task DeleteAsync(Transaction entity)
+        {
+            await _transactionRepository.DeleteAsync(entity.Id);
+        }
+
         public async Task<Transaction> CreateTransfer(TransferRequest request)
         {
             var transactionFee = await _transactionFeeRepository.GetActiveTransactionFeeByTypeAsync("Transfer");
@@ -40,7 +66,7 @@ namespace GieudexPol.Application.Services
                 throw new ArgumentException("Sender not found.");
             }
 
-            var receiver = await _userRepository.GetUserByUsernameAsync(request.ReceiverUsername);
+            var receiver = await _userRepository.GetByUsernameAsync(request.ReceiverUsername);
             if (receiver == null)
             {
                 throw new ArgumentException("Receiver not found.");

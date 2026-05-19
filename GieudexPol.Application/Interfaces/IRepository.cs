@@ -1,6 +1,10 @@
+using GieudexPol.Domain.Entities;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
 namespace GieudexPol.Application.Interfaces
 {
-    public interface IRepository<T>
+    public interface IRepository<T> where T : class
     {
         Task<T> GetByIdAsync(int id);
         Task<IEnumerable<T>> GetAllAsync();
