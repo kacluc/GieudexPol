@@ -8,9 +8,13 @@ import { AuthService } from '../features/auth/services/auth.service';
 import { Currency } from '../models/currency.model';
 import { Wallet } from '../models/wallet.model';
 import { WalletDto } from '../models/wallet.dto';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-transaction-transfer',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './transaction-transfer.component.html',
   styleUrls: ['./transaction-transfer.component.css']
 })
