@@ -30,3 +30,13 @@ export interface TradeResponse {
   message: string;
   newBalance?: WalletBalance;
 }
+
+export interface DepositRequest {
+  currencyId: number;
+  amount: number;
+}
+
+export interface WithdrawRequest {
+  currencyId: number;
+  amount: number;
+}

@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { WalletService } from '../../services/wallet.service';
-import { TradeRequest, WalletDto } from '../../models/wallet-models';
+import { TradeRequest, WalletDto, DepositRequest, WithdrawRequest } from '../../models/wallet-models';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-wallet-management',
@@ -32,7 +33,7 @@ export class WalletManagementComponent implements OnInit {
   isLoading = false;
   tradeMessage: string | null = null;
 
-  constructor(private walletService: WalletService) {}
+  constructor(private walletService: WalletService, private router: Router) {}
 
   async ngOnInit(): Promise<void> {
     await this.initializeBalance();
@@ -127,5 +128,89 @@ export class WalletManagementComponent implements OnInit {
     const fromRate = this.ratesToPln[fromCurrency] ?? 1;
     const toRate = this.ratesToPln[toCurrency] ?? 1;
     return Math.round((amount * fromRate / toRate) * 100) / 100;
+  }
+
+  // Właściwości dla wpłat i wypłat
+  depositCurrency = 'PLN';
+  depositAmount: number | null = null;
+  withdrawCurrency = 'PLN';
+  withdrawAmount: number | null = null;
+
+  // Metoda dla wpłaty
+  async executeDeposit(): Promise<void> {
+    if (this.depositAmount === null || this.depositAmount <= 0) {
+      this.tradeMessage = 'Kwota wpłaty musi być większa od zera.';
+      return;
+    }
+
+    const wallet = this.findWallet(this.depositCurrency);
+    if (!wallet) {
+      this.tradeMessage = 'Brak portfela dla wybranej waluty.';
+      return;
+    }
+
+    const depositRequest: DepositRequest = {
+      currencyId: wallet.currencyId,
+      amount: this.depositAmount
+    };
+
+    this.isLoading = true;
+    this.tradeMessage = null;
+
+    try {
+      await firstValueFrom(this.walletService.deposit(this.developmentUserId, depositRequest));
+      this.tradeMessage = `Sukces: wpłacono ${this.depositAmount.toFixed(2)} ${this.depositCurrency}.`;
+      this.depositAmount = null;
+      await this.initializeBalance();
+    } catch (error) {
+      console.error('Błąd wpłaty:', error);
+      this.tradeMessage = 'Błąd: Nie udało się wykonać wpłaty.';
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  // Metoda dla wypłaty
+  async executeWithdraw(): Promise<void> {
+    if (this.withdrawAmount === null || this.withdrawAmount <= 0) {
+      this.tradeMessage = 'Kwota wypłaty musi być większa od zera.';
+      return;
+    }
+
+    const wallet = this.findWallet(this.withdrawCurrency);
+    if (!wallet) {
+      this.tradeMessage = 'Brak portfela dla wybranej waluty.';
+      return;
+    }
+
+    if ((this.currentBalance[this.withdrawCurrency] ?? 0) < this.withdrawAmount) {
+      this.tradeMessage = 'Brak wystarczających środków do wypłaty.';
+      return;
+    }
+
+    const withdrawRequest: WithdrawRequest = {
+      currencyId: wallet.currencyId,
+      amount: this.withdrawAmount
+    };
+
+    this.isLoading = true;
+    this.tradeMessage = null;
+
+    try {
+      await firstValueFrom(this.walletService.withdraw(this.developmentUserId, withdrawRequest));
+      this.tradeMessage = `Sukces: wypłacono ${this.withdrawAmount.toFixed(2)} ${this.withdrawCurrency}.`;
+      this.withdrawAmount = null;
+      await this.initializeBalance();
+    } catch (error) {
+      console.error('Błąd wypłaty:', error);
+      this.tradeMessage = 'Błąd: Nie udało się wykonać wypłaty.';
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  // Metoda przekierowania do transaction-transfer
+  navigateToTransfer(): void {
+    this.router.navigate(['/transfer']);
   }
 }

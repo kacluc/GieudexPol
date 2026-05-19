@@ -68,10 +68,10 @@ namespace GieudexPol.API.Controllers
             try
             {
                 await _walletService.ExecuteTradeTransactionAsync(
-                    userId, 
-                    request.FromCurrencyId, 
-                    request.AmountFrom, 
-                    request.ToCurrencyId, 
+                    userId,
+                    request.FromCurrencyId,
+                    request.AmountFrom,
+                    request.ToCurrencyId,
                     request.AmountTo
                 );
                 return Ok("Trade executed successfully.");
@@ -81,6 +81,56 @@ namespace GieudexPol.API.Controllers
                 ex.Message.Contains("Niewystarczające środki", StringComparison.OrdinalIgnoreCase))
             {
                 return BadRequest(new { error = "Transaction failed", message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Deposits funds into user's wallet
+        /// </summary>
+        [HttpPost("deposit")]
+        public async Task<IActionResult> Deposit([FromQuery] int userId, [FromBody] DepositRequest request)
+        {
+            try
+            {
+                await _walletService.DepositAsync(userId, request.CurrencyId, request.Amount);
+                return Ok("Deposit executed successfully.");
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = "Invalid amount", message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = "Deposit failed", message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Withdraws funds from user's wallet
+        /// </summary>
+        [HttpPost("withdraw")]
+        public async Task<IActionResult> Withdraw([FromQuery] int userId, [FromBody] WithdrawRequest request)
+        {
+            try
+            {
+                await _walletService.WithdrawAsync(userId, request.CurrencyId, request.Amount);
+                return Ok("Withdrawal executed successfully.");
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = "Invalid amount", message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = "Withdrawal failed", message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -133,5 +183,19 @@ namespace GieudexPol.API.Controllers
         public string Symbol { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+    }
+
+    // DTO dla operacji wpłaty
+    public class DepositRequest
+    {
+        public int CurrencyId { get; set; }
+        public decimal Amount { get; set; }
+    }
+
+    // DTO dla operacji wypłaty
+    public class WithdrawRequest
+    {
+        public int CurrencyId { get; set; }
+        public decimal Amount { get; set; }
     }
 }

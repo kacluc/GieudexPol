@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
-import { TradeRequest, TradeResponse, WalletDto } from '../models/wallet-models';
+import { TradeRequest, TradeResponse, WalletDto, DepositRequest, WithdrawRequest } from '../models/wallet-models';
 
 @Injectable({
   providedIn: 'root'
@@ -34,5 +34,21 @@ export class WalletService {
     });
 
     return this.http.post<TradeResponse>(`${this.apiUrl}/trade?userId=${userId}`, request, { headers });
+  }
+
+  deposit(userId: number, request: DepositRequest): Observable<TradeResponse> {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+    });
+
+    return this.http.post<TradeResponse>(`${this.apiUrl}/deposit?userId=${userId}`, request, { headers });
+  }
+
+  withdraw(userId: number, request: WithdrawRequest): Observable<TradeResponse> {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+    });
+
+    return this.http.post<TradeResponse>(`${this.apiUrl}/withdraw?userId=${userId}`, request, { headers });
   }
 }

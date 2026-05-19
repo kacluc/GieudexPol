@@ -109,5 +109,88 @@ namespace GieudexPol.Application.Services
         public async Task<IEnumerable<Wallet>> GetAllAsync() => await _walletRepository.GetAllAsync();
         public async Task DeleteAsync(Wallet entity) => await _walletRepository.DeleteAsync(entity);
 
+        /// <summary>
+        /// Wpłata środków na portfel użytkownika
+        /// </summary>
+        public async Task DepositAsync(int userId, int currencyId, decimal amount)
+        {
+            if (amount <= 0)
+            {
+                throw new ArgumentException("Kwota wpłaty musi być większa od zera", nameof(amount));
+            }
+
+            // Pobieramy portfele użytkownika
+            var userWallets = await _walletRepository.GetUserWalletsAsync(userId);
+
+            // Szukamy portfela dla danej waluty
+            var wallet = userWallets.FirstOrDefault(w => w.CurrencyId == currencyId);
+            if (wallet == null)
+            {
+                throw new InvalidOperationException($"Użytkownik nie posiada portfela dla waluty o ID {currencyId}");
+            }
+
+            // Wykonywanie wpłaty
+            await _walletRepository.CreditWalletBalanceAsync(wallet.Id, amount);
+
+            // Rejestracja transakcji wpłaty
+            var transaction = new Transaction
+            {
+                SenderId = userId,
+                ReceiverId = userId, // Wpłata jest od i do tego samego użytkownika (system)
+                Amount = amount,
+                CurrencyId = currencyId,
+                TransactionType = "Deposit",
+                AppliedFee = 0,
+                Status = "Completed",
+                Timestamp = DateTime.UtcNow
+            };
+
+            await _transactionService.AddAsync(transaction);
+        }
+
+        /// <summary>
+        /// Wypłata środków z portfela użytkownika
+        /// </summary>
+        public async Task WithdrawAsync(int userId, int currencyId, decimal amount)
+        {
+            if (amount <= 0)
+            {
+                throw new ArgumentException("Kwota wypłaty musi być większa od zera", nameof(amount));
+            }
+
+            // Pobieramy portfele użytkownika
+            var userWallets = await _walletRepository.GetUserWalletsAsync(userId);
+
+            // Szukamy portfela dla danej waluty
+            var wallet = userWallets.FirstOrDefault(w => w.CurrencyId == currencyId);
+            if (wallet == null)
+            {
+                throw new InvalidOperationException($"Użytkownik nie posiada portfela dla waluty o ID {currencyId}");
+            }
+
+            // Sprawdzenie dostępnych środków
+            if (wallet.Balance < amount)
+            {
+                throw new InvalidOperationException("Niewystarczające środki na koncie");
+            }
+
+            // Wykonywanie wypłaty
+            await _walletRepository.DebitWalletBalanceAsync(wallet.Id, amount);
+
+            // Rejestracja transakcji wypłaty
+            var transaction = new Transaction
+            {
+                SenderId = userId,
+                ReceiverId = userId, // Wypłata jest od i do tego samego użytkownika (system)
+                Amount = amount,
+                CurrencyId = currencyId,
+                TransactionType = "Withdrawal",
+                AppliedFee = 0,
+                Status = "Completed",
+                Timestamp = DateTime.UtcNow
+            };
+
+            await _transactionService.AddAsync(transaction);
+        }
     }
 }
