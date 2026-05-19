@@ -1,23 +1,22 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { TransactionDto } from '../models/transaction.dto';
+import { Transaction } from '../models/transaction.model';
+
 
 @Injectable({
   providedIn: 'root'
 })
 export class TransactionService {
-  private apiUrl = '/api/Transactions'; // Endpoint na podstawie TransactionsController
-  
-  constructor(private http: HttpClient) {}
+  private apiUrl = 'https://localhost:7071/api/transactions'; // Replace with your actual API URL
 
-  // GET /api/transactions/user/{userId}
-  getUserTransactions(userId: number): Observable<TransactionDto[]> {
-    return this.http.get<TransactionDto[]>(`${this.apiUrl}/user/${userId}`);
+  constructor(private http: HttpClient) { }
+
+  createTransfer(transferRequest: { senderId: number; receiverUsername: string; amount: number; currencyId: number }): Observable<Transaction> {
+    return this.http.post<Transaction>(`${this.apiUrl}/transfer`, transferRequest);
   }
 
-  // POST /api/transactions
-  createTransaction(transaction: TransactionDto): Observable<TransactionDto> {
-    return this.http.post<TransactionDto>(this.apiUrl, transaction);
+  getUserTransactions(userId: number): Observable<Transaction[]> {
+    return this.http.get<Transaction[]>(`${this.apiUrl}/user/${userId}`);
   }
 }

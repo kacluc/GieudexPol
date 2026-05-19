@@ -33,7 +33,7 @@
 *   **Wallets:** Tracks the current balance of specific currencies for a given user.
 *   **Currencies:** Defines all managed assets (Symbol, Name, Activity Status).
 *   **ExchangeRates:** Historical records of rates (Buy/Sell) with high precision (`decimal(18,4)`).
-*   **Transactions:** Immutable ledger of all operations (buy/sell), including calculated commissions.
+*   **Transactions:** Immutable ledger of all operations (transfers, buy/sell), including applied fees and current status.
 *   **UserAlerts:** Configuration for user-defined price thresholds and associated currencies.
 
 ## 🚀 4. System Scope & Functionalities

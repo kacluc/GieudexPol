@@ -52,9 +52,16 @@ namespace GieudexPol.Infrastructure
                 .HasForeignKey(w => w.CurrencyId);
 
             modelBuilder.Entity<Transaction>()
-                .HasOne(t => t.User)
-                .WithMany()
-                .HasForeignKey(t => t.UserId);
+                .HasOne(t => t.Sender)
+                .WithMany(u => u.SentTransactions)
+                .HasForeignKey(t => t.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Transaction>()
+                .HasOne(t => t.Receiver)
+                .WithMany(u => u.ReceivedTransactions)
+                .HasForeignKey(t => t.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Transaction>()
                 .HasOne(t => t.Currency)
@@ -65,6 +72,14 @@ namespace GieudexPol.Infrastructure
                 .HasOne(t => t.TransactionFee)
                 .WithMany()
                 .HasForeignKey(t => t.TransactionFeeId);
+
+            modelBuilder.Entity<Transaction>()
+               .Property(t => t.Amount)
+               .HasPrecision(18, 4);
+
+            modelBuilder.Entity<Transaction>()
+               .Property(t => t.AppliedFee)
+               .HasPrecision(18, 4);
 
             modelBuilder.Entity<UserAlert>()
                 .HasOne(a => a.Currency)

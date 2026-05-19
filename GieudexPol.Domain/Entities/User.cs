@@ -14,6 +14,8 @@ namespace GieudexPol.Domain.Entities
         public ICollection<UserAlert> UserAlerts { get; set; }
         public ICollection<AuditLog> AuditLogs { get; set; }
         public ICollection<Notification> Notifications { get; set; }
+        public ICollection<Transaction> SentTransactions { get; set; }
+        public ICollection<Transaction> ReceivedTransactions { get; set; }
     }
 
     

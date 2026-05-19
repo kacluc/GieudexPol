@@ -9,6 +9,7 @@ import { WalletManagementComponent } from './features/wallet/components/wallet-m
 // Import komponentu Dashboard (założenie ścieżki)
 import { DashboardComponent } from './components/dashboard/dashboard.component'; 
 import { ExchangeRateDashboard } from './exchange-rate-dashboard/exchange-rate-dashboard';
+import { TransactionTransferComponent } from './transaction-transfer/transaction-transfer.component';
  
 export const routes: Routes = [
   { path: '', redirectTo: 'auth/login', pathMatch: 'full' },
@@ -23,5 +24,6 @@ export const routes: Routes = [
   { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard] }, 
   // Dodanie trasy dla zarządzania portfelem (MUSI zachować AuthGuard!)
   { path: 'wallet', component: WalletManagementComponent, canActivate: [AuthGuard] }, 
+  { path: 'transfer', component: TransactionTransferComponent, canActivate: [AuthGuard] },
   // ... inne istniejące trasy
 ];

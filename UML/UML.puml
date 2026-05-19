@@ -1,4 +1,3 @@
-
 @startuml
 skinparam classAttributeIconSize 0
 skinparam monochrome true
@@ -7,64 +6,84 @@ skinparam shadowing false
 package "GieudexPol.Domain.Entities" {
 
     class User {
-        + Guid Id
+        + int Id
+        + Guid AuthId
         + String Username
         + String PasswordHash
         + String Role
-        + Boolean IsTwoFactorEnabled
-        + List<Wallet> Wallets
-        + List<Transaction> Transactions
-        + List<UserAlert> Alerts
-        + List<AuditLog> AuditLogs
-        + List<Notification> Notifications
+        + ICollection<Wallet> Wallets
+        + ICollection<UserAlert> UserAlerts
+        + ICollection<AuditLog> AuditLogs
+        + ICollection<Notification> Notifications
+        + ICollection<Transaction> SentTransactions
+        + ICollection<Transaction> ReceivedTransactions
     }
 
     class Wallet {
-        + Guid Id
-        + Guid UserId
-        + Guid CurrencyId
-        + Decimal Balance
+        + int Id
+        + int UserId
         + User User
+        + int CurrencyId
         + Currency Currency
+        + Decimal Balance
     }
 
     class Currency {
-        + Guid Id
+        + int Id
         + String Symbol
         + String Name
         + Boolean IsActive
-        + List<ExchangeRate> Rates
+        + ICollection<Wallet> Wallets
+        + ICollection<ExchangeRate> ExchangeRates
+        + ICollection<Transaction> Transactions
+        + ICollection<UserAlert> UserAlerts
     }
 
     class ExchangeRate {
-        + Guid Id
-        + Guid CurrencyId
+        + int Id
+        + int CurrencyId
+        + Currency Currency
+        + int RateSourceId
+        + RateSource RateSource
         + Decimal BuyPrice
         + Decimal SellPrice
-        + DateTime Timestamp
-        + Currency Currency
+        + DateTime EffectiveDate
+        + DateTime FetchedAt
+    }
+    
+    class RateSource {
+        + int Id
+        + String Name
+        + String Url
+        + ICollection<ExchangeRate> ExchangeRates
     }
 
     class Transaction {
-        + Guid Id
-        + Guid UserId
-        + Guid CurrencyId
+        + int Id
+        + int SenderId
+        + User Sender
+        + int ReceiverId
+        + User Receiver
         + Decimal Amount
-        + Decimal Price
-        + Decimal Commission
+        + int CurrencyId
+        + Currency Currency
+        + String Status
+        + String TransactionType
+        + Decimal AppliedFee
         + Guid? TransactionFeeId
         + TransactionFee TransactionFee
-        + TransactionType Type
-        + DateTime CreatedAt
+        + DateTime Timestamp
     }
 
     class UserAlert {
-        + Guid Id
-        + Guid UserId
-        + Guid CurrencyId
+        + int Id
+        + int UserId
+        + User User
+        + int CurrencyId
+        + Currency Currency
         + Decimal TargetPrice
-        + Boolean IsTriggered
         + DateTime CreatedAt
+        + Boolean IsActive
     }
 
     class AuditLog {
@@ -95,21 +114,18 @@ package "GieudexPol.Domain.Entities" {
         + Boolean IsActive
     }
 
-    enum TransactionType {
-        Buy
-        Sell
-    }
-
     User "1" *-- "many" Wallet
-    User "1" *-- "many" Transaction
     User "1" *-- "many" UserAlert
     User "1" *-- "many" AuditLog
     User "1" *-- "many" Notification
+    User "1" *-- "many" SentTransactions : sends
+    User "1" *-- "many" ReceivedTransactions : receives
     Currency "1" *-- "many" ExchangeRate
     Currency "1" -- "many" Wallet
     Currency "1" -- "many" Transaction
+    Currency "1" -- "many" UserAlert
+    ExchangeRate "many" -- "1" RateSource
     Transaction "many" -- "1" TransactionFee
-    Transaction -- TransactionType
 }
 
 @enduml
