@@ -36,3 +36,21 @@ Każde zadanie realizuj w cyklu:
 - Jeśli historia rozmowy staje się długa, podsumuj postępy i poproś użytkownika o rozpoczęcie Nowego Zadania (New Task), aby wyczyścić RAM.
 - Po zakończeniu edycji pliku, "zapomnij" o jego szczegółach, zostawiając w pamięci tylko ogólny wniosek (kontrakt).
 - Jeśli otrzymasz błąd "exceeds context size", natychmiast przestań używać narzędzi odczytu i poproś użytkownika o ręczne wklejenie fragmentu kodu.
+
+## 7. ZASADA DRY (DON'T REPEAT YOURSELF) I AUDYT ISTNIEJĄCYCH ROZWIĄZAŃ
+**PRZED DODANIEM NOWYCH ZALEŻNOŚCI LUB FRAMEWORKÓW:**
+1. **Sprawdź package.json**: Zidentyfikuj już zainstalowane biblioteki i frameworki.
+2. **Przeanalizuj pliki konfiguracyjne**: Sprawdź, czy projekt już używa alternatywnych rozwiązań (np. TailwindCSS zamiast Bootstrap).
+3. **Zapytaj użytkownika**: Jeśli nie jesteś pewien, czy dany framework/biblioteka jest już używana, zapytaj przed dodaniem nowej zależności.
+4. **Preferuj istniejące rozwiązania**: Jeśli projekt już używa frameworka CSS (np. TailwindCSS), użyj go zamiast dodawać nowy (np. Bootstrap).
+
+**PRZYKŁAD Z PROJEKTU:**
+- Projekt używa TailwindCSS (widoczny w package.json i styles.css)
+- Nie dodawaj Bootstrap, jeśli Tailwind może rozwiązać problem
+- Zawsze sprawdzaj, czy nie ma już zaimplementowanej alternatywy
+
+**KONSEKWENCJE NIEPRZESTRZEGANIA:**
+- Zduplikowane zależności zwiększają rozmiar bundle
+- Konflikty między frameworkami CSS/JS
+- Niepotrzebne zużycie zasobów
+- Trudności w utrzymaniu kodu

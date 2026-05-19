@@ -46,8 +46,9 @@
 5.  **Interactive Charts:** Visualization tools for price trend analysis.
 6.  **Transaction History:** Comprehensive, auditable log of all operations (deposits, trades).
 7.  **Price Alerts:** System to notify users when an asset reaches a specified target price.
-8.  **Wallet Management (Portfel):** Centralizowany moduł do zarządzania saldami i realizacji transakcji wymiany walut.
-    *   **Cel:** Umożliwienie użytkownikowi bezpiecznej wymiany środków między różnymi walutami w ramach ekosystemu GieudexPol.
+8.  **Wallet Management (Portfel):** Centralizowany moduł do kompleksowego zarządzania środkami użytkownika, obejmujący wymianę walut, wpłaty i wypłaty.
+    *   **Cel:** Umożliwienie użytkownikowi bezpiecznego zarządzania środkami, wymiany walut oraz dokonywania wpłat i wypłat w ramach ekosystemu GieudexPol.
+    *   **Interfejs użytkownika:** Kompaktowy układ z zakładkami (tabs) umożliwiający łatwe przełączanie między funkcjonalnościami bez konieczności scrollowania.
     *   **Endpoint API (GET):** `/api/wallets/user/{userId}`
         *   **Opis:** Pobiera aktualne salda portfela dla wszystkich walut powiązanych z użytkownikiem, zwracając listę obiektów `Wallet` zawierającą unikalne saldo dla każdej waluty (`CurrencyId`).
     *   **Endpoint API (POST):** `/api/wallets/trade`
@@ -56,6 +57,15 @@
         *   **Logika Biznesowa:** System wykonuje dwuetapową operację księgową: najpierw debetuje salda źródłowe, a następnie kredytuje saldo docelowe. Po pomyślnej transakcji generowane są dwa rekordy audytowe w tabeli `Transactions`:
             *   **Sprzedaż (Sell):** Rejestruje sprzedaną walutę i ilość.
             *   **Zakup (Buy):** Rejestruje zakupioną walutę i ilość, wraz z wyliczeniem umownego kursu/ceny dla obu operacji.
+    *   **Endpoint API (POST):** `/api/wallets/deposit`
+        *   **Opis:** Realizuje wpłatę środków na portfel użytkownika.
+        *   **Payload (`DepositRequest`):** Wymaga pól: `userId`, `CurrencyId`, `Amount`.
+        *   **Logika Biznesowa:** System kredytuje wskazany portfel użytkownika i rejestruje transakcję typu "Deposit" w tabeli `Transactions`.
+    *   **Endpoint API (POST):** `/api/wallets/withdraw`
+        *   **Opis:** Realizuje wypłatę środków z portfela użytkownika.
+        *   **Payload (`WithdrawRequest`):** Wymaga pól: `userId`, `CurrencyId`, `Amount`.
+        *   **Logika Biznesowa:** System waliduje dostępne środki, debetuje wskazany portfel i rejestruje transakcję typu "Withdrawal" w tabeli `Transactions`. W przypadku niewystarczających środków zwraca błąd "Niewystarczające środki na koncie".
+    *   **Przekierowanie do transferów:** Przycisk umożliwiający przejście do komponentu `transaction-transfer` w celu realizacji transferów między użytkownikami.
 
 ### B. Administrator Features (Management)
 1.  **User Management:** Full CRUD capabilities for user profiles (blocking, deletion, password reset).
