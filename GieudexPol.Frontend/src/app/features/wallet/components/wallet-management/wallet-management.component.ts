@@ -35,6 +35,13 @@ export class WalletManagementComponent implements OnInit {
 
   constructor(private walletService: WalletService, private router: Router) {}
 
+  // Logika zakładek
+  activeTab: 'exchange' | 'deposit' | 'withdraw' = 'exchange';
+
+  setActiveTab(tab: 'exchange' | 'deposit' | 'withdraw'): void {
+    this.activeTab = tab;
+  }
+
   async ngOnInit(): Promise<void> {
     await this.initializeBalance();
   }
