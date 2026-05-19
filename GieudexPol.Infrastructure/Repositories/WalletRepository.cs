@@ -8,10 +8,8 @@ using System.Threading.Tasks;
 
 namespace GieudexPol.Infrastructure.Repositories
 {
-    // Przywrócono brakującą definicję klasy oraz implementację interfejsu
     public class WalletRepository : IWalletRepository
     {
-        // Założyłem standardową nazwę DbContextu. Jeśli w projekcie nazywa się inaczej (np. AppDbContext), zmień ją poniżej.
         private readonly ApplicationDbContext _context; 
         private readonly DbSet<Wallet> _dbSet;
 
@@ -21,7 +19,6 @@ namespace GieudexPol.Infrastructure.Repositories
             _dbSet = _context.Set<Wallet>();
         }
 
-        // Dodano brakującą metodę z Twojego interfejsu IWalletRepository
         public async Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId)
         {
             return await _dbSet
@@ -30,42 +27,29 @@ namespace GieudexPol.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        // Prywatna lub publiczna metoda pomocnicza używana w kodzie poniżej
         public async Task<Wallet> GetWalletByIdAsync(int walletId)
         {
             return await _dbSet.FindAsync(walletId);
         }
 
-        public async Task<Wallet> GetWalletByUserIdAndCurrencyIdAsync(int userId, int currencyId)
+        public async Task<Wallet> GetUserWalletAsync(int userId, int currencyId)
         {
             return await _dbSet.FirstOrDefaultAsync(w => w.UserId == userId && w.CurrencyId == currencyId);
         }
 
-        /// <summary>
-        /// Atomically debits the wallet balance and saves changes to the database.
-        /// </summary>
         public async Task DebitWalletBalanceAsync(int walletId, decimal amount)
         {
             var wallet = await GetWalletByIdAsync(walletId);
             if (wallet == null) throw new KeyNotFoundException($"Wallet with ID {walletId} not found.");
-
-            // Wywołanie metody domenowej walidującej stan konta
             wallet.Debit(amount); 
-
             await _context.SaveChangesAsync();
         }
 
-        /// <summary>
-        /// Atomically credits the wallet balance and saves changes to the database.
-        /// </summary>
         public async Task CreditWalletBalanceAsync(int walletId, decimal amount)
         {
             var wallet = await GetWalletByIdAsync(walletId);
             if (wallet == null) throw new KeyNotFoundException($"Wallet with ID {walletId} not found.");
-
-            // Wywołanie metody domenowej
             wallet.Credit(amount); 
-
             await _context.SaveChangesAsync();
         }
 
@@ -94,6 +78,5 @@ namespace GieudexPol.Infrastructure.Repositories
             _dbSet.Remove(entity);
             await _context.SaveChangesAsync();
         }
-
     }
 }

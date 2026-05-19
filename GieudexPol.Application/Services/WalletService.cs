@@ -60,24 +60,24 @@ namespace GieudexPol.Application.Services
             // 3. Rejestracja transakcji sprzedaży waluty źródłowej
             var sellTransaction = new Transaction
             {
-                UserId = userId,
+                SenderId = userId,
+                ReceiverId = userId, // Self-transaction for trade logging
                 CurrencyId = fromCurrencyId,
                 TransactionType = "Sell",
                 Amount = amountFrom,
-                Price = amountTo / (amountFrom > 0 ? amountFrom : 1), // Wyliczenie umownej ceny/kursu
-                Commission = 0,
+                AppliedFee = 0, // No fee for internal trade logging
                 Timestamp = transactionTime
             };
 
             // 4. Rejestracja transakcji kupna waluty docelowej
             var buyTransaction = new Transaction
             {
-                UserId = userId,
+                SenderId = userId,
+                ReceiverId = userId, // Self-transaction for trade logging
                 CurrencyId = toCurrencyId,
                 TransactionType = "Buy",
                 Amount = amountTo,
-                Price = amountFrom / (amountTo > 0 ? amountTo : 1), // Wyliczenie umownej ceny/kursu
-                Commission = 0,
+                AppliedFee = 0, // No fee for internal trade logging
                 Timestamp = transactionTime
             };
 

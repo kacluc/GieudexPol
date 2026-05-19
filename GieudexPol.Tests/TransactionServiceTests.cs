@@ -13,11 +13,23 @@ namespace GieudexPol.Tests
     {
         private readonly Mock<ITransactionRepository> _mockTransactionRepository;
         private readonly TransactionService _transactionService;
+        private readonly Mock<IUserRepository> _mockUserRepository;
+        private readonly Mock<IWalletRepository> _mockWalletRepository;
+        private readonly Mock<ITransactionFeeRepository> _mockTransactionFeeRepository;
 
         public TransactionServiceTests()
         {
             _mockTransactionRepository = new Mock<ITransactionRepository>();
-            _transactionService = new TransactionService(_mockTransactionRepository.Object);
+            _mockUserRepository = new Mock<IUserRepository>();
+            _mockWalletRepository = new Mock<IWalletRepository>();
+            _mockTransactionFeeRepository = new Mock<ITransactionFeeRepository>();
+
+            _transactionService = new TransactionService(
+                _mockTransactionRepository.Object,
+                _mockUserRepository.Object,
+                _mockWalletRepository.Object,
+                _mockTransactionFeeRepository.Object
+            );
         }
 
         [Fact]
@@ -25,7 +37,7 @@ namespace GieudexPol.Tests
         {
             // Arrange
             var transactionId = 1;
-            var expectedTransaction = new Transaction { Id = transactionId, UserId = 1, CurrencyId = 1, Amount = 10m };
+            var expectedTransaction = new Transaction { Id = transactionId, SenderId = 1, ReceiverId = 2, CurrencyId = 1, Amount = 10m };
             _mockTransactionRepository.Setup(repo => repo.GetByIdAsync(transactionId)).ReturnsAsync(expectedTransaction);
 
             // Act
@@ -57,24 +69,24 @@ namespace GieudexPol.Tests
             // Arrange
             var expectedTransactions = new List<Transaction>
             {
-                new Transaction { Id = 1, UserId = 1, CurrencyId = 1, Amount = 10m },
-                new Transaction { Id = 2, UserId = 2, CurrencyId = 2, Amount = 20m }
+                new Transaction { Id = 1, SenderId = 1, ReceiverId = 2, CurrencyId = 1, Amount = 10m },
+                new Transaction { Id = 2, SenderId = 2, ReceiverId = 1, CurrencyId = 2, Amount = 20m }
             };
-            _mockTransactionRepository.Setup(repo => repo.GetAllAsync()).ReturnsAsync(expectedTransactions);
+            _mockTransactionRepository.Setup(repo => repo.GetByUserIdAsync(0)).ReturnsAsync(expectedTransactions);
 
             // Act
             var result = await _transactionService.GetAllAsync();
 
             // Assert
             result.Should().BeEquivalentTo(expectedTransactions);
-            _mockTransactionRepository.Verify(repo => repo.GetAllAsync(), Times.Once);
+            _mockTransactionRepository.Verify(repo => repo.GetByUserIdAsync(0), Times.Once);
         }
 
         [Fact]
         public async Task AddAsync_ShouldCallRepositoryAddAsync()
         {
             // Arrange
-            var transaction = new Transaction { UserId = 1, CurrencyId = 1, Amount = 10m };
+            var transaction = new Transaction { SenderId = 1, ReceiverId = 2, CurrencyId = 1, Amount = 10m };
             _mockTransactionRepository.Setup(repo => repo.AddAsync(transaction)).Returns(Task.CompletedTask);
 
             // Act
@@ -88,7 +100,7 @@ namespace GieudexPol.Tests
         public async Task UpdateAsync_ShouldCallRepositoryUpdateAsync()
         {
             // Arrange
-            var transaction = new Transaction { Id = 1, UserId = 1, CurrencyId = 1, Amount = 15m };
+            var transaction = new Transaction { Id = 1, SenderId = 1, ReceiverId = 2, CurrencyId = 1, Amount = 15m };
             _mockTransactionRepository.Setup(repo => repo.UpdateAsync(transaction)).Returns(Task.CompletedTask);
 
             // Act
@@ -102,14 +114,14 @@ namespace GieudexPol.Tests
         public async Task DeleteAsync_ShouldCallRepositoryDeleteAsync()
         {
             // Arrange
-            var transaction = new Transaction { Id = 1, UserId = 1, CurrencyId = 1, Amount = 10m };
-            _mockTransactionRepository.Setup(repo => repo.DeleteAsync(transaction)).Returns(Task.CompletedTask);
+            var transaction = new Transaction { Id = 1, SenderId = 1, ReceiverId = 2, CurrencyId = 1, Amount = 10m };
+            _mockTransactionRepository.Setup(repo => repo.DeleteAsync(transaction.Id)).Returns(Task.CompletedTask);
 
             // Act
             await _transactionService.DeleteAsync(transaction);
 
             // Assert
-            _mockTransactionRepository.Verify(repo => repo.DeleteAsync(transaction), Times.Once);
+            _mockTransactionRepository.Verify(repo => repo.DeleteAsync(transaction.Id), Times.Once);
         }
 
         [Fact]
@@ -119,17 +131,17 @@ namespace GieudexPol.Tests
             var userId = 1;
             var expectedTransactions = new List<Transaction>
             {
-                new Transaction { Id = 1, UserId = userId, CurrencyId = 1, Amount = 10m },
-                new Transaction { Id = 2, UserId = userId, CurrencyId = 2, Amount = 20m }
+                new Transaction { Id = 1, SenderId = userId, ReceiverId = 2, CurrencyId = 1, Amount = 10m },
+                new Transaction { Id = 2, SenderId = userId, ReceiverId = 2, CurrencyId = 2, Amount = 20m }
             };
-            _mockTransactionRepository.Setup(repo => repo.GetUserTransactionsAsync(userId)).ReturnsAsync(expectedTransactions);
+            _mockTransactionRepository.Setup(repo => repo.GetByUserIdAsync(userId)).ReturnsAsync(expectedTransactions);
 
             // Act
-            var result = await _transactionService.GetUserTransactionsAsync(userId);
+            var result = await _transactionService.GetUserTransactions(userId);
 
             // Assert
             result.Should().BeEquivalentTo(expectedTransactions);
-            _mockTransactionRepository.Verify(repo => repo.GetUserTransactionsAsync(userId), Times.Once);
+            _mockTransactionRepository.Verify(repo => repo.GetByUserIdAsync(userId), Times.Once);
         }
     }
 }
