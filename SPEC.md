@@ -26,6 +26,80 @@
 *   `GieudexPol.Application`: Business services (BLL), calculation logic, and notification interfaces.
 *   `GieudexPol.Infrastructure`: Data Access Layer (DAL) implementation using Entity Framework Core; handles external API integration (e.g., bank APIs).
 *   `GieudexPol.API`: REST Controllers and Middleware (JWT, CORS) serving as the primary entry point for the Angular frontend.
+*   `GieudexPol.Frontend/src/app`: Angular 21 application with Clean Architecture pattern
+
+### 🖥️ Frontend Architecture (Angular 21)
+
+The frontend follows a modular architecture organized within `src/app/` directory:
+
+```
+src/app/
+├── core/                  # Core module (singleton services)
+│   ├── services/          # Global services (Auth, API clients)
+│   ├── interceptors/      # HTTP interceptors
+│   ├── guards/            # Route guards
+│   ├── models/            # Global DTOs and interfaces
+│   └── core.config.ts     # Global configuration
+│
+├── shared/                # Shared components and utilities
+│   ├── components/        # Reusable UI components
+│   ├── directives/        # Custom directives
+│   ├── pipes/             # Custom pipes
+│   ├── utils/             # Utility functions
+│   └── shared.module.ts   # Shared module (standalone)
+│
+├── features/              # Feature modules (lazy-loaded)
+│   ├── auth/              # Authentication
+│   │   ├── components/    # Auth-specific components
+│   │   ├── services/      # Auth services
+│   │   ├── models/        # Auth models
+│   │   └── auth.routes.ts # Auth routing
+│   │
+│   ├── wallet/            # Wallet management
+│   │   ├── components/    # Wallet components
+│   │   ├── services/      # Wallet services
+│   │   ├── models/        # Wallet models
+│   │   └── wallet.routes.ts
+│   │
+│   ├── rates/             # Exchange rates
+│   │   ├── components/    # Rate components
+│   │   ├── services/      # Rate services
+│   │   ├── models/        # Rate models
+│   │   └── rates.routes.ts
+│   │
+│   └── admin/             # Admin panel
+│
+├── layouts/               # Layout templates
+│   ├── main-layout/       # Main application layout
+│   └── auth-layout/       # Authentication layout
+│
+├── app.config.ts          # Application configuration
+├── app.routes.ts          # Main routing with lazy loading
+└── app.component.ts       # Root component (standalone)
+```
+
+### Frontend Development Guidelines
+
+1. **Naming Conventions**:
+   - Folders: `kebab-case` (e.g., `wallet-dashboard`)
+   - Components: `PascalCase` with `.component.ts` suffix (e.g., `WalletDashboardComponent`)
+   - Services: `camelCase` with `.service.ts` suffix (e.g., `wallet.service.ts`)
+   - Models/Interfaces: `PascalCase` (e.g., `WalletBalance.interface.ts`)
+
+2. **Module Organization**:
+   - Each feature module contains: components/, services/, models/, and routes.ts
+   - Components are organized by functionality in subfolders
+   - All components are `standalone: true` (no NgModules)
+
+3. **State Management**:
+   - Uses Angular 21 Signals (`signal()`, `computed()`, `effect()`)
+   - Zoneless architecture (no Zone.js)
+   - Signal-based forms for reactive form handling
+
+4. **API Integration**:
+   - Services in `features/[module]/services/` handle API communication
+   - Use injected HttpClient with proper typing
+   - Follow backend DTO contracts exactly
 
 ## 💾 3. Data Model & Entities (MS SQL Server Schema)
 
