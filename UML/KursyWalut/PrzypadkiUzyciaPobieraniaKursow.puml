@@ -6,6 +6,7 @@ actor "Uzytkownik" as UserActor
 actor "Administrator" as AdminActor
 actor "NBP API" as NbpApi
 actor "ECB XML" as EcbApi
+actor "Riksbank API" as RiksbankApi
 
 rectangle "System GieudexPol" {
   (Zarzadzanie portfelem) as UC1
@@ -16,6 +17,7 @@ rectangle "System GieudexPol" {
   (Automatyczne pobranie brakujacych kursow) as UC4b
   (Synchronizacja NBP) as UC4c
   (Synchronizacja ECB) as UC4d
+  (Synchronizacja Riksbank) as UC4f
   (Wyswietlenie wykresu kursow PLN) as UC4e
 
   (Zarzadzanie walutami) as UC5
@@ -33,8 +35,10 @@ UC4 .> UC4e : include
 
 UC4b .> UC4c : extend\nsource = NBP
 UC4b .> UC4d : extend\nsource = ECB
+UC4b .> UC4f : extend\nsource = RIKSBANK
 UC4c --> NbpApi
 UC4d --> EcbApi
+UC4f --> RiksbankApi
 
 AdminActor --> UC5
 AdminActor --> UC6

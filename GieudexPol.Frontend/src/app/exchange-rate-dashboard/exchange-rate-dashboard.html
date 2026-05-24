@@ -37,12 +37,24 @@
 
     <label>
       <span>Od</span>
-      <input name="from" type="date" [(ngModel)]="from" />
+      <input
+        name="from"
+        type="date"
+        [(ngModel)]="from"
+        (ngModelChange)="onDateRangeChange()"
+        [min]="minimumRateDate"
+      />
     </label>
 
     <label>
       <span>Do</span>
-      <input name="to" type="date" [(ngModel)]="to" />
+      <input
+        name="to"
+        type="date"
+        [(ngModel)]="to"
+        (ngModelChange)="onDateRangeChange()"
+        [min]="minimumRateDate"
+      />
     </label>
 
     <button type="button" (click)="fetchData()" [disabled]="loading || syncingNbp">
@@ -70,7 +82,7 @@
     </div>
     <div class="fallback-note">
       <strong>Fallback dev:</strong>
-      <span>MOCK_BANK_A zostaje lokalnie, NBP pobiera sie automatycznie przy braku danych.</span>
+      <span>MOCK_BANK_A zostaje lokalnie, a zrodla zewnetrzne pobieraja sie przez backend przy braku danych.</span>
     </div>
   </section>
 

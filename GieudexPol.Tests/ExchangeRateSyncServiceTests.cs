@@ -213,6 +213,58 @@ namespace GieudexPol.Tests
             ecbClient.RequestedRanges.Should().BeEmpty();
         }
 
+        [Fact]
+        public async Task SyncRatesAsync_ShouldSelectRiksbankClientBySourceCode()
+        {
+            await using var context = CreateContext();
+            var nbpClient = new FakeExternalExchangeRateClient();
+            var ecbClient = new FakeExternalExchangeRateClient
+            {
+                SourceCode = "ECB",
+                SourceName = "European Central Bank"
+            };
+            var riksbankClient = new FakeExternalExchangeRateClient
+            {
+                SourceCode = "RIKSBANK",
+                SourceName = "Sveriges Riksbank",
+                TablesToReturn =
+                [
+                    new ExternalExchangeRateTableDto
+                    {
+                        Table = "RIKSBANK",
+                        Number = "RIKSBANK/2026-01-02",
+                        EffectiveDate = new DateTime(2026, 1, 2),
+                        Rates =
+                        [
+                            new ExternalExchangeRateItemDto
+                            {
+                                CurrencyCode = "USD",
+                                CurrencyName = "USD",
+                                BuyPrice = 4.105263m,
+                                SellPrice = 4.105263m
+                            }
+                        ]
+                    }
+                ]
+            };
+            var service = CreateService(context, nbpClient, ecbClient, riksbankClient);
+
+            var result = await service.SyncRatesAsync(
+                "RIKSBANK",
+                new DateTime(2026, 1, 1),
+                new DateTime(2026, 1, 2));
+
+            result.Added.Should().Be(1);
+            nbpClient.RequestedRanges.Should().BeEmpty();
+            ecbClient.RequestedRanges.Should().BeEmpty();
+            riksbankClient.RequestedRanges.Should().ContainSingle()
+                .Which.Should().Be((new DateTime(2026, 1, 1), new DateTime(2026, 1, 2)));
+
+            var rateSource = await context.RateSources.SingleAsync();
+            rateSource.Code.Should().Be("RIKSBANK");
+            rateSource.Name.Should().Be("Sveriges Riksbank");
+        }
+
         private static ApplicationDbContext CreateContext()
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()

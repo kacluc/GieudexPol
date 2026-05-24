@@ -18,6 +18,7 @@ import { ExchangeRateApiService } from '../services/exchange-rate-api.service';
 export class ExchangeRateDashboard implements OnInit {
   private readonly nbpSourceCode = 'NBP';
   private readonly ecbSourceCode = 'ECB';
+  private readonly riksbankSourceCode = 'RIKSBANK';
   private readonly mockSourceCode = 'MOCK_BANK_A';
   private readonly nbpBuySellCurrencyCodes = new Set([
     'AUD',
@@ -34,6 +35,23 @@ export class ExchangeRateDashboard implements OnInit {
     'USD',
   ]);
   private readonly ecbCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly riksbankCurrencyCodes = new Set([
     'AUD',
     'CAD',
     'CHF',
@@ -81,6 +99,10 @@ export class ExchangeRateDashboard implements OnInit {
       code: 'ECB',
       label: 'ECB - kursy referencyjne',
     },
+    {
+      code: 'RIKSBANK',
+      label: 'RIKSBANK - kursy referencyjne',
+    },
   ];
   readonly rangePresets = [
     { label: '7D', days: 7 },
@@ -89,6 +111,7 @@ export class ExchangeRateDashboard implements OnInit {
     { label: 'YTD', ytd: true },
     { label: 'DEV', from: '2026-01-01' },
   ];
+  readonly minimumRateDate = '2026-01-01';
   readonly chartWidth = 920;
   readonly chartHeight = 320;
   readonly chartPadding = {
@@ -374,6 +397,10 @@ export class ExchangeRateDashboard implements OnInit {
       return this.ecbCurrencyCodes.has(currencyCode);
     }
 
+    if (sourceCode === this.riksbankSourceCode) {
+      return this.riksbankCurrencyCodes.has(currencyCode);
+    }
+
     return false;
   }
 
@@ -390,22 +417,33 @@ export class ExchangeRateDashboard implements OnInit {
     this.to = this.formatDateInput(today);
 
     if (preset.from) {
-      this.from = preset.from;
+      this.from = this.clampToMinimumRateDate(preset.from);
     } else if (preset.ytd) {
-      this.from = `${today.getFullYear()}-01-01`;
+      this.from = this.clampToMinimumRateDate(`${today.getFullYear()}-01-01`);
     } else if (preset.days) {
       const startDate = new Date(today);
       startDate.setDate(startDate.getDate() - preset.days);
-      this.from = this.formatDateInput(startDate);
+      this.from = this.clampToMinimumRateDate(this.formatDateInput(startDate));
     }
 
     void this.fetchData();
+  }
+
+  onDateRangeChange(): void {
+    this.from = this.clampToMinimumRateDate(this.from);
+    this.to = this.clampToMinimumRateDate(this.to);
   }
 
   private validateFilters(): boolean {
     if (!this.currency || !this.source || !this.from || !this.to) {
       this.errorMessage = 'Uzupelnij walute, zrodlo i zakres dat.';
       this.statusMessage = 'Wymagane sa wszystkie filtry.';
+      return false;
+    }
+
+    if (this.from < this.minimumRateDate || this.to < this.minimumRateDate) {
+      this.errorMessage = 'Zakres dat nie moze zaczynac sie przed 2026-01-01.';
+      this.statusMessage = 'Wybierz date od 2026-01-01.';
       return false;
     }
 
@@ -481,6 +519,10 @@ export class ExchangeRateDashboard implements OnInit {
 
   private formatDateInput(date: Date): string {
     return date.toISOString().slice(0, 10);
+  }
+
+  private clampToMinimumRateDate(date: string): string {
+    return date && date < this.minimumRateDate ? this.minimumRateDate : date;
   }
 
   private get chartValues(): number[] {

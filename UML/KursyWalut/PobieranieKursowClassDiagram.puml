@@ -1,5 +1,5 @@
 @startuml
-title Diagram klas - zrodla kursow NBP i ECB
+title Diagram klas - zrodla kursow NBP, ECB i Riksbank
 
 skinparam classAttributeIconSize 0
 hide empty members
@@ -35,6 +35,7 @@ package "API" {
         + GetLatestRates(source: string, currency: string?)
         + SyncNbpRates(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
         + SyncEcbRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncRiksbankRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
         + SyncRatesBySource(sourceCode: string, from: DateTime?, to: DateTime?)
         - ResolveDateRange(from: DateTime?, to: DateTime?): DateRange
     }
@@ -101,6 +102,15 @@ package "Infrastructure.ExternalServices" {
         + MaxRangeDays: int = 366
         + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
         + ParseHistoricalRates(document: XDocument, from: DateTime, to: DateTime)
+    }
+
+    class RiksbankExchangeRateClient <<http client>> {
+        + SourceCode: string = "RIKSBANK"
+        + SourceName: string = "Sveriges Riksbank"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ConvertObservationsToPlnRates(observations: IEnumerable<RiksbankObservation>, from: DateTime, to: DateTime)
+        + ParseGroupObservations(root: JsonElement)
     }
 }
 
@@ -183,6 +193,7 @@ IExchangeRateService <|.. ExchangeRateService
 IExchangeRateSyncService <|.. ExchangeRateSyncService
 IExternalExchangeRateClient <|.. NbpExchangeRateClient
 IExternalExchangeRateClient <|.. EcbExchangeRateClient
+IExternalExchangeRateClient <|.. RiksbankExchangeRateClient
 IExchangeRateRepository <|.. ExchangeRateRepository
 
 ExchangeRateService --> IExchangeRateRepository
@@ -190,6 +201,7 @@ ExchangeRateSyncService --> ApplicationDbContext
 ExchangeRateSyncService --> IExternalExchangeRateClient : wybiera po SourceCode
 NbpExchangeRateClient --> ExternalExchangeRateTableDto : JSON NBP C -> DTO
 EcbExchangeRateClient --> ExternalExchangeRateTableDto : XML ECB -> PLN DTO
+RiksbankExchangeRateClient --> ExternalExchangeRateTableDto : JSON Riksbank -> PLN DTO
 ExternalExchangeRateTableDto "1" *-- "many" ExternalExchangeRateItemDto
 
 ApplicationDbContext --> Currency
@@ -210,6 +222,13 @@ ECB publikuje kursy wzgledem EUR.
 Klient zapisuje do DTO kursy wzgledem PLN:
 RateToPLN = EUR_PLN / EUR_CURRENCY.
 Dla ECB BuyPrice = SellPrice.
+end note
+
+note bottom of RiksbankExchangeRateClient
+Riksbank publikuje kursy jako SEK za 1 walute.
+Klient zapisuje do DTO kursy wzgledem PLN:
+RateToPLN = SEK_CURRENCY / SEK_PLN.
+Dla Riksbank BuyPrice = SellPrice.
 end note
 
 @enduml

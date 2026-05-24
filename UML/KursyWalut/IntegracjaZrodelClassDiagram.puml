@@ -1,5 +1,5 @@
 @startuml
-title External exchange rate integration - class diagram
+title External exchange rate integration - NBP, ECB and Riksbank class diagram
 
 skinparam classAttributeIconSize 0
 hide empty members
@@ -35,6 +35,7 @@ package "API" {
         + GetLatestRates(source: string, currency: string?)
         + SyncNbpRates(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
         + SyncEcbRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncRiksbankRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
         + SyncRatesBySource(sourceCode: string, from: DateTime?, to: DateTime?)
     }
 
@@ -158,6 +159,15 @@ package "Infrastructure.ExternalServices" {
         + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
         + ParseHistoricalRates(document: XDocument, from: DateTime, to: DateTime)
     }
+
+    class RiksbankExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "RIKSBANK"
+        + SourceName: string = "Sveriges Riksbank"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ConvertObservationsToPlnRates(observations: IEnumerable<RiksbankObservation>, from: DateTime, to: DateTime)
+        + ParseGroupObservations(root: JsonElement)
+    }
 }
 
 package "Infrastructure.Persistence" {
@@ -214,6 +224,7 @@ IExchangeRateService <|.. ExchangeRateService
 IExchangeRateSyncService <|.. ExchangeRateSyncService
 IExternalExchangeRateClient <|.. NbpExchangeRateClient
 IExternalExchangeRateClient <|.. EcbExchangeRateClient
+IExternalExchangeRateClient <|.. RiksbankExchangeRateClient
 IExchangeRateRepository <|.. ExchangeRateRepository
 
 ExchangeRateService --> IExchangeRateRepository
@@ -221,6 +232,7 @@ ExchangeRateSyncService --> ApplicationDbContext
 ExchangeRateSyncService --> IExternalExchangeRateClient : SourceCode lookup
 NbpExchangeRateClient --> ExternalExchangeRateTableDto : JSON table C bid/ask
 EcbExchangeRateClient --> ExternalExchangeRateTableDto : XML mid -> PLN
+RiksbankExchangeRateClient --> ExternalExchangeRateTableDto : JSON mid -> PLN
 ExternalExchangeRateTableDto "1" *-- "many" ExternalExchangeRateItemDto
 
 ApplicationDbContext --> Currency
@@ -246,6 +258,13 @@ ECB data is EUR-relative.
 Application stores PLN-relative rates:
 RateToPLN = EUR_PLN / EUR_CURRENCY.
 BuyPrice = SellPrice for ECB.
+end note
+
+note bottom of RiksbankExchangeRateClient
+Riksbank data is SEK-relative.
+Application stores PLN-relative rates:
+RateToPLN = SEK_CURRENCY / SEK_PLN.
+BuyPrice = SellPrice for Riksbank.
 end note
 
 @enduml

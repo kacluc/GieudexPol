@@ -10,6 +10,7 @@ Obslugiwane zrodla:
 
 - `NBP` - Narodowy Bank Polski, tabela C, kurs kupna i sprzedazy.
 - `ECB` - European Central Bank, oficjalny XML z kursami referencyjnymi.
+- `RIKSBANK` - Sveriges Riksbank, oficjalne REST API z kursami referencyjnymi wzgledem SEK.
 - `MOCK_BANK_A` - lokalne dane developerskie seedowane w srodowisku Development.
 
 ## 2. Zasady danych
@@ -57,6 +58,51 @@ ECB publikuje kurs referencyjny, a nie bid/ask, dlatego:
 
 Nie jest tworzony sztuczny spread.
 
+### Riksbank
+
+Riksbank publikuje kursy w oficjalnym REST API SWEA:
+
+```text
+https://api.riksbank.se/swea/v1/Observations/ByGroup/130/{from}/{to}
+```
+
+Grupa `130` zawiera waluty wzgledem korony szwedzkiej. Klient przetwarza tylko waluty uzywane przez aplikacje:
+
+```text
+EUR, USD, CHF, GBP, HUF, CZK, DKK, SEK, NOK, RON, TRY, AUD, CAD, JPY, KRW
+```
+
+`PLN` jest pobierany jako waluta techniczna do przeliczenia.
+
+Riksbank zwraca wartosci jako SEK za 1 jednostke waluty obcej:
+
+```text
+SEK_USD = 9.37
+SEK_PLN = 2.56
+```
+
+Dane sa przeliczane do PLN przed zapisem:
+
+```text
+RateToPLN(currency) = SEK_CURRENCY / SEK_PLN
+RateToPLN(SEK) = 1 / SEK_PLN
+```
+
+Przyklad:
+
+```text
+1 USD = 9.37 SEK
+1 PLN = 2.56 SEK
+1 USD = 9.37 / 2.56 PLN
+```
+
+Riksbank publikuje kurs informacyjny/mid-market, dlatego:
+
+- `BuyPrice = RateToPLN`,
+- `SellPrice = RateToPLN`.
+
+Nie jest tworzony sztuczny spread.
+
 ## 3. Zakres dat
 
 Endpointy odczytu i synchronizacji moga przyjmowac `from` oraz `to`.
@@ -68,7 +114,7 @@ from = 1 stycznia biezacego roku
 to = DateTime.Today
 ```
 
-ECB nie publikuje kursow w weekendy i swieta. Brak punktow dla takich dni nie jest bledem i nie jest uzupelniany sztucznie.
+ECB i Riksbank nie publikuja kursow w weekendy i dni wolne. Brak punktow dla takich dni nie jest bledem i nie jest uzupelniany sztucznie.
 
 ## 4. Przeplyw odczytu wykresu
 
@@ -97,7 +143,8 @@ SyncRatesAsync(source, from, to)
 6. Synchronizacja pobiera dane z odpowiedniego klienta zewnetrznego:
 
 - `NBP` -> `NbpExchangeRateClient`,
-- `ECB` -> `EcbExchangeRateClient`.
+- `ECB` -> `EcbExchangeRateClient`,
+- `RIKSBANK` -> `RiksbankExchangeRateClient`.
 
 7. Backend zapisuje brakujace kursy w `ExchangeRates`.
 8. Backend ponownie odczytuje baze danych.
@@ -134,6 +181,7 @@ Brak rekordu z dzisiejsza data nie jest bledem, poniewaz zrodla nie publikuja ku
 ```http
 GET /api/ExchangeRates/chart?currency=EUR&source=NBP&from=2026-01-01&to=2026-05-24
 GET /api/ExchangeRates/chart?currency=USD&source=ECB
+GET /api/ExchangeRates/chart?currency=USD&source=RIKSBANK
 ```
 
 ### Najnowsze kursy
@@ -141,6 +189,7 @@ GET /api/ExchangeRates/chart?currency=USD&source=ECB
 ```http
 GET /api/ExchangeRates/latest?source=NBP
 GET /api/ExchangeRates/latest?source=ECB&currency=USD
+GET /api/ExchangeRates/latest?source=RIKSBANK&currency=USD
 ```
 
 ### Synchronizacja NBP
@@ -154,6 +203,13 @@ POST /api/ExchangeRates/sync/nbp?from=2026-01-01&to=2026-05-24
 ```http
 POST /api/ExchangeRates/sync/ecb
 POST /api/ExchangeRates/sync/ecb?from=2026-01-01&to=2026-05-24
+```
+
+### Synchronizacja Riksbank
+
+```http
+POST /api/ExchangeRates/sync/riksbank
+POST /api/ExchangeRates/sync/riksbank?from=2026-01-01&to=2026-05-24
 ```
 
 ### Synchronizacja ogolna
@@ -196,6 +252,7 @@ CurrencyId + RateSourceId + EffectiveDate
   - `GetLatestRates`,
   - `SyncNbpRates`,
   - `SyncEcbRates`,
+  - `SyncRiksbankRates`,
   - `SyncRatesBySource`.
 
 ### Application
@@ -224,11 +281,17 @@ CurrencyId + RateSourceId + EffectiveDate
   - przelicza kursy z EUR-relative na PLN-relative,
   - ustawia `BuyPrice = SellPrice`.
 
+- `RiksbankExchangeRateClient`
+  - pobiera JSON z Riksbank SWEA API,
+  - parsuje `seriesId`, `date`, `value`,
+  - przelicza kursy z SEK-relative na PLN-relative,
+  - ustawia `BuyPrice = SellPrice`.
+
 ## 9. Diagramy PlantUML
 
 Diagramy tej funkcjonalnosci sa trzymane w osobnym folderze, zeby nie mieszaly sie z ogolnymi diagramami systemu:
 
-- `UML/KursyWalut/PobieranieKursowSequence.puml` - przeplyw synchronizacji i cache-miss dla NBP/ECB.
+- `UML/KursyWalut/PobieranieKursowSequence.puml` - przeplyw synchronizacji i cache-miss dla NBP/ECB/RIKSBANK.
 - `UML/KursyWalut/PobieranieKursowClassDiagram.puml` - klasy funkcjonalnosci kursow.
 - `UML/KursyWalut/IntegracjaZrodelSequence.puml` - ogolny przeplyw integracji z dostawcami.
 - `UML/KursyWalut/IntegracjaZrodelClassDiagram.puml` - ogolny diagram klas integracji.

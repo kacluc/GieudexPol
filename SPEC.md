@@ -160,12 +160,13 @@ src/app/
 
 ### Purpose
 
-The exchange rate module imports currency rates from external providers, stores them in SQL Server, and exposes one consistent API shape to the Angular `/rates` view. The frontend never calls NBP or ECB directly. It asks the backend, and the backend decides whether data can be read from the local database or must be synchronized first.
+The exchange rate module imports currency rates from external providers, stores them in SQL Server, and exposes one consistent API shape to the Angular `/rates` view. The frontend never calls NBP, ECB or Riksbank directly. It asks the backend, and the backend decides whether data can be read from the local database or must be synchronized first.
 
 Supported sources:
 
 *   `NBP` - Narodowy Bank Polski, table `C`, buy and sell rates.
 *   `ECB` - European Central Bank, official XML reference rates.
+*   `RIKSBANK` - Sveriges Riksbank, official REST API reference rates against SEK.
 *   `MOCK_BANK_A` - development seed data used as a mock bank source.
 
 ### Main Design Rules
@@ -175,7 +176,7 @@ Supported sources:
 *   Rates from every source are stored in the same `ExchangeRates` table.
 *   Source identity is stored through `RateSource`.
 *   The logical duplicate key is `CurrencyId + RateSourceId + EffectiveDate`.
-*   Chart data for `source=ECB` contains only ECB rows; chart data for `source=NBP` contains only NBP rows.
+*   Chart data for a selected source contains only rows from that source.
 *   All persisted and returned rates are PLN-relative.
 
 ### NBP Source
@@ -230,6 +231,40 @@ Special cases:
 
 ECB does not publish on weekends and holidays. Missing weekend points are not filled artificially.
 
+### Riksbank Source
+
+Riksbank uses the official SWEA REST API:
+
+```text
+https://api.riksbank.se/swea/v1/Observations/ByGroup/130/{from}/{to}
+```
+
+Group `130` contains currencies against Swedish kronor. The client keeps only the currencies supported by the application: `EUR`, `USD`, `CHF`, `GBP`, `HUF`, `CZK`, `DKK`, `SEK`, `NOK`, `RON`, `TRY`, `AUD`, `CAD`, `JPY`, `KRW`, plus `PLN` only as the conversion basis.
+
+Riksbank values are quoted as SEK per 1 unit of foreign currency, for example:
+
+```text
+SEK_USD = 9.37
+SEK_PLN = 2.56
+```
+
+Before saving anything to `ExchangeRates`, the backend converts each value to PLN-relative:
+
+```text
+RateToPLN(currency) = SEK_CURRENCY / SEK_PLN
+RateToPLN(SEK) = 1 / SEK_PLN
+```
+
+Example:
+
+```text
+1 USD = 9.37 SEK
+1 PLN = 2.56 SEK
+1 USD = 9.37 / 2.56 PLN
+```
+
+Riksbank publishes indicative mid-market rates, not bid/ask, so `BuyPrice = RateToPLN` and `SellPrice = RateToPLN`. No artificial spread is created.
+
 ### Default Date Range
 
 If `from` or `to` is not provided, the backend uses:
@@ -239,7 +274,7 @@ from = new DateTime(DateTime.Today.Year, 1, 1);
 to = DateTime.Today;
 ```
 
-This applies to chart data, latest-rate cache misses, and manual ECB synchronization.
+This applies to chart data, latest-rate cache misses, and manual ECB/Riksbank synchronization.
 
 ### Cache-Miss Flow
 
@@ -248,7 +283,7 @@ For chart data:
 1.  Frontend calls `/api/ExchangeRates/chart`.
 2.  Backend reads `ExchangeRates` for selected `currency + source + date range`.
 3.  If local points exist, backend returns them.
-4.  If points are missing and the source is syncable (`NBP` or `ECB`), backend calls `SyncRatesAsync(source, from, to)`.
+4.  If points are missing and the source is syncable (`NBP`, `ECB` or `RIKSBANK`), backend calls `SyncRatesAsync(source, from, to)`.
 5.  Synchronization fetches missing external data, stores it in `ExchangeRates`, then the backend reads the database again.
 6.  Backend returns only rows from the selected source.
 
@@ -263,11 +298,15 @@ For latest data:
 ```http
 GET /api/ExchangeRates/chart?currency=EUR&source=NBP&from=2026-01-01&to=2026-05-24
 GET /api/ExchangeRates/chart?currency=USD&source=ECB
+GET /api/ExchangeRates/chart?currency=USD&source=RIKSBANK
 GET /api/ExchangeRates/latest?source=NBP
 GET /api/ExchangeRates/latest?source=ECB&currency=USD
+GET /api/ExchangeRates/latest?source=RIKSBANK&currency=USD
 POST /api/ExchangeRates/sync/nbp?from=2026-01-01&to=2026-05-24
 POST /api/ExchangeRates/sync/ecb
 POST /api/ExchangeRates/sync/ecb?from=2026-01-01&to=2026-05-24
+POST /api/ExchangeRates/sync/riksbank
+POST /api/ExchangeRates/sync/riksbank?from=2026-01-01&to=2026-05-24
 POST /api/ExchangeRates/sync/{sourceCode}
 ```
 
@@ -281,6 +320,9 @@ POST /api/ExchangeRates/sync/{sourceCode}
   "EcbApi": {
     "BaseUrl": "https://www.ecb.europa.eu/stats/eurofxref/"
   },
+  "RiksbankApi": {
+    "BaseUrl": "https://api.riksbank.se/swea/v1/"
+  },
   "NbpSync": {
     "StartDate": "2026-01-01"
   }
@@ -292,6 +334,7 @@ Docker Compose passes the same values through environment variables:
 ```text
 NbpApi__BaseUrl=https://api.nbp.pl/api/
 EcbApi__BaseUrl=https://www.ecb.europa.eu/stats/eurofxref/
+RiksbankApi__BaseUrl=https://api.riksbank.se/swea/v1/
 NbpSync__StartDate=2026-01-01
 ```
 
@@ -305,7 +348,7 @@ UML/KursyWalut/
 
 Relevant files:
 
-*   `UML/KursyWalut/SpecyfikacjaPobieraniaKursow.md`
+*   `Specyfikacje/SpecyfikacjaPobieraniaKursow.md`
 *   `UML/KursyWalut/PobieranieKursowSequence.puml`
 *   `UML/KursyWalut/PobieranieKursowClassDiagram.puml`
 *   `UML/KursyWalut/IntegracjaZrodelSequence.puml`

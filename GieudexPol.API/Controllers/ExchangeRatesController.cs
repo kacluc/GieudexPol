@@ -14,7 +14,8 @@ namespace GieudexPol.API.Controllers
         private static readonly HashSet<string> SyncableSources = new(StringComparer.OrdinalIgnoreCase)
         {
             "NBP",
-            "ECB"
+            "ECB",
+            "RIKSBANK"
         };
 
         private readonly IExchangeRateService _exchangeRateService;
@@ -62,6 +63,11 @@ namespace GieudexPol.API.Controllers
             if (resolvedFrom > resolvedTo)
             {
                 return BadRequest("From date cannot be later than to date.");
+            }
+
+            if (resolvedFrom < MinimumSyncDate)
+            {
+                return BadRequest("From date cannot be earlier than 2026-01-01.");
             }
 
             if (resolvedTo > DateTime.Today)
@@ -184,6 +190,15 @@ namespace GieudexPol.API.Controllers
             return await SyncRatesBySource("ECB", from, to, cancellationToken);
         }
 
+        [HttpPost("sync/riksbank")]
+        public async Task<IActionResult> SyncRiksbankRates(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
+        {
+            return await SyncRatesBySource("RIKSBANK", from, to, cancellationToken);
+        }
+
         [HttpPost("sync/{sourceCode}")]
         public async Task<IActionResult> SyncRatesBySource(
             string sourceCode,
@@ -209,14 +224,14 @@ namespace GieudexPol.API.Controllers
                 return BadRequest("From date cannot be later than to date.");
             }
 
+            if (resolvedFrom < MinimumSyncDate)
+            {
+                return BadRequest("From date cannot be earlier than 2026-01-01.");
+            }
+
             if (resolvedTo > DateTime.Today)
             {
                 return BadRequest("To date cannot be later than today.");
-            }
-
-            if (sourceCode == "NBP" && resolvedFrom < MinimumSyncDate)
-            {
-                return BadRequest("NBP sync from date cannot be earlier than 2026-01-01.");
             }
 
             try

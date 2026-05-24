@@ -6,6 +6,7 @@ using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Data;
 using GieudexPol.Infrastructure.ExternalServices.Ecb;
 using GieudexPol.Infrastructure.ExternalServices.Nbp;
+using GieudexPol.Infrastructure.ExternalServices.Riksbank;
 using GieudexPol.Infrastructure.Repositories;
 using GieudexPol.Infrastructure.Services;
 using GieudexPol.Infrastructure.Auth;
@@ -122,10 +123,30 @@ builder.Services.AddHttpClient<EcbExchangeRateClient>(client =>
     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
 });
 
+builder.Services.AddHttpClient<RiksbankExchangeRateClient>(client =>
+{
+    var baseUrl = builder.Configuration["RiksbankApi:BaseUrl"] ?? "https://api.riksbank.se/swea/v1/";
+    if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
+    {
+        baseUrl += "/";
+    }
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+    var apiKey = builder.Configuration["RiksbankApi:ApiKey"];
+    if (!string.IsNullOrWhiteSpace(apiKey))
+    {
+        client.DefaultRequestHeaders.Add("Ocp-Apim-Subscription-Key", apiKey);
+    }
+});
+
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<NbpExchangeRateClient>());
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<EcbExchangeRateClient>());
+builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
+    serviceProvider.GetRequiredService<RiksbankExchangeRateClient>());
 
 builder.Services.AddHostedService<NbpExchangeRateStartupSyncService>();
 

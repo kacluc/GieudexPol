@@ -1,5 +1,5 @@
 @startuml
-title External exchange rate integration - NBP and ECB sequence
+title External exchange rate integration - NBP, ECB and Riksbank sequence
 
 actor "User" as User
 participant "ExchangeRateDashboard\nAngular /rates" as Frontend
@@ -11,9 +11,11 @@ participant "ExchangeRateSyncService" as SyncService
 participant "IExternalExchangeRateClient[]" as Clients
 participant "NbpExchangeRateClient" as NbpClient
 participant "EcbExchangeRateClient" as EcbClient
+participant "RiksbankExchangeRateClient" as RiksbankClient
 database "ApplicationDbContext\nSQL Server" as Db
 participant "NBP API\nTable C" as NbpApi
 participant "ECB XML\nEuro foreign exchange rates" as EcbApi
+participant "Riksbank API\nSWEA REST" as RiksbankApi
 
 == API startup ==
 
@@ -54,7 +56,7 @@ ReadService --> Controller: ExchangeRateChartResponseDto
 
 alt local data exists
     Controller --> FrontendApi: 200 OK
-else no local data and source is NBP or ECB
+else no local data and source is NBP, ECB or RIKSBANK
     Controller -> SyncService: SyncRatesAsync(source, from, to)
     SyncService -> Clients: select client by SourceCode
 
@@ -75,6 +77,15 @@ else no local data and source is NBP or ECB
         EcbClient -> EcbClient: EUR_PLN / EUR_CURRENCY
         EcbClient -> EcbClient: BuyPrice = SellPrice = PLN-relative rate
         EcbClient --> SyncService: ExternalExchangeRateTableDto[]
+    else source == RIKSBANK
+        Clients --> SyncService: RiksbankExchangeRateClient
+        SyncService -> RiksbankClient: GetBuySellRatesAsync(from, to)
+        RiksbankClient -> RiksbankApi: GET Observations/ByGroup/130/{from}/{to}
+        RiksbankApi --> RiksbankClient: JSON rates relative to SEK
+        RiksbankClient -> RiksbankClient: filter supported currencies
+        RiksbankClient -> RiksbankClient: SEK_CURRENCY / SEK_PLN
+        RiksbankClient -> RiksbankClient: BuyPrice = SellPrice = PLN-relative rate
+        RiksbankClient --> SyncService: ExternalExchangeRateTableDto[]
     end
 
     SyncService -> Db: get/create RateSource(source)
@@ -104,7 +115,7 @@ Db --> ReadService: latest rows or empty list
 alt no rows or no rows from current year
     Controller -> SyncService: SyncCurrentYearRatesAsync(source)
     SyncService -> SyncService: from = Jan 1 current year, to = today
-    SyncService -> Clients: select NBP or ECB client
+    SyncService -> Clients: select NBP, ECB or RIKSBANK client
     SyncService -> Db: persist missing current-year rates
     Controller -> ReadService: GetLatestRatesAsync(source, currency?)
 end

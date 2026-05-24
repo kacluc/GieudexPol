@@ -10,9 +10,11 @@ participant "ExchangeRateSyncService" as SyncService
 participant "IExternalExchangeRateClient[]" as Clients
 participant "NbpExchangeRateClient" as NbpClient
 participant "EcbExchangeRateClient" as EcbClient
+participant "RiksbankExchangeRateClient" as RiksbankClient
 database "ApplicationDbContext\nSQL Server" as Db
 participant "NBP API\nTabela C JSON" as NbpApi
 participant "ECB\nXML eurofxref-hist" as EcbApi
+participant "Riksbank API\nSWEA REST" as RiksbankApi
 
 User -> Frontend: wybiera walute, zrodlo i zakres dat
 activate Frontend
@@ -37,7 +39,7 @@ deactivate ReadService
 
 alt dane istnieja w bazie
     Controller --> FrontendApi: 200 OK z punktami wykresu
-else cache miss dla NBP albo ECB
+else cache miss dla NBP, ECB albo RIKSBANK
     Controller -> SyncService: SyncRatesAsync(source, from, to)
     activate SyncService
     SyncService -> Clients: wybierz klienta po SourceCode
@@ -68,6 +70,20 @@ else cache miss dla NBP albo ECB
         EcbClient -> EcbClient: BuyPrice = SellPrice = RateToPLN
         EcbClient --> SyncService: ExternalExchangeRateTableDto[]
         deactivate EcbClient
+    else source == "RIKSBANK"
+        Clients --> SyncService: RiksbankExchangeRateClient
+        SyncService -> RiksbankClient: GetBuySellRatesAsync(from, to)
+        activate RiksbankClient
+        RiksbankClient -> RiksbankApi: GET /swea/v1/Observations/ByGroup/130/{from}/{to}
+        activate RiksbankApi
+        RiksbankApi --> RiksbankClient: JSON seriesId/date/value wzgledem SEK
+        deactivate RiksbankApi
+        RiksbankClient -> RiksbankClient: filtruj obslugiwane waluty
+        RiksbankClient -> RiksbankClient: znajdz SEK_PLN dla dnia
+        RiksbankClient -> RiksbankClient: RateToPLN = SEK_CURRENCY / SEK_PLN
+        RiksbankClient -> RiksbankClient: BuyPrice = SellPrice = RateToPLN
+        RiksbankClient --> SyncService: ExternalExchangeRateTableDto[]
+        deactivate RiksbankClient
     end
 
     SyncService -> Db: znajdz lub utworz RateSource(source)
@@ -126,7 +142,7 @@ ReadService --> Controller: DTO[]
 alt brak danych z biezacego roku dla source
     Controller -> SyncService: SyncCurrentYearRatesAsync(source)
     SyncService -> SyncService: from = 1 stycznia biezacego roku, to = dzisiaj
-    SyncService -> Clients: pobierz dane z NBP albo ECB
+    SyncService -> Clients: pobierz dane z NBP, ECB albo RIKSBANK
     SyncService -> Db: zapisz brakujace kursy
     Controller -> ReadService: ponowny odczyt latest
 end
