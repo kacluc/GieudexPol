@@ -4,12 +4,19 @@ skinparam packageStyle rectangle
 
 actor "Uzytkownik" as UserActor
 actor "Administrator" as AdminActor
+actor "NBP API" as NbpApi
+actor "ECB XML" as EcbApi
 
 rectangle "System GieudexPol" {
   (Zarzadzanie portfelem) as UC1
   (Skladanie zlecenia / transakcji) as UC2
   (Ustawianie alertu cenowego) as UC3
   (Podglad kursow walut) as UC4
+  (Wybor waluty, zrodla i zakresu dat) as UC4a
+  (Automatyczne pobranie brakujacych kursow) as UC4b
+  (Synchronizacja NBP) as UC4c
+  (Synchronizacja ECB) as UC4d
+  (Wyswietlenie wykresu kursow PLN) as UC4e
 
   (Zarzadzanie walutami) as UC5
   (Zarzadzanie prowizjami) as UC6
@@ -20,6 +27,14 @@ UserActor --> UC1
 UserActor --> UC2
 UserActor --> UC3
 UserActor --> UC4
+UC4 .> UC4a : include
+UC4 .> UC4b : include
+UC4 .> UC4e : include
+
+UC4b .> UC4c : extend\nsource = NBP
+UC4b .> UC4d : extend\nsource = ECB
+UC4c --> NbpApi
+UC4d --> EcbApi
 
 AdminActor --> UC5
 AdminActor --> UC6

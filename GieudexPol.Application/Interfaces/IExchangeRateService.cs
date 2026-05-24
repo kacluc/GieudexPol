@@ -8,6 +8,6 @@ namespace GieudexPol.Application.Interfaces
         Task<ExchangeRate> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol);
         Task<ExchangeRateChartResponseDto> GetChartDataAsync(string currencyCode, string sourceCode, DateTime from, DateTime to);
         Task<IEnumerable<ExchangeRateChartPointDto>> GetRatesForChartAsync(string currencySymbol, string sourceCode, DateTime from, DateTime to);
-        Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode);
+        Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode, string? currencyCode = null);
     }
 }

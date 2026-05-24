@@ -63,11 +63,18 @@ namespace GieudexPol.Infrastructure.Repositories
             return await GetChartDataAsync(currencySymbol, sourceCode, from, to);
         }
 
-        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode)
+        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode, string? currencyCode = null)
         {
-            var latestRatesQuery = _dbSet
+            var ratesForSource = _dbSet
                 .AsNoTracking()
-                .Where(er => er.RateSource.Code == sourceCode)
+                .Where(er => er.RateSource.Code == sourceCode);
+
+            if (!string.IsNullOrWhiteSpace(currencyCode))
+            {
+                ratesForSource = ratesForSource.Where(er => er.Currency.Symbol == currencyCode);
+            }
+
+            var latestRatesQuery = ratesForSource
                 .GroupBy(er => er.CurrencyId)
                 .Select(group => new
                 {
@@ -75,14 +82,12 @@ namespace GieudexPol.Infrastructure.Repositories
                     EffectiveDate = group.Max(er => er.EffectiveDate)
                 });
 
-            return await _dbSet
-                .AsNoTracking()
+            return await ratesForSource
                 .Join(
                     latestRatesQuery,
                     rate => new { rate.CurrencyId, rate.EffectiveDate },
                     latest => new { latest.CurrencyId, latest.EffectiveDate },
                     (rate, latest) => rate)
-                .Where(er => er.RateSource.Code == sourceCode)
                 .OrderBy(er => er.Currency.Symbol)
                 .Select(er => new ExchangeRateTableRowDto
                 {

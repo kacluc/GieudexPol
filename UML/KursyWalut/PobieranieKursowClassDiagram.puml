@@ -1,0 +1,215 @@
+@startuml
+title Diagram klas - zrodla kursow NBP i ECB
+
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "Frontend Angular" {
+    class ExchangeRateDashboard <<component>> {
+        - currency: string
+        - source: string
+        - from: string
+        - to: string
+        - chartPoints: ExchangeRateChartPoint[]
+        - latestRates: ExchangeRateTableRow[]
+        + fetchData(): Promise<void>
+        + onSourceChange(source: string): void
+        + selectCurrency(currency: string): void
+        + isCurrencyAvailableForSource(currencyCode: string, sourceCode: string): boolean
+        - loadDataFromBackend(): Promise<void>
+    }
+
+    class ExchangeRateApiService <<service>> {
+        - apiUrl: string
+        + getChartData(currency: string, source: string, from: string, to: string)
+        + getLatestRates(source: string)
+        + syncNbpRates(from: string, to: string)
+    }
+}
+
+package "API" {
+    class ExchangeRatesController <<controller>> {
+        - _exchangeRateService: IExchangeRateService
+        - _exchangeRateSyncService: IExchangeRateSyncService
+        + GetChartData(currency: string, source: string, from: DateTime?, to: DateTime?)
+        + GetLatestRates(source: string, currency: string?)
+        + SyncNbpRates(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncEcbRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncRatesBySource(sourceCode: string, from: DateTime?, to: DateTime?)
+        - ResolveDateRange(from: DateTime?, to: DateTime?): DateRange
+    }
+}
+
+package "Application.Interfaces" {
+    interface IExchangeRateService {
+        + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
+    }
+
+    interface IExchangeRateSyncService {
+        + SyncRatesAsync(sourceCode: string, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncCurrentYearRatesAsync(sourceCode: string, cancellationToken: CancellationToken)
+        + SyncNbpRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+    }
+
+    interface IExternalExchangeRateClient {
+        + SourceCode: string
+        + SourceName: string
+        + MaxRangeDays: int
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+    }
+
+    interface IExchangeRateRepository {
+        + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
+        + ExistsAsync(currencyId: int, rateSourceId: int, effectiveDate: DateTime)
+    }
+}
+
+package "Application.Services" {
+    class ExchangeRateService <<service>> {
+        - _exchangeRateRepository: IExchangeRateRepository
+        + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
+    }
+}
+
+package "Infrastructure.Services" {
+    class ExchangeRateSyncService <<service>> {
+        - _context: ApplicationDbContext
+        - _exchangeRateClients: IEnumerable<IExternalExchangeRateClient>
+        + SyncRatesAsync(sourceCode: string, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncCurrentYearRatesAsync(sourceCode: string, cancellationToken: CancellationToken)
+        + SyncNbpRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        - GetOrCreateRateSourceAsync(client: IExternalExchangeRateClient, cancellationToken: CancellationToken)
+        - LoadExistingRateKeysAsync(rateSourceId: int, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        - SplitIntoRanges(from: DateTime, to: DateTime, maxRangeDays: int)
+    }
+}
+
+package "Infrastructure.ExternalServices" {
+    class NbpExchangeRateClient <<http client>> {
+        + SourceCode: string = "NBP"
+        + SourceName: string = "Narodowy Bank Polski"
+        + MaxRangeDays: int = 93
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+    }
+
+    class EcbExchangeRateClient <<http client>> {
+        + SourceCode: string = "ECB"
+        + SourceName: string = "European Central Bank"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParseHistoricalRates(document: XDocument, from: DateTime, to: DateTime)
+    }
+}
+
+package "Application.DTOs" {
+    class ExternalExchangeRateTableDto {
+        + Table: string
+        + Number: string
+        + EffectiveDate: DateTime
+        + Rates: List<ExternalExchangeRateItemDto>
+    }
+
+    class ExternalExchangeRateItemDto {
+        + CurrencyName: string
+        + CurrencyCode: string
+        + BuyPrice: decimal
+        + SellPrice: decimal
+    }
+
+    class NbpSyncResultDto {
+        + From: DateTime
+        + To: DateTime
+        + Added: int
+        + Skipped: int
+        + TablesFetched: int
+        + ProcessedRanges: List<string>
+        + Warnings: List<string>
+    }
+}
+
+package "Infrastructure.Persistence" {
+    class ApplicationDbContext <<DbContext>> {
+        + Currencies: DbSet<Currency>
+        + RateSources: DbSet<RateSource>
+        + ExchangeRates: DbSet<ExchangeRate>
+        # OnModelCreating(modelBuilder: ModelBuilder): void
+    }
+
+    class ExchangeRateRepository <<repository>> {
+        + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
+        + ExistsAsync(currencyId: int, rateSourceId: int, effectiveDate: DateTime)
+    }
+}
+
+package "Domain.Entities" {
+    class Currency {
+        + Id: int
+        + Symbol: string
+        + Name: string
+        + IsActive: bool
+        + ExchangeRates: ICollection<ExchangeRate>
+    }
+
+    class RateSource {
+        + Id: int
+        + Code: string
+        + Name: string
+        + IsActive: bool
+        + ExchangeRates: ICollection<ExchangeRate>
+    }
+
+    class ExchangeRate {
+        + Id: int
+        + CurrencyId: int
+        + RateSourceId: int
+        + BuyPrice: decimal
+        + SellPrice: decimal
+        + EffectiveDate: DateTime
+        + FetchedAt: DateTime
+    }
+}
+
+ExchangeRateDashboard --> ExchangeRateApiService
+ExchangeRateApiService --> ExchangeRatesController : HTTP
+
+ExchangeRatesController --> IExchangeRateService
+ExchangeRatesController --> IExchangeRateSyncService
+
+IExchangeRateService <|.. ExchangeRateService
+IExchangeRateSyncService <|.. ExchangeRateSyncService
+IExternalExchangeRateClient <|.. NbpExchangeRateClient
+IExternalExchangeRateClient <|.. EcbExchangeRateClient
+IExchangeRateRepository <|.. ExchangeRateRepository
+
+ExchangeRateService --> IExchangeRateRepository
+ExchangeRateSyncService --> ApplicationDbContext
+ExchangeRateSyncService --> IExternalExchangeRateClient : wybiera po SourceCode
+NbpExchangeRateClient --> ExternalExchangeRateTableDto : JSON NBP C -> DTO
+EcbExchangeRateClient --> ExternalExchangeRateTableDto : XML ECB -> PLN DTO
+ExternalExchangeRateTableDto "1" *-- "many" ExternalExchangeRateItemDto
+
+ApplicationDbContext --> Currency
+ApplicationDbContext --> RateSource
+ApplicationDbContext --> ExchangeRate
+ExchangeRateRepository --> ApplicationDbContext
+
+Currency "1" -- "many" ExchangeRate
+RateSource "1" -- "many" ExchangeRate
+
+note right of ExchangeRate
+Unikalnosc:
+CurrencyId + RateSourceId + EffectiveDate
+end note
+
+note bottom of EcbExchangeRateClient
+ECB publikuje kursy wzgledem EUR.
+Klient zapisuje do DTO kursy wzgledem PLN:
+RateToPLN = EUR_PLN / EUR_CURRENCY.
+Dla ECB BuyPrice = SellPrice.
+end note
+
+@enduml

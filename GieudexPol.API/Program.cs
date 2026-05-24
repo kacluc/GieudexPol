@@ -4,6 +4,7 @@ using GieudexPol.Application.Auth.Services;
 using GieudexPol.API.Services;
 using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Data;
+using GieudexPol.Infrastructure.ExternalServices.Ecb;
 using GieudexPol.Infrastructure.ExternalServices.Nbp;
 using GieudexPol.Infrastructure.Repositories;
 using GieudexPol.Infrastructure.Services;
@@ -92,7 +93,7 @@ builder.Services.AddScoped<ITransactionService, GieudexPol.Application.Services.
 builder.Services.AddScoped<IUserAlertService, UserAlertService>();
 builder.Services.AddScoped<IExchangeRateSyncService, ExchangeRateSyncService>();
 
-builder.Services.AddHttpClient<IExternalExchangeRateClient, NbpExchangeRateClient>(client =>
+builder.Services.AddHttpClient<NbpExchangeRateClient>(client =>
 {
     var baseUrl = builder.Configuration["NbpApi:BaseUrl"] ?? "https://api.nbp.pl/api/";
     if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
@@ -108,6 +109,23 @@ builder.Services.AddHttpClient<IExternalExchangeRateClient, NbpExchangeRateClien
     client.BaseAddress = new Uri(baseUrl);
     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 });
+
+builder.Services.AddHttpClient<EcbExchangeRateClient>(client =>
+{
+    var baseUrl = builder.Configuration["EcbApi:BaseUrl"] ?? "https://www.ecb.europa.eu/stats/eurofxref/";
+    if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
+    {
+        baseUrl += "/";
+    }
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
+});
+
+builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
+    serviceProvider.GetRequiredService<NbpExchangeRateClient>());
+builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
+    serviceProvider.GetRequiredService<EcbExchangeRateClient>());
 
 builder.Services.AddHostedService<NbpExchangeRateStartupSyncService>();
 

@@ -25,6 +25,7 @@ services:
       - Jwt__Issuer=GieudexPol
       - Jwt__Audience=GieudexPolClient
       - NbpApi__BaseUrl=https://api.nbp.pl/api/
+      - EcbApi__BaseUrl=https://www.ecb.europa.eu/stats/eurofxref/
       - NbpSync__StartDate=2026-01-01
       - PORT=80
     ports:

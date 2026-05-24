@@ -1,0 +1,116 @@
+@startuml
+title External exchange rate integration - NBP and ECB sequence
+
+actor "User" as User
+participant "ExchangeRateDashboard\nAngular /rates" as Frontend
+participant "ExchangeRateApiService" as FrontendApi
+participant "ExchangeRatesController" as Controller
+participant "NbpExchangeRateStartupSyncService\nIHostedService" as StartupSync
+participant "ExchangeRateService" as ReadService
+participant "ExchangeRateSyncService" as SyncService
+participant "IExternalExchangeRateClient[]" as Clients
+participant "NbpExchangeRateClient" as NbpClient
+participant "EcbExchangeRateClient" as EcbClient
+database "ApplicationDbContext\nSQL Server" as Db
+participant "NBP API\nTable C" as NbpApi
+participant "ECB XML\nEuro foreign exchange rates" as EcbApi
+
+== API startup ==
+
+StartupSync -> Db: wait for SQL Server on master database
+Db --> StartupSync: server available
+StartupSync -> Db: apply EF Core migrations for GieudexPolDB
+Db --> StartupSync: database current
+StartupSync -> Db: seed development data and read latest NBP date
+Db --> StartupSync: latest NBP date or null
+
+alt missing NBP data
+    StartupSync -> SyncService: SyncNbpRatesAsync(syncFrom, today)
+    SyncService -> Clients: select SourceCode == "NBP"
+    Clients --> SyncService: NbpExchangeRateClient
+    SyncService -> NbpClient: GetBuySellRatesAsync(...)
+    NbpClient -> NbpApi: GET /api/exchangerates/tables/C/{from}/{to}/?format=json
+    NbpApi --> NbpClient: bid/ask JSON
+    NbpClient --> SyncService: provider-neutral DTOs
+    SyncService -> Db: insert missing ExchangeRates for RateSource NBP
+else no missing NBP data
+    StartupSync -> StartupSync: skip startup sync
+end
+
+== Chart cache-miss flow ==
+
+User -> Frontend: opens /rates and selects currency/source/date range
+Frontend -> FrontendApi: getChartData(currency, source, from?, to?)
+FrontendApi -> Controller: GET /api/ExchangeRates/chart
+
+alt from/to missing
+    Controller -> Controller: from = Jan 1 current year, to = today
+end
+
+Controller -> ReadService: GetChartDataAsync(currency, source, from, to)
+ReadService -> Db: read local ExchangeRates for selected source only
+Db --> ReadService: chart points or empty list
+ReadService --> Controller: ExchangeRateChartResponseDto
+
+alt local data exists
+    Controller --> FrontendApi: 200 OK
+else no local data and source is NBP or ECB
+    Controller -> SyncService: SyncRatesAsync(source, from, to)
+    SyncService -> Clients: select client by SourceCode
+
+    alt source == NBP
+        Clients --> SyncService: NbpExchangeRateClient
+        loop chunks by MaxRangeDays = 93
+            SyncService -> NbpClient: GetBuySellRatesAsync(rangeFrom, rangeTo)
+            NbpClient -> NbpApi: GET NBP table C
+            NbpApi --> NbpClient: JSON bid/ask rates
+            NbpClient --> SyncService: ExternalExchangeRateTableDto[]
+        end
+    else source == ECB
+        Clients --> SyncService: EcbExchangeRateClient
+        SyncService -> EcbClient: GetBuySellRatesAsync(from, to)
+        EcbClient -> EcbApi: GET eurofxref-hist.xml
+        EcbApi --> EcbClient: XML Cube rates relative to EUR
+        EcbClient -> EcbClient: filter dates from..to
+        EcbClient -> EcbClient: EUR_PLN / EUR_CURRENCY
+        EcbClient -> EcbClient: BuyPrice = SellPrice = PLN-relative rate
+        EcbClient --> SyncService: ExternalExchangeRateTableDto[]
+    end
+
+    SyncService -> Db: get/create RateSource(source)
+    SyncService -> Db: add missing Currency rows
+    SyncService -> Db: add new ExchangeRates, skip duplicates
+    SyncService -> Db: SaveChangesAsync()
+    Db --> SyncService: saved
+    SyncService --> Controller: NbpSyncResultDto
+
+    Controller -> ReadService: GetChartDataAsync(currency, source, from, to)
+    ReadService -> Db: read newly saved source-specific data
+    Db --> ReadService: chart points
+    ReadService --> Controller: ExchangeRateChartResponseDto
+    Controller --> FrontendApi: 200 OK
+end
+
+FrontendApi --> Frontend: chart response
+
+== Latest cache-miss flow ==
+
+Frontend -> FrontendApi: getLatestRates(source, currency?)
+FrontendApi -> Controller: GET /api/ExchangeRates/latest
+Controller -> ReadService: GetLatestRatesAsync(source, currency?)
+ReadService -> Db: read newest rows for selected source
+Db --> ReadService: latest rows or empty list
+
+alt no rows or no rows from current year
+    Controller -> SyncService: SyncCurrentYearRatesAsync(source)
+    SyncService -> SyncService: from = Jan 1 current year, to = today
+    SyncService -> Clients: select NBP or ECB client
+    SyncService -> Db: persist missing current-year rates
+    Controller -> ReadService: GetLatestRatesAsync(source, currency?)
+end
+
+Controller --> FrontendApi: 200 OK
+FrontendApi --> Frontend: latest rows
+Frontend -> Frontend: render PLN-relative buy/sell chart and table
+
+@enduml

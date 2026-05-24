@@ -74,9 +74,9 @@ namespace GieudexPol.Application.Services
             };
         }
 
-        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode)
+        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode, string? currencyCode = null)
         {
-            return await _exchangeRateRepository.GetLatestRatesAsync(sourceCode);
+            return await _exchangeRateRepository.GetLatestRatesAsync(sourceCode, currencyCode);
         }
     }
 }

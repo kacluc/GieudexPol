@@ -146,6 +146,73 @@ namespace GieudexPol.Tests
             result.Added.Should().Be(0);
         }
 
+        [Fact]
+        public async Task SyncRatesAsync_ShouldSelectEcbClientBySourceCode()
+        {
+            await using var context = CreateContext();
+            var nbpClient = new FakeExternalExchangeRateClient();
+            var ecbClient = new FakeExternalExchangeRateClient
+            {
+                SourceCode = "ECB",
+                SourceName = "European Central Bank",
+                TablesToReturn =
+                [
+                    new ExternalExchangeRateTableDto
+                    {
+                        Table = "ECB",
+                        Number = "ECB/2026-01-02",
+                        EffectiveDate = new DateTime(2026, 1, 2),
+                        Rates =
+                        [
+                            new ExternalExchangeRateItemDto
+                            {
+                                CurrencyCode = "USD",
+                                CurrencyName = "USD",
+                                BuyPrice = 3.8636m,
+                                SellPrice = 3.8636m
+                            }
+                        ]
+                    }
+                ]
+            };
+            var service = CreateService(context, nbpClient, ecbClient);
+
+            var result = await service.SyncRatesAsync(
+                "ECB",
+                new DateTime(2026, 1, 1),
+                new DateTime(2026, 1, 2));
+
+            result.Added.Should().Be(1);
+            nbpClient.RequestedRanges.Should().BeEmpty();
+            ecbClient.RequestedRanges.Should().ContainSingle()
+                .Which.Should().Be((new DateTime(2026, 1, 1), new DateTime(2026, 1, 2)));
+
+            var rateSource = await context.RateSources.SingleAsync();
+            rateSource.Code.Should().Be("ECB");
+            rateSource.Name.Should().Be("European Central Bank");
+        }
+
+        [Fact]
+        public async Task SyncNbpRatesAsync_ShouldStillSelectNbpClient()
+        {
+            await using var context = CreateContext();
+            var nbpClient = new FakeExternalExchangeRateClient();
+            var ecbClient = new FakeExternalExchangeRateClient
+            {
+                SourceCode = "ECB",
+                SourceName = "European Central Bank"
+            };
+            var service = CreateService(context, nbpClient, ecbClient);
+
+            await service.SyncNbpRatesAsync(
+                new DateTime(2026, 1, 1),
+                new DateTime(2026, 1, 2));
+
+            nbpClient.RequestedRanges.Should().ContainSingle()
+                .Which.Should().Be((new DateTime(2026, 1, 1), new DateTime(2026, 1, 2)));
+            ecbClient.RequestedRanges.Should().BeEmpty();
+        }
+
         private static ApplicationDbContext CreateContext()
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -157,11 +224,11 @@ namespace GieudexPol.Tests
 
         private static ExchangeRateSyncService CreateService(
             ApplicationDbContext context,
-            IExternalExchangeRateClient client)
+            params IExternalExchangeRateClient[] clients)
         {
             return new ExchangeRateSyncService(
                 context,
-                client,
+                clients,
                 NullLogger<ExchangeRateSyncService>.Instance);
         }
 

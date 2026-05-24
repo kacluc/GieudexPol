@@ -9,17 +9,27 @@ namespace GieudexPol.Infrastructure.Services
     public class ExchangeRateSyncService : IExchangeRateSyncService
     {
         private readonly ApplicationDbContext _context;
-        private readonly IExternalExchangeRateClient _exchangeRateClient;
+        private readonly IEnumerable<IExternalExchangeRateClient> _exchangeRateClients;
         private readonly ILogger<ExchangeRateSyncService> _logger;
 
         public ExchangeRateSyncService(
             ApplicationDbContext context,
-            IExternalExchangeRateClient exchangeRateClient,
+            IEnumerable<IExternalExchangeRateClient> exchangeRateClients,
             ILogger<ExchangeRateSyncService> logger)
         {
             _context = context;
-            _exchangeRateClient = exchangeRateClient;
+            _exchangeRateClients = exchangeRateClients;
             _logger = logger;
+        }
+
+        public Task<NbpSyncResultDto> SyncCurrentYearRatesAsync(
+            string sourceCode,
+            CancellationToken cancellationToken = default)
+        {
+            var from = new DateTime(DateTime.Today.Year, 1, 1);
+            var to = DateTime.Today;
+
+            return SyncRatesAsync(sourceCode, from, to, cancellationToken);
         }
 
         public async Task<NbpSyncResultDto> SyncNbpRatesAsync(
@@ -27,8 +37,18 @@ namespace GieudexPol.Infrastructure.Services
             DateTime to,
             CancellationToken cancellationToken = default)
         {
+            return await SyncRatesAsync("NBP", from, to, cancellationToken);
+        }
+
+        public async Task<NbpSyncResultDto> SyncRatesAsync(
+            string sourceCode,
+            DateTime from,
+            DateTime to,
+            CancellationToken cancellationToken = default)
+        {
             from = from.Date;
             to = to.Date;
+            sourceCode = sourceCode.Trim().ToUpperInvariant();
 
             if (from > to)
             {
@@ -41,6 +61,14 @@ namespace GieudexPol.Infrastructure.Services
                 throw new ArgumentException("To date cannot be later than today.");
             }
 
+            var exchangeRateClient = _exchangeRateClients.SingleOrDefault(client =>
+                string.Equals(client.SourceCode, sourceCode, StringComparison.OrdinalIgnoreCase));
+
+            if (exchangeRateClient == null)
+            {
+                throw new InvalidOperationException($"Exchange rate source '{sourceCode}' is not supported.");
+            }
+
             var result = new NbpSyncResultDto
             {
                 From = from,
@@ -49,33 +77,33 @@ namespace GieudexPol.Infrastructure.Services
 
             _logger.LogInformation(
                 "Starting {SourceCode} exchange rate sync from {From} to {To}.",
-                _exchangeRateClient.SourceCode,
+                exchangeRateClient.SourceCode,
                 from,
                 to);
 
-            var rateSource = await GetOrCreateRateSourceAsync(cancellationToken);
+            var rateSource = await GetOrCreateRateSourceAsync(exchangeRateClient, cancellationToken);
             var currencies = await _context.Currencies.ToDictionaryAsync(
                 currency => currency.Symbol,
                 cancellationToken);
             var existingRates = await LoadExistingRateKeysAsync(rateSource.Id, from, to, cancellationToken);
 
-            foreach (var (rangeFrom, rangeTo) in SplitIntoRanges(from, to, _exchangeRateClient.MaxRangeDays))
+            foreach (var (rangeFrom, rangeTo) in SplitIntoRanges(from, to, exchangeRateClient.MaxRangeDays))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var rangeLabel = $"{rangeFrom:yyyy-MM-dd} - {rangeTo:yyyy-MM-dd}";
                 result.ProcessedRanges.Add(rangeLabel);
-                _logger.LogInformation("Fetching {SourceCode} buy/sell rates range {Range}.", _exchangeRateClient.SourceCode, rangeLabel);
+                _logger.LogInformation("Fetching {SourceCode} exchange rates range {Range}.", exchangeRateClient.SourceCode, rangeLabel);
 
                 IReadOnlyList<ExternalExchangeRateTableDto> tables;
                 try
                 {
-                    tables = await _exchangeRateClient.GetBuySellRatesAsync(rangeFrom, rangeTo, cancellationToken);
+                    tables = await exchangeRateClient.GetBuySellRatesAsync(rangeFrom, rangeTo, cancellationToken);
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException)
                 {
                     result.Warnings.Add($"Range {rangeLabel}: {ex.Message}");
-                    _logger.LogWarning(ex, "{SourceCode} range {Range} failed.", _exchangeRateClient.SourceCode, rangeLabel);
+                    _logger.LogWarning(ex, "{SourceCode} range {Range} failed.", exchangeRateClient.SourceCode, rangeLabel);
                     continue;
                 }
 
@@ -83,7 +111,7 @@ namespace GieudexPol.Infrastructure.Services
 
                 if (tables.Count == 0)
                 {
-                    result.Warnings.Add($"Range {rangeLabel}: {_exchangeRateClient.SourceCode} returned no buy/sell rate data.");
+                    result.Warnings.Add($"Range {rangeLabel}: {exchangeRateClient.SourceCode} returned no exchange rate data.");
                     continue;
                 }
 
@@ -135,7 +163,7 @@ namespace GieudexPol.Infrastructure.Services
 
             _logger.LogInformation(
                 "Finished {SourceCode} exchange rate sync. Added {Added}, skipped {Skipped}, tables fetched {TablesFetched}.",
-                _exchangeRateClient.SourceCode,
+                exchangeRateClient.SourceCode,
                 result.Added,
                 result.Skipped,
                 result.TablesFetched);
@@ -143,22 +171,24 @@ namespace GieudexPol.Infrastructure.Services
             return result;
         }
 
-        private async Task<RateSource> GetOrCreateRateSourceAsync(CancellationToken cancellationToken)
+        private async Task<RateSource> GetOrCreateRateSourceAsync(
+            IExternalExchangeRateClient exchangeRateClient,
+            CancellationToken cancellationToken)
         {
             var rateSource = await _context.RateSources
-                .FirstOrDefaultAsync(source => source.Code == _exchangeRateClient.SourceCode, cancellationToken);
+                .FirstOrDefaultAsync(source => source.Code == exchangeRateClient.SourceCode, cancellationToken);
 
             if (rateSource != null)
             {
-                rateSource.Name = _exchangeRateClient.SourceName;
+                rateSource.Name = exchangeRateClient.SourceName;
                 rateSource.IsActive = true;
                 return rateSource;
             }
 
             rateSource = new RateSource
             {
-                Code = _exchangeRateClient.SourceCode,
-                Name = _exchangeRateClient.SourceName,
+                Code = exchangeRateClient.SourceCode,
+                Name = exchangeRateClient.SourceName,
                 IsActive = true
             };
 
@@ -191,6 +221,11 @@ namespace GieudexPol.Infrastructure.Services
 
         private static IEnumerable<(DateTime From, DateTime To)> SplitIntoRanges(DateTime from, DateTime to, int maxRangeDays)
         {
+            if (maxRangeDays <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxRangeDays), "Max range days must be greater than zero.");
+            }
+
             var rangeFrom = from.Date;
 
             while (rangeFrom <= to.Date)

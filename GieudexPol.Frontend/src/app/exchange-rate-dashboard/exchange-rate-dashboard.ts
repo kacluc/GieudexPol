@@ -17,6 +17,7 @@ import { ExchangeRateApiService } from '../services/exchange-rate-api.service';
 })
 export class ExchangeRateDashboard implements OnInit {
   private readonly nbpSourceCode = 'NBP';
+  private readonly ecbSourceCode = 'ECB';
   private readonly mockSourceCode = 'MOCK_BANK_A';
   private readonly nbpBuySellCurrencyCodes = new Set([
     'AUD',
@@ -30,6 +31,23 @@ export class ExchangeRateDashboard implements OnInit {
     'JPY',
     'NOK',
     'SEK',
+    'USD',
+  ]);
+  private readonly ecbCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
     'USD',
   ]);
   readonly currencies = [
@@ -58,6 +76,10 @@ export class ExchangeRateDashboard implements OnInit {
     {
       code: 'NBP',
       label: 'NBP - realne kursy',
+    },
+    {
+      code: 'ECB',
+      label: 'ECB - kursy referencyjne',
     },
   ];
   readonly rangePresets = [
@@ -346,6 +368,10 @@ export class ExchangeRateDashboard implements OnInit {
 
     if (sourceCode === this.nbpSourceCode) {
       return this.nbpBuySellCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.ecbSourceCode) {
+      return this.ecbCurrencyCodes.has(currencyCode);
     }
 
     return false;

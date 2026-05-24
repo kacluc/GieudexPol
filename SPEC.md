@@ -156,93 +156,37 @@ src/app/
     2.  `docker-compose up -d` (Builds all necessary services: DB, API, Frontend).
 *   **Database Initialization:** Use `dotnet ef database update` to apply migrations and seed initial data if needed.
 
-## 6. External Exchange Rate Integration
+## 6. Exchange Rate Source Integration
 
 ### Purpose
 
-The exchange rate module is responsible for importing buy and sell currency rates from external providers, storing them in the local SQL Server database, and exposing the stored data to the Angular frontend. The frontend does not call external providers directly. It communicates only with the GieudexPol backend.
+The exchange rate module imports currency rates from external providers, stores them in SQL Server, and exposes one consistent API shape to the Angular `/rates` view. The frontend never calls NBP or ECB directly. It asks the backend, and the backend decides whether data can be read from the local database or must be synchronized first.
 
-The first supported external provider is:
+Supported sources:
 
-*   `NBP` - Narodowy Bank Polski, using table `C`, because table `C` contains buy (`bid`) and sell (`ask`) rates.
-
-The implementation is intentionally provider-oriented instead of NBP-only. External providers are represented by the common `IExternalExchangeRateClient` interface. NBP is currently one implementation: `NbpExchangeRateClient`.
+*   `NBP` - Narodowy Bank Polski, table `C`, buy and sell rates.
+*   `ECB` - European Central Bank, official XML reference rates.
+*   `MOCK_BANK_A` - development seed data used as a mock bank source.
 
 ### Main Design Rules
 
-*   External exchange rate providers are hidden behind `IExternalExchangeRateClient`.
-*   Provider-specific HTTP details stay in Infrastructure, for example `NbpExchangeRateClient`.
-*   Synchronization logic is handled by `ExchangeRateSyncService`.
-*   Rates are saved to `ExchangeRates` and linked to `Currencies` and `RateSources`.
-*   Frontend reads rates only from backend endpoints.
-*   Local database is the source of truth for charts and latest-rate tables.
-*   Duplicate rates are skipped by the unique key: `CurrencyId + RateSourceId + EffectiveDate`.
+*   External sources implement the shared `IExternalExchangeRateClient` contract.
+*   `ExchangeRateSyncService` receives `IEnumerable<IExternalExchangeRateClient>` and selects a client by `SourceCode`.
+*   Rates from every source are stored in the same `ExchangeRates` table.
+*   Source identity is stored through `RateSource`.
+*   The logical duplicate key is `CurrencyId + RateSourceId + EffectiveDate`.
+*   Chart data for `source=ECB` contains only ECB rows; chart data for `source=NBP` contains only NBP rows.
+*   All persisted and returned rates are PLN-relative.
 
-### Startup Synchronization
+### NBP Source
 
-When the API starts, `NbpExchangeRateStartupSyncService` runs in the background as an `IHostedService`.
+NBP uses table `C`:
 
-Startup flow:
-
-1.  The API waits until the database is reachable.
-2.  EF Core migrations are applied automatically.
-3.  The service checks the latest locally stored `ExchangeRate` for `RateSource.Code = "NBP"`.
-4.  If no NBP rates exist, synchronization starts from `NbpSync:StartDate`, currently `2026-01-01`.
-5.  If rates already exist, synchronization starts from the day after the latest stored NBP rate.
-6.  The synchronization range ends at `DateTime.Today`.
-7.  If the database or external API is unavailable, the API still starts and logs a warning.
-
-This means the first application run fills the database from the configured start date, and later runs only append missing days.
-
-### External Provider Contract
-
-The common contract is:
-
-```csharp
-public interface IExternalExchangeRateClient
-{
-    string SourceCode { get; }
-    string SourceName { get; }
-    int MaxRangeDays { get; }
-
-    Task<IReadOnlyList<ExternalExchangeRateTableDto>> GetBuySellRatesAsync(
-        DateTime from,
-        DateTime to,
-        CancellationToken cancellationToken = default);
-}
+```text
+https://api.nbp.pl/api/exchangerates/tables/C/{from}/{to}/?format=json
 ```
 
-For NBP:
-
-*   `SourceCode = "NBP"`
-*   `SourceName = "Narodowy Bank Polski"`
-*   `MaxRangeDays = 93`
-*   API base URL: `https://api.nbp.pl/api/`
-*   endpoint pattern: `exchangerates/tables/C/{from}/{to}/?format=json`
-
-The NBP response is mapped to provider-neutral DTOs:
-
-*   `ExternalExchangeRateTableDto`
-*   `ExternalExchangeRateItemDto`
-
-This lets future providers reuse the same synchronization service. A new provider should implement `IExternalExchangeRateClient` and map its own response format into the common DTO model.
-
-### Synchronization Logic
-
-`ExchangeRateSyncService` performs the actual import:
-
-1.  Validates the date range.
-2.  Finds or creates a `RateSource` for the provider.
-3.  Loads existing rates for the provider and selected date range.
-4.  Splits the date range into provider-supported chunks.
-5.  Calls `IExternalExchangeRateClient.GetBuySellRatesAsync`.
-6.  Creates missing `Currency` rows.
-7.  Adds new `ExchangeRate` rows.
-8.  Skips existing rates for the same currency, source and effective date.
-9.  Saves changes to the database.
-10. Returns a synchronization result with added/skipped counters, processed ranges and warnings.
-
-For NBP, table `C` provides:
+Mapping:
 
 *   `code` -> `Currency.Symbol`
 *   `currency` -> `Currency.Name`
@@ -250,48 +194,92 @@ For NBP, table `C` provides:
 *   `ask` -> `ExchangeRate.SellPrice`
 *   `effectiveDate` -> `ExchangeRate.EffectiveDate`
 
+### ECB Source
+
+ECB uses the official XML file:
+
+```text
+https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml
+```
+
+The XML is parsed from `Cube` elements:
+
+*   day node: `Cube time="yyyy-MM-dd"`
+*   rate node: `Cube currency="USD" rate="1.10"`
+
+ECB publishes rates relative to EUR. Before saving anything to `ExchangeRates`, the backend converts each value to PLN-relative:
+
+```text
+RateToPLN(currency) = EUR_PLN / EUR_CURRENCY
+```
+
+Example:
+
+```text
+1 EUR = 4.25 PLN
+1 EUR = 1.10 USD
+1 USD = 4.25 / 1.10 PLN
+```
+
+Special cases:
+
+*   `RateToPLN(EUR) = EUR_PLN`
+*   If a given ECB day has no `PLN` rate, that day is skipped.
+*   ECB does not publish bid/ask, so `BuyPrice = RateToPLN` and `SellPrice = RateToPLN`.
+*   No artificial spread is created for ECB.
+
+ECB does not publish on weekends and holidays. Missing weekend points are not filled artificially.
+
+### Default Date Range
+
+If `from` or `to` is not provided, the backend uses:
+
+```csharp
+from = new DateTime(DateTime.Today.Year, 1, 1);
+to = DateTime.Today;
+```
+
+This applies to chart data, latest-rate cache misses, and manual ECB synchronization.
+
+### Cache-Miss Flow
+
+For chart data:
+
+1.  Frontend calls `/api/ExchangeRates/chart`.
+2.  Backend reads `ExchangeRates` for selected `currency + source + date range`.
+3.  If local points exist, backend returns them.
+4.  If points are missing and the source is syncable (`NBP` or `ECB`), backend calls `SyncRatesAsync(source, from, to)`.
+5.  Synchronization fetches missing external data, stores it in `ExchangeRates`, then the backend reads the database again.
+6.  Backend returns only rows from the selected source.
+
+For latest data:
+
+1.  Backend reads the newest local row for selected source and optional currency.
+2.  If there is no data or no data from the current year, backend calls `SyncCurrentYearRatesAsync(source)`.
+3.  Backend returns the newest available publication day. Today does not have to exist.
+
 ### Backend Endpoints
 
-The frontend uses the following backend endpoints:
-
 ```http
-GET /api/ExchangeRates/chart?currency=EUR&source=NBP&from=2026-01-01&to=2026-05-18
-```
-
-Returns chart points from the local database.
-
-```http
+GET /api/ExchangeRates/chart?currency=EUR&source=NBP&from=2026-01-01&to=2026-05-24
+GET /api/ExchangeRates/chart?currency=USD&source=ECB
 GET /api/ExchangeRates/latest?source=NBP
+GET /api/ExchangeRates/latest?source=ECB&currency=USD
+POST /api/ExchangeRates/sync/nbp?from=2026-01-01&to=2026-05-24
+POST /api/ExchangeRates/sync/ecb
+POST /api/ExchangeRates/sync/ecb?from=2026-01-01&to=2026-05-24
+POST /api/ExchangeRates/sync/{sourceCode}
 ```
-
-Returns the newest locally stored rate for each currency from the selected source.
-
-```http
-POST /api/ExchangeRates/sync/nbp?from=2026-01-01&to=2026-05-18
-```
-
-Manually triggers NBP synchronization. This endpoint still contains `nbp` in the route because NBP is currently the only external provider exposed for manual sync. The internal synchronization design is provider-neutral.
-
-### Frontend Display
-
-The Angular route `/rates` displays the exchange rate dashboard without authentication guard for development and testing.
-
-The view:
-
-*   lets the user choose currency, source and date range,
-*   loads chart data from `/api/ExchangeRates/chart`,
-*   loads the latest table from `/api/ExchangeRates/latest`,
-*   can trigger NBP synchronization when local NBP chart data is missing,
-*   renders buy and sell prices from backend DTOs.
 
 ### Configuration
-
-Relevant configuration values:
 
 ```json
 {
   "NbpApi": {
     "BaseUrl": "https://api.nbp.pl/api/"
+  },
+  "EcbApi": {
+    "BaseUrl": "https://www.ecb.europa.eu/stats/eurofxref/"
   },
   "NbpSync": {
     "StartDate": "2026-01-01"
@@ -303,12 +291,23 @@ Docker Compose passes the same values through environment variables:
 
 ```text
 NbpApi__BaseUrl=https://api.nbp.pl/api/
+EcbApi__BaseUrl=https://www.ecb.europa.eu/stats/eurofxref/
 NbpSync__StartDate=2026-01-01
 ```
 
-### Diagrams
+### PlantUML Documentation
 
-PlantUML diagrams for this module:
+Detailed diagrams for exchange-rate downloading are isolated in:
 
-*   `UML/ExternalExchangeRateClassDiagram.puml` - class diagram for the external exchange rate integration.
-*   `UML/ExternalExchangeRateSequence.puml` - sequence diagram for startup sync, manual sync and frontend read flow.
+```text
+UML/KursyWalut/
+```
+
+Relevant files:
+
+*   `UML/KursyWalut/SpecyfikacjaPobieraniaKursow.md`
+*   `UML/KursyWalut/PobieranieKursowSequence.puml`
+*   `UML/KursyWalut/PobieranieKursowClassDiagram.puml`
+*   `UML/KursyWalut/IntegracjaZrodelSequence.puml`
+*   `UML/KursyWalut/IntegracjaZrodelClassDiagram.puml`
+*   `UML/KursyWalut/PrzypadkiUzyciaPobieraniaKursow.puml`

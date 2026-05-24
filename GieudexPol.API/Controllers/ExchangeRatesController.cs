@@ -11,6 +11,11 @@ namespace GieudexPol.API.Controllers
     public class ExchangeRatesController : ControllerBase
     {
         private static readonly DateTime MinimumSyncDate = new DateTime(2026, 1, 1);
+        private static readonly HashSet<string> SyncableSources = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "NBP",
+            "ECB"
+        };
 
         private readonly IExchangeRateService _exchangeRateService;
         private readonly IExchangeRateSyncService _exchangeRateSyncService;
@@ -38,8 +43,9 @@ namespace GieudexPol.API.Controllers
         public async Task<IActionResult> GetChartData(
             [FromQuery] string currency,
             [FromQuery] string source,
-            [FromQuery] DateTime from,
-            [FromQuery] DateTime to)
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(currency))
             {
@@ -51,29 +57,85 @@ namespace GieudexPol.API.Controllers
                 return BadRequest("Source query parameter is required.");
             }
 
-            if (from > to)
+            var (resolvedFrom, resolvedTo) = ResolveDateRange(from, to);
+
+            if (resolvedFrom > resolvedTo)
             {
                 return BadRequest("From date cannot be later than to date.");
             }
 
+            if (resolvedTo > DateTime.Today)
+            {
+                return BadRequest("To date cannot be later than today.");
+            }
+
+            var currencyCode = currency.Trim().ToUpperInvariant();
+            var sourceCode = source.Trim().ToUpperInvariant();
+
             var chartData = await _exchangeRateService.GetChartDataAsync(
-                currency.Trim().ToUpperInvariant(),
-                source.Trim().ToUpperInvariant(),
-                from.Date,
-                to.Date);
+                currencyCode,
+                sourceCode,
+                resolvedFrom,
+                resolvedTo);
+
+            if (chartData.Points.Count == 0 && IsSyncableSource(sourceCode))
+            {
+                try
+                {
+                    await _exchangeRateSyncService.SyncRatesAsync(
+                        sourceCode,
+                        resolvedFrom,
+                        resolvedTo,
+                        cancellationToken);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(ex.Message);
+                }
+
+                chartData = await _exchangeRateService.GetChartDataAsync(
+                    currencyCode,
+                    sourceCode,
+                    resolvedFrom,
+                    resolvedTo);
+            }
 
             return Ok(chartData);
         }
 
         [HttpGet("latest")]
-        public async Task<IActionResult> GetLatestRates([FromQuery] string source = "NBP")
+        public async Task<IActionResult> GetLatestRates(
+            [FromQuery] string source = "NBP",
+            [FromQuery] string? currency = null,
+            CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(source))
             {
                 source = "NBP";
             }
 
-            var rates = await _exchangeRateService.GetLatestRatesAsync(source.Trim().ToUpperInvariant());
+            var sourceCode = source.Trim().ToUpperInvariant();
+            var currencyCode = string.IsNullOrWhiteSpace(currency)
+                ? null
+                : currency.Trim().ToUpperInvariant();
+
+            var rates = (await _exchangeRateService.GetLatestRatesAsync(sourceCode, currencyCode)).ToList();
+            var currentYearStart = new DateTime(DateTime.Today.Year, 1, 1);
+
+            if ((!rates.Any() || rates.All(rate => rate.EffectiveDate < currentYearStart)) && IsSyncableSource(sourceCode))
+            {
+                try
+                {
+                    await _exchangeRateSyncService.SyncCurrentYearRatesAsync(sourceCode, cancellationToken);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(ex.Message);
+                }
+
+                rates = (await _exchangeRateService.GetLatestRatesAsync(sourceCode, currencyCode)).ToList();
+            }
+
             return Ok(rates);
         }
 
@@ -113,6 +175,66 @@ namespace GieudexPol.API.Controllers
             return Ok(result);
         }
 
+        [HttpPost("sync/ecb")]
+        public async Task<IActionResult> SyncEcbRates(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
+        {
+            return await SyncRatesBySource("ECB", from, to, cancellationToken);
+        }
+
+        [HttpPost("sync/{sourceCode}")]
+        public async Task<IActionResult> SyncRatesBySource(
+            string sourceCode,
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(sourceCode))
+            {
+                return BadRequest("Source code is required.");
+            }
+
+            sourceCode = sourceCode.Trim().ToUpperInvariant();
+            if (!IsSyncableSource(sourceCode))
+            {
+                return BadRequest($"Exchange rate source '{sourceCode}' is not supported for synchronization.");
+            }
+
+            var (resolvedFrom, resolvedTo) = ResolveDateRange(from, to);
+
+            if (resolvedFrom > resolvedTo)
+            {
+                return BadRequest("From date cannot be later than to date.");
+            }
+
+            if (resolvedTo > DateTime.Today)
+            {
+                return BadRequest("To date cannot be later than today.");
+            }
+
+            if (sourceCode == "NBP" && resolvedFrom < MinimumSyncDate)
+            {
+                return BadRequest("NBP sync from date cannot be earlier than 2026-01-01.");
+            }
+
+            try
+            {
+                var result = await _exchangeRateSyncService.SyncRatesAsync(
+                    sourceCode,
+                    resolvedFrom,
+                    resolvedTo,
+                    cancellationToken);
+
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateExchangeRate([FromBody] ExchangeRate exchangeRate)
         {
@@ -141,6 +263,19 @@ namespace GieudexPol.API.Controllers
             }
             await _exchangeRateService.DeleteAsync(exchangeRate);
             return NoContent();
+        }
+
+        private static (DateTime From, DateTime To) ResolveDateRange(DateTime? from, DateTime? to)
+        {
+            var today = DateTime.Today;
+            return (
+                from?.Date ?? new DateTime(today.Year, 1, 1),
+                to?.Date ?? today);
+        }
+
+        private static bool IsSyncableSource(string sourceCode)
+        {
+            return SyncableSources.Contains(sourceCode);
         }
     }
 }

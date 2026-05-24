@@ -14,8 +14,8 @@ package "Frontend Angular" {
         - latestRates: ExchangeRateTableRow[]
         + fetchData(): Promise<void>
         + onSourceChange(source: string): void
-        - fetchDataWithOptionalNbpSync(): Promise<void>
-        - runNbpSync(): Promise<boolean>
+        + selectCurrency(currency: string): void
+        + isCurrencyAvailableForSource(currencyCode: string, sourceCode: string): boolean
         - loadDataFromBackend(): Promise<void>
     }
 
@@ -31,28 +31,30 @@ package "API" {
     class ExchangeRatesController <<controller>> {
         - _exchangeRateService: IExchangeRateService
         - _exchangeRateSyncService: IExchangeRateSyncService
-        + GetChartData(currency: string, source: string, from: DateTime, to: DateTime)
-        + GetLatestRates(source: string)
+        + GetChartData(currency: string, source: string, from: DateTime?, to: DateTime?)
+        + GetLatestRates(source: string, currency: string?)
         + SyncNbpRates(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncEcbRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncRatesBySource(sourceCode: string, from: DateTime?, to: DateTime?)
     }
 
     class NbpExchangeRateStartupSyncService <<hosted service>> {
-        - _scopeFactory: IServiceScopeFactory
-        - _configuration: IConfiguration
         + StartAsync(cancellationToken: CancellationToken)
         + StopAsync(cancellationToken: CancellationToken)
         - GetNextMissingDateAsync(context: ApplicationDbContext, cancellationToken: CancellationToken)
-        - WaitForDatabaseAsync(context: ApplicationDbContext, cancellationToken: CancellationToken)
+        - WaitForDatabaseServerAsync(context: ApplicationDbContext, cancellationToken: CancellationToken)
     }
 }
 
 package "Application.Interfaces" {
     interface IExchangeRateService {
         + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
-        + GetLatestRatesAsync(sourceCode: string)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
     }
 
     interface IExchangeRateSyncService {
+        + SyncRatesAsync(sourceCode: string, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncCurrentYearRatesAsync(sourceCode: string, cancellationToken: CancellationToken)
         + SyncNbpRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
     }
 
@@ -65,7 +67,7 @@ package "Application.Interfaces" {
 
     interface IExchangeRateRepository {
         + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
-        + GetLatestRatesAsync(sourceCode: string)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
         + ExistsAsync(currencyId: int, rateSourceId: int, effectiveDate: DateTime)
     }
 }
@@ -74,7 +76,7 @@ package "Application.Services" {
     class ExchangeRateService <<service>> {
         - _exchangeRateRepository: IExchangeRateRepository
         + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
-        + GetLatestRatesAsync(sourceCode: string)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
     }
 }
 
@@ -131,9 +133,11 @@ package "Application.DTOs" {
 package "Infrastructure.Services" {
     class ExchangeRateSyncService <<service>> {
         - _context: ApplicationDbContext
-        - _exchangeRateClient: IExternalExchangeRateClient
+        - _exchangeRateClients: IEnumerable<IExternalExchangeRateClient>
+        + SyncRatesAsync(sourceCode: string, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncCurrentYearRatesAsync(sourceCode: string, cancellationToken: CancellationToken)
         + SyncNbpRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
-        - GetOrCreateRateSourceAsync(cancellationToken: CancellationToken)
+        - GetOrCreateRateSourceAsync(client: IExternalExchangeRateClient, cancellationToken: CancellationToken)
         - LoadExistingRateKeysAsync(rateSourceId: int, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
         - SplitIntoRanges(from: DateTime, to: DateTime, maxRangeDays: int)
     }
@@ -141,11 +145,18 @@ package "Infrastructure.Services" {
 
 package "Infrastructure.ExternalServices" {
     class NbpExchangeRateClient <<external provider client>> {
-        - _httpClient: HttpClient
         + SourceCode: string = "NBP"
         + SourceName: string = "Narodowy Bank Polski"
         + MaxRangeDays: int = 93
         + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+    }
+
+    class EcbExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "ECB"
+        + SourceName: string = "European Central Bank"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParseHistoricalRates(document: XDocument, from: DateTime, to: DateTime)
     }
 }
 
@@ -159,7 +170,7 @@ package "Infrastructure.Persistence" {
 
     class ExchangeRateRepository <<repository>> {
         + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
-        + GetLatestRatesAsync(sourceCode: string)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
         + ExistsAsync(currencyId: int, rateSourceId: int, effectiveDate: DateTime)
     }
 }
@@ -195,20 +206,21 @@ package "Domain.Entities" {
 ExchangeRateDashboard --> ExchangeRateApiService : uses
 ExchangeRateApiService --> ExchangeRatesController : HTTP
 
-ExchangeRatesController --> IExchangeRateService : reads local data
-ExchangeRatesController --> IExchangeRateSyncService : manual sync
-NbpExchangeRateStartupSyncService --> IExchangeRateSyncService : startup sync
-NbpExchangeRateStartupSyncService --> ApplicationDbContext : finds latest local date
+ExchangeRatesController --> IExchangeRateService : read DB first
+ExchangeRatesController --> IExchangeRateSyncService : cache-miss/manual sync
+NbpExchangeRateStartupSyncService --> IExchangeRateSyncService : startup NBP sync
 
 IExchangeRateService <|.. ExchangeRateService
 IExchangeRateSyncService <|.. ExchangeRateSyncService
 IExternalExchangeRateClient <|.. NbpExchangeRateClient
+IExternalExchangeRateClient <|.. EcbExchangeRateClient
 IExchangeRateRepository <|.. ExchangeRateRepository
 
 ExchangeRateService --> IExchangeRateRepository
 ExchangeRateSyncService --> ApplicationDbContext
-ExchangeRateSyncService --> IExternalExchangeRateClient
-NbpExchangeRateClient --> ExternalExchangeRateTableDto
+ExchangeRateSyncService --> IExternalExchangeRateClient : SourceCode lookup
+NbpExchangeRateClient --> ExternalExchangeRateTableDto : JSON table C bid/ask
+EcbExchangeRateClient --> ExternalExchangeRateTableDto : XML mid -> PLN
 ExternalExchangeRateTableDto "1" *-- "many" ExternalExchangeRateItemDto
 
 ApplicationDbContext --> Currency
@@ -229,9 +241,11 @@ Unique database key:
 CurrencyId + RateSourceId + EffectiveDate
 end note
 
-note bottom of IExternalExchangeRateClient
-New providers should implement this interface
-and map their API responses into provider-neutral DTOs.
+note bottom of EcbExchangeRateClient
+ECB data is EUR-relative.
+Application stores PLN-relative rates:
+RateToPLN = EUR_PLN / EUR_CURRENCY.
+BuyPrice = SellPrice for ECB.
 end note
 
 @enduml
