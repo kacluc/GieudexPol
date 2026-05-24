@@ -17,7 +17,39 @@ import { ExchangeRateApiService } from '../services/exchange-rate-api.service';
 })
 export class ExchangeRateDashboard implements OnInit {
   private readonly nbpSourceCode = 'NBP';
-  readonly currencies = ['EUR', 'USD', 'CHF', 'GBP'];
+  private readonly mockSourceCode = 'MOCK_BANK_A';
+  private readonly nbpBuySellCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'NOK',
+    'SEK',
+    'USD',
+  ]);
+  readonly currencies = [
+    { code: 'EUR', label: 'Euro' },
+    { code: 'USD', label: 'Dolar amerykanski' },
+    { code: 'CHF', label: 'Frank szwajcarski' },
+    { code: 'GBP', label: 'Funt brytyjski' },
+    { code: 'HUF', label: 'Forint wegierski' },
+    { code: 'CZK', label: 'Korona czeska' },
+    { code: 'DKK', label: 'Korona dunska' },
+    { code: 'SEK', label: 'Korona szwedzka' },
+    { code: 'NOK', label: 'Korona norweska' },
+    { code: 'RON', label: 'Lej rumunski' },
+    { code: 'TRY', label: 'Lira turecka' },
+    { code: 'UAH', label: 'Hrywna ukrainska' },
+    { code: 'AUD', label: 'Dolar australijski' },
+    { code: 'CAD', label: 'Dolar kanadyjski' },
+    { code: 'JPY', label: 'Jen japonski' },
+    { code: 'KRW', label: 'Won poludniowokoreanski' },
+  ];
   readonly sources = [
     {
       code: 'MOCK_BANK_A',
@@ -78,6 +110,7 @@ export class ExchangeRateDashboard implements OnInit {
 
   onSourceChange(source: string): void {
     this.source = source;
+    this.ensureSelectedCurrencyIsAvailable();
     void this.fetchData();
   }
 
@@ -298,8 +331,32 @@ export class ExchangeRateDashboard implements OnInit {
   }
 
   selectCurrency(currency: string): void {
+    if (!this.isCurrencyAvailableForSource(currency, this.source)) {
+      return;
+    }
+
     this.currency = currency;
     void this.fetchData();
+  }
+
+  isCurrencyAvailableForSource(currencyCode: string, sourceCode: string = this.source): boolean {
+    if (sourceCode === this.mockSourceCode) {
+      return true;
+    }
+
+    if (sourceCode === this.nbpSourceCode) {
+      return this.nbpBuySellCurrencyCodes.has(currencyCode);
+    }
+
+    return false;
+  }
+
+  currencyOptionLabel(currency: { code: string; label: string }): string {
+    const suffix = this.isCurrencyAvailableForSource(currency.code)
+      ? ''
+      : ' - brak danych dla zrodla';
+
+    return `${currency.code} - ${currency.label}${suffix}`;
   }
 
   applyRangePreset(preset: { days?: number; ytd?: boolean; from?: string }): void {
@@ -333,6 +390,20 @@ export class ExchangeRateDashboard implements OnInit {
     }
 
     return true;
+  }
+
+  private ensureSelectedCurrencyIsAvailable(): void {
+    if (this.isCurrencyAvailableForSource(this.currency, this.source)) {
+      return;
+    }
+
+    const firstAvailableCurrency = this.currencies.find((currency) =>
+      this.isCurrencyAvailableForSource(currency.code, this.source),
+    );
+
+    if (firstAvailableCurrency) {
+      this.currency = firstAvailableCurrency.code;
+    }
   }
 
   private async loadDataFromBackend(): Promise<void> {

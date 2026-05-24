@@ -1,6 +1,7 @@
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Data;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace GieudexPol.API.Services
@@ -34,7 +35,7 @@ namespace GieudexPol.API.Services
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                if (!await WaitForDatabaseAsync(context, cancellationToken))
+                if (!await WaitForDatabaseServerAsync(context, cancellationToken))
                 {
                     _logger.LogWarning("NBP startup sync skipped because the database is not available.");
                     return;
@@ -115,23 +116,34 @@ namespace GieudexPol.API.Services
                 : DefaultStartDate;
         }
 
-        private async Task<bool> WaitForDatabaseAsync(
+        private async Task<bool> WaitForDatabaseServerAsync(
             ApplicationDbContext context,
             CancellationToken cancellationToken)
         {
             const int maxAttempts = 10;
+            var connectionStringBuilder = new SqlConnectionStringBuilder(
+                context.Database.GetDbConnection().ConnectionString)
+            {
+                InitialCatalog = "master",
+                ConnectTimeout = 3
+            };
 
             for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                if (await context.Database.CanConnectAsync(cancellationToken))
+                try
                 {
+                    await using var connection = new SqlConnection(connectionStringBuilder.ConnectionString);
+                    await connection.OpenAsync(cancellationToken);
                     return true;
                 }
-
-                _logger.LogWarning(
-                    "Database is not available for NBP startup sync. Attempt {Attempt}/{MaxAttempts}.",
-                    attempt,
-                    maxAttempts);
+                catch (SqlException ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "SQL Server is not available for NBP startup sync. Attempt {Attempt}/{MaxAttempts}.",
+                        attempt,
+                        maxAttempts);
+                }
 
                 await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
             }

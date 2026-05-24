@@ -72,7 +72,19 @@ namespace GieudexPol.Infrastructure.Data
                 new Currency { Symbol = "EUR", Name = "Euro", IsActive = true },
                 new Currency { Symbol = "USD", Name = "US Dollar", IsActive = true },
                 new Currency { Symbol = "CHF", Name = "Swiss Franc", IsActive = true },
-                new Currency { Symbol = "GBP", Name = "British Pound", IsActive = true }
+                new Currency { Symbol = "GBP", Name = "British Pound", IsActive = true },
+                new Currency { Symbol = "HUF", Name = "Hungarian Forint", IsActive = true },
+                new Currency { Symbol = "CZK", Name = "Czech Koruna", IsActive = true },
+                new Currency { Symbol = "DKK", Name = "Danish Krone", IsActive = true },
+                new Currency { Symbol = "SEK", Name = "Swedish Krona", IsActive = true },
+                new Currency { Symbol = "NOK", Name = "Norwegian Krone", IsActive = true },
+                new Currency { Symbol = "RON", Name = "Romanian Leu", IsActive = true },
+                new Currency { Symbol = "TRY", Name = "Turkish Lira", IsActive = true },
+                new Currency { Symbol = "UAH", Name = "Ukrainian Hryvnia", IsActive = true },
+                new Currency { Symbol = "AUD", Name = "Australian Dollar", IsActive = true },
+                new Currency { Symbol = "CAD", Name = "Canadian Dollar", IsActive = true },
+                new Currency { Symbol = "JPY", Name = "Japanese Yen", IsActive = true },
+                new Currency { Symbol = "KRW", Name = "South Korean Won", IsActive = true }
             };
 
             var existingSymbols = await context.Currencies
@@ -202,7 +214,19 @@ namespace GieudexPol.Infrastructure.Data
                 new CurrencyRateSeed("EUR", 4.30m, 0.00035m, 0.045m),
                 new CurrencyRateSeed("USD", 3.95m, -0.00015m, 0.040m),
                 new CurrencyRateSeed("CHF", 4.55m, 0.00025m, 0.055m),
-                new CurrencyRateSeed("GBP", 5.05m, 0.00020m, 0.065m)
+                new CurrencyRateSeed("GBP", 5.05m, 0.00020m, 0.065m),
+                new CurrencyRateSeed("HUF", 1.08m, 0.00010m, 0.020m),
+                new CurrencyRateSeed("CZK", 0.17m, 0.00002m, 0.006m),
+                new CurrencyRateSeed("DKK", 0.58m, 0.00004m, 0.012m),
+                new CurrencyRateSeed("SEK", 0.39m, -0.00002m, 0.010m),
+                new CurrencyRateSeed("NOK", 0.37m, 0.00001m, 0.010m),
+                new CurrencyRateSeed("RON", 0.86m, 0.00003m, 0.018m),
+                new CurrencyRateSeed("TRY", 0.12m, -0.00004m, 0.008m),
+                new CurrencyRateSeed("UAH", 0.095m, -0.00001m, 0.007m),
+                new CurrencyRateSeed("AUD", 2.55m, 0.00012m, 0.035m),
+                new CurrencyRateSeed("CAD", 2.90m, 0.00010m, 0.035m),
+                new CurrencyRateSeed("JPY", 2.65m, -0.00008m, 0.030m),
+                new CurrencyRateSeed("KRW", 0.28m, 0.00001m, 0.009m)
             };
 
             var symbols = currencyModels.Select(model => model.Symbol).ToList();
