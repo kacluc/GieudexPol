@@ -4,7 +4,8 @@
         <!-- Kontrola kwoty -->
         <div class="form-group mb-3">
             <label for="amount" class="form-label">Kwota do wymiany:</label>
-            <input type="number" id="amount" placeholder="Wprowadź kwotę" min="0" step="0.01" required [(ngModel)]="amount" class="form-control">
+            <input type="number" id="amount" placeholder="Wprowadź kwotę" min="0" step="0.01" required
+                [(ngModel)]="amount" class="form-control">
         </div>
 
         <!-- Kontrola waluty źródłowej -->
@@ -13,11 +14,31 @@
             <select id="sourceCurrency" required [(ngModel)]="sourceCurrency" class="form-select">
                 <option value="" disabled selected>Wybierz walutę źródłową</option>
                 @for (currency of availableCurrencies; track currency) {
-                    <option [value]="currency">{{ currency }}</option>
-                } @empty {
-                    <option disabled selected value="">Brak walut dostępnych</option>
+                <option [value]="currency">
+                    {{ currency }}
+
+                    @if (isFavorite(currency)) {
+                    ⭐
+                    } @else {
+                    ☆
+                    }
+                </option> } @empty {
+                <option disabled selected value="">Brak walut dostępnych</option>
                 }
             </select>
+            @if (!isFavorite(sourceCurrency)) {
+            
+            <button type="button" class="btn btn-warning mt-2 w-100" (click)="addToFavorites(sourceCurrency)">
+                ⭐ Dodaj do ulubionych
+            </button>
+            
+            } @else {
+            
+            <button type="button" class="btn btn-outline-danger mt-2 w-100" (click)="removeFromFavorites(sourceCurrency)">
+                Usuń z ulubionych
+            </button>
+            
+            }
         </div>
 
         <!-- Kontrola waluty docelowej -->
@@ -26,9 +47,16 @@
             <select id="targetCurrency" required [(ngModel)]="targetCurrency" class="form-select">
                 <option value="" disabled selected>Wybierz walutę docelową</option>
                 @for (currency of availableCurrencies; track currency) {
-                    <option [value]="currency">{{ currency }}</option>
-                } @empty {
-                    <option disabled selected value="">Brak walut dostępnych</option>
+                <option [value]="currency">
+                    {{ currency }}
+
+                    @if (isFavorite(currency)) {
+                    ⭐
+                    } @else {
+                    ☆
+                    }
+                </option> } @empty {
+                <option disabled selected value="">Brak walut dostępnych</option>
                 }
             </select>
         </div>
@@ -36,30 +64,31 @@
         <!-- Kontrola prowizji -->
         <div class="form-group mb-4">
             <label for="fee" class="form-label">Prowizja (%):</label>
-            <input type="number" id="fee" placeholder="Wprowadź prowizję" min="0" max="100" step="0.01" [(ngModel)]="fee" value="1" class="form-control">
+            <input type="number" id="fee" placeholder="Wprowadź prowizję" min="0" max="100" step="0.01"
+                [(ngModel)]="fee" value="1" class="form-control">
         </div>
 
         <button (click)="calculateExchange()" class="btn btn-primary mb-4">Oblicz</button>
 
         <!-- Wynik wymiany -->
         @if (resultAmount !== null) {
-            <p class="mb-2">
-                <strong>Kwota po kursie:</strong>
-                {{ resultAmount | number:'1.2-2' }} {{ targetCurrency }}
-            </p>
-            
-            <p class="mb-2 text-muted">
-                <strong>Prowizja:</strong>
-                {{ resultFee | number:'1.2-2' }} {{ targetCurrency }}
-                ({{ fee }}%)
-            </p>
-            
-            <p class="mt-2 h5">
-                <strong>Kwota końcowa:</strong>
-                {{ resultTotal | number:'1.2-2' }} {{ targetCurrency }}
-            </p>
+        <p class="mb-2">
+            <strong>Kwota po kursie:</strong>
+            {{ resultAmount | number:'1.2-2' }} {{ targetCurrency }}
+        </p>
+
+        <p class="mb-2 text-muted">
+            <strong>Prowizja:</strong>
+            {{ resultFee | number:'1.2-2' }} {{ targetCurrency }}
+            ({{ fee }}%)
+        </p>
+
+        <p class="mt-2 h5">
+            <strong>Kwota końcowa:</strong>
+            {{ resultTotal | number:'1.2-2' }} {{ targetCurrency }}
+        </p>
         } @else {
-            <!-- Brak wyniku -->
+        <!-- Brak wyniku -->
         }
     </div>
 </div>
