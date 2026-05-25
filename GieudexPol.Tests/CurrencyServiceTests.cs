@@ -55,7 +55,7 @@ namespace GieudexPol.Tests
         {
             // Arrange
             var currencyId = 1;
-            _mockCurrencyRepository.Setup(repo => repo.GetByIdAsync(currencyId)).ReturnsAsync((Currency)null);
+            _mockCurrencyRepository.Setup(repo => repo.GetByIdAsync(currencyId)).ReturnsAsync((Currency?)null);
 
             // Act
             var result = await _currencyService.GetByIdAsync(currencyId);

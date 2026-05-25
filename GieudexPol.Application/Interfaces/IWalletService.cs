@@ -11,7 +11,7 @@ namespace GieudexPol.Application.Interfaces
         Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId);
 
         // Dodane metody CRUD do kontraktu usługi
-        Task<Wallet> GetByIdAsync(int id);
+        Task<Wallet?> GetByIdAsync(int id);
         Task AddAsync(Wallet entity);
         Task UpdateAsync(Wallet entity);
 

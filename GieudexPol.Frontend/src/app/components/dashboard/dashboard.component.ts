@@ -28,7 +28,12 @@ export class DashboardComponent implements OnInit {
     this.errorMessage = null;
 
     try {
-      this.currentBalance = await this.walletService.getBalance();
+      const userId = Number(localStorage.getItem('userId'));
+      if (!Number.isInteger(userId) || userId <= 0) {
+        throw new Error('Brak identyfikatora zalogowanego uzytkownika.');
+      }
+
+      this.currentBalance = await this.walletService.getBalance(userId);
       this.availableCurrencies = Object.keys(this.currentBalance ?? {});
     } catch (error) {
       console.error('Nie udalo sie zaladowac danych dashboardu:', error);

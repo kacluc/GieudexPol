@@ -52,7 +52,12 @@ namespace GieudexPol.Application.Auth.Services
 
             var token = _jwtService.GenerateToken(user.Id.ToString(), user.Email);
 
-            return new AuthResponse { Token = token, Email = user.Email };
+            return new AuthResponse
+            {
+                Token = token,
+                Email = user.Email,
+                UserId = user.ApplicationUserId
+            };
         }
 
         public async Task<AuthResponse> Handle(LoginUserCommand request, CancellationToken cancellationToken)
@@ -74,7 +79,12 @@ namespace GieudexPol.Application.Auth.Services
 
             var token = _jwtService.GenerateToken(user.Id.ToString(), user.Email);
 
-            return new AuthResponse { Token = token, Email = user.Email };
+            return new AuthResponse
+            {
+                Token = token,
+                Email = user.Email,
+                UserId = user.ApplicationUserId
+            };
         }
     }
 }

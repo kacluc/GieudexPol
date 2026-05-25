@@ -14,7 +14,7 @@ namespace GieudexPol.Application.Services
             _userAlertRepository = userAlertRepository;
         }
 
-        public async Task<UserAlert> GetByIdAsync(int id)
+        public async Task<UserAlert?> GetByIdAsync(int id)
         {
             return await _userAlertRepository.GetByIdAsync(id);
         }

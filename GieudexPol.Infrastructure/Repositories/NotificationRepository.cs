@@ -14,7 +14,7 @@ namespace GieudexPol.Infrastructure.Repositories
         // For now, we\'ll use a simple in-memory collection.
         private readonly List<Notification> _notifications = new List<Notification>();
 
-        public async Task<Notification> GetByIdAsync(Guid id)
+        public async Task<Notification?> GetByIdAsync(Guid id)
         {
             return await Task.FromResult(_notifications.FirstOrDefault(n => n.Id == id));
         }

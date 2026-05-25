@@ -7,7 +7,7 @@ namespace GieudexPol.Application.Interfaces
 {
     public interface ITransactionService
     {
-        Task<Transaction> GetByIdAsync(int id);
+        Task<Transaction?> GetByIdAsync(int id);
         Task<IEnumerable<Transaction>> GetAllAsync();
         Task AddAsync(Transaction entity);
         Task UpdateAsync(Transaction entity);

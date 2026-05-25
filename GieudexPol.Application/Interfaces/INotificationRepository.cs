@@ -8,7 +8,7 @@ namespace GieudexPol.Application.Interfaces
 {
     public interface INotificationRepository
     {
-        Task<Notification> GetByIdAsync(Guid id);
+        Task<Notification?> GetByIdAsync(Guid id);
         Task<IEnumerable<Notification>> GetAllAsync();
         Task AddAsync(Notification entity);
         Task UpdateAsync(Notification entity);

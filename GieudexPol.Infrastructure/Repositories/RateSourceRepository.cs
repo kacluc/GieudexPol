@@ -11,7 +11,7 @@ namespace GieudexPol.Infrastructure.Repositories
         {
         }
 
-        public async Task<RateSource> GetByCodeAsync(string code)
+        public async Task<RateSource?> GetByCodeAsync(string code)
         {
             return await _dbSet.FirstOrDefaultAsync(rs => rs.Code == code);
         }

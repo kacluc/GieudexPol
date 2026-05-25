@@ -16,7 +16,7 @@ namespace GieudexPol.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<Transaction> GetByIdAsync(int id)
+        public async Task<Transaction?> GetByIdAsync(int id)
         {
             return await _context.Transactions
                 .Include(t => t.Sender)

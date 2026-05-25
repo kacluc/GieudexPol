@@ -53,7 +53,7 @@ namespace GieudexPol.Tests
         {
             // Arrange
             var transactionId = 1;
-            _mockTransactionRepository.Setup(repo => repo.GetByIdAsync(transactionId)).ReturnsAsync((Transaction)null);
+            _mockTransactionRepository.Setup(repo => repo.GetByIdAsync(transactionId)).ReturnsAsync((Transaction?)null);
 
             // Act
             var result = await _transactionService.GetByIdAsync(transactionId);

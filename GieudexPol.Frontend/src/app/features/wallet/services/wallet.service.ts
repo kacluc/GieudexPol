@@ -16,7 +16,7 @@ export class WalletService {
     return this.http.get<WalletDto[]>(`${this.apiUrl}/user/${userId}`);
   }
 
-  async getBalance(userId = 1): Promise<{ [key: string]: number }> {
+  async getBalance(userId: number): Promise<{ [key: string]: number }> {
     const wallets = await firstValueFrom(this.getUserWallets(userId));
     return wallets.reduce((balanceByCurrency, wallet) => {
       const symbol = wallet.currency?.symbol;

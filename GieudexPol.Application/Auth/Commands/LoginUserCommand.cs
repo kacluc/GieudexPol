@@ -5,6 +5,6 @@ namespace GieudexPol.Application.Auth.Commands
 {
     public class LoginUserCommand : IRequest<AuthResponse>
     {
-        public LoginRequest LoginRequest { get; set; }
+        public LoginRequest LoginRequest { get; set; } = null!;
     }
 }

@@ -15,7 +15,7 @@ namespace GieudexPol.Infrastructure.Repositories
         {
         }
 
-        public async Task<ExchangeRate> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
+        public async Task<ExchangeRate?> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
         {
             if (targetCurrencySymbol != "PLN")
             {

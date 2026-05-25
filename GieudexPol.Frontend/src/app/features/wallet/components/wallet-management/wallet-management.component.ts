@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { WalletService } from '../../services/wallet.service';
 import { TradeRequest, WalletDto, DepositRequest, WithdrawRequest } from '../../models/wallet-models';
 import { Router } from '@angular/router';
+import { AuthService } from '../../../auth/services/auth.service';
 
 @Component({
   selector: 'app-wallet-management',
@@ -15,6 +16,7 @@ import { Router } from '@angular/router';
 })
 export class WalletManagementComponent implements OnInit {
   private readonly developmentUserId = 1;
+  private currentUserId = this.developmentUserId;
   private readonly ratesToPln: Record<string, number> = {
     PLN: 1,
     EUR: 4.3,
@@ -33,7 +35,11 @@ export class WalletManagementComponent implements OnInit {
   isLoading = false;
   tradeMessage: string | null = null;
 
-  constructor(private walletService: WalletService, private router: Router) {}
+  constructor(
+    private walletService: WalletService,
+    private router: Router,
+    private authService: AuthService
+  ) {}
 
   // Logika zakładek
   activeTab: 'exchange' | 'deposit' | 'withdraw' = 'exchange';
@@ -43,6 +49,12 @@ export class WalletManagementComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    this.authService.user$.subscribe(user => {
+      if (user?.id) {
+        this.currentUserId = user.id;
+      }
+    });
+
     await this.initializeBalance();
   }
 
@@ -50,7 +62,7 @@ export class WalletManagementComponent implements OnInit {
     this.isLoading = true;
 
     try {
-      this.wallets = await firstValueFrom(this.walletService.getUserWallets(this.developmentUserId));
+      this.wallets = await firstValueFrom(this.walletService.getUserWallets(this.currentUserId));
       this.currentBalance = {};
       this.availableCurrencies = this.wallets
         .map(wallet => wallet.currency?.symbol)
@@ -115,7 +127,7 @@ export class WalletManagementComponent implements OnInit {
     this.tradeMessage = null;
 
     try {
-      await firstValueFrom(this.walletService.executeTrade(this.developmentUserId, tradeRequest));
+      await firstValueFrom(this.walletService.executeTrade(this.currentUserId, tradeRequest));
       this.tradeMessage = `Sukces: wymieniono ${amount.toFixed(2)} ${fromCurrency} na ${amountTo.toFixed(2)} ${toCurrency}.`;
       this.amount = null;
       await this.initializeBalance();
@@ -165,7 +177,7 @@ export class WalletManagementComponent implements OnInit {
     this.tradeMessage = null;
 
     try {
-      await firstValueFrom(this.walletService.deposit(this.developmentUserId, depositRequest));
+      await firstValueFrom(this.walletService.deposit(this.currentUserId, depositRequest));
       this.tradeMessage = `Sukces: wpłacono ${this.depositAmount.toFixed(2)} ${this.depositCurrency}.`;
       this.depositAmount = null;
       await this.initializeBalance();
@@ -204,7 +216,7 @@ export class WalletManagementComponent implements OnInit {
     this.tradeMessage = null;
 
     try {
-      await firstValueFrom(this.walletService.withdraw(this.developmentUserId, withdrawRequest));
+      await firstValueFrom(this.walletService.withdraw(this.currentUserId, withdrawRequest));
       this.tradeMessage = `Sukces: wypłacono ${this.withdrawAmount.toFixed(2)} ${this.withdrawCurrency}.`;
       this.withdrawAmount = null;
       await this.initializeBalance();

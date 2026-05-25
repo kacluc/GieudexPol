@@ -12,7 +12,7 @@ namespace GieudexPol.Infrastructure.Repositories
         {
         }
 
-        public async Task<Currency> GetBySymbolAsync(string symbol)
+        public async Task<Currency?> GetBySymbolAsync(string symbol)
         {
             return await _dbSet.FirstOrDefaultAsync(c => c.Symbol == symbol);
         }

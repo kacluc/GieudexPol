@@ -27,12 +27,12 @@ namespace GieudexPol.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Wallet> GetWalletByIdAsync(int walletId)
+        public async Task<Wallet?> GetWalletByIdAsync(int walletId)
         {
             return await _dbSet.FindAsync(walletId);
         }
 
-        public async Task<Wallet> GetUserWalletAsync(int userId, int currencyId)
+        public async Task<Wallet?> GetUserWalletAsync(int userId, int currencyId)
         {
             return await _dbSet.FirstOrDefaultAsync(w => w.UserId == userId && w.CurrencyId == currencyId);
         }
@@ -53,7 +53,7 @@ namespace GieudexPol.Infrastructure.Repositories
             await _context.SaveChangesAsync();
         }
 
-        public async Task<Wallet> GetByIdAsync(int id)
+        public async Task<Wallet?> GetByIdAsync(int id)
         {
             return await _dbSet
                 .Include(w => w.Currency)

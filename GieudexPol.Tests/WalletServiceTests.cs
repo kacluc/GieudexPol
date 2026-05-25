@@ -61,7 +61,7 @@ namespace GieudexPol.Tests
         {
             // Arrange
             var walletId = 1;
-            _mockWalletRepository.Setup(repo => repo.GetByIdAsync(walletId)).ReturnsAsync((Wallet)null);
+            _mockWalletRepository.Setup(repo => repo.GetByIdAsync(walletId)).ReturnsAsync((Wallet?)null);
 
             // Act
             var result = await _walletService.GetByIdAsync(walletId);

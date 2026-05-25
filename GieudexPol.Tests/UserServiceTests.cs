@@ -55,7 +55,7 @@ namespace GieudexPol.Tests
         {
             // Arrange
             var userId = 1;
-            _mockUserRepository.Setup(repo => repo.GetByIdAsync(userId)).ReturnsAsync((User)null);
+            _mockUserRepository.Setup(repo => repo.GetByIdAsync(userId)).ReturnsAsync((User?)null);
 
             // Act
             var result = await _userService.GetByIdAsync(userId);
@@ -86,7 +86,7 @@ namespace GieudexPol.Tests
         {
             // Arrange
             var username = "nonexistent";
-            _mockUserRepository.Setup(repo => repo.GetByUsernameAsync(username)).ReturnsAsync((User)null);
+            _mockUserRepository.Setup(repo => repo.GetByUsernameAsync(username)).ReturnsAsync((User?)null);
 
             // Act
             var result = await _userService.GetByUsernameAsync(username);

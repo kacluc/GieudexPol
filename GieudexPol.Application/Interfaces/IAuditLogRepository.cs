@@ -8,7 +8,7 @@ namespace GieudexPol.Application.Interfaces
 {
     public interface IAuditLogRepository
     {
-        Task<AuditLog> GetByIdAsync(Guid id);
+        Task<AuditLog?> GetByIdAsync(Guid id);
         Task<IEnumerable<AuditLog>> GetAllAsync();
         Task AddAsync(AuditLog entity);
         Task UpdateAsync(AuditLog entity);

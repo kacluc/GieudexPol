@@ -47,9 +47,9 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             _mockUserRepository = new Mock<IUserRepository>();
             _mockJwtService = new Mock<IJwtService>();
             _mockUserManager = new Mock<UserManager<ApplicationUser>>(
-                Mock.Of<IUserStore<ApplicationUser>>(), null, null, null, null, null, null, null, null);
+                Mock.Of<IUserStore<ApplicationUser>>(), null!, null!, null!, null!, null!, null!, null!, null!);
             _mockSignInManager = new Mock<SignInManager<ApplicationUser>>(
-                _mockUserManager.Object, Mock.Of<Microsoft.AspNetCore.Http.IHttpContextAccessor>(), Mock.Of<IUserClaimsPrincipalFactory<ApplicationUser>>(), null, null, null, null);
+                _mockUserManager.Object, Mock.Of<Microsoft.AspNetCore.Http.IHttpContextAccessor>(), Mock.Of<IUserClaimsPrincipalFactory<ApplicationUser>>(), null!, null!, null!, null!);
 
             // 2. Mapujemy stare mocki znajomego na interfejsy nowego serwisu za pomocą naszych wrapperów
             var adapterIdentity = new FakeIdentityService(_mockUserManager, _mockSignInManager);
@@ -73,8 +73,9 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             var command = new RegisterUserCommand { RegisterRequest = registerRequest };
 
             _mockUserRepository.Setup(r => r.GetByEmailAsync(registerRequest.Email))
-                               .ReturnsAsync((User)null);
+                               .ReturnsAsync((User?)null);
             _mockUserRepository.Setup(r => r.AddAsync(It.IsAny<User>()))
+                               .Callback<User>(user => user.AssignApplicationUserId(7))
                                .Returns(Task.CompletedTask);
             _mockJwtService.Setup(j => j.GenerateToken(It.IsAny<string>(), It.IsAny<string>()))
                            .Returns("dummy_jwt_token");
@@ -86,6 +87,7 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             Assert.NotNull(response);
             Assert.Equal("dummy_jwt_token", response.Token);
             Assert.Equal(registerRequest.Email, response.Email);
+            Assert.Equal(7, response.UserId);
             _mockUserRepository.Verify(r => r.AddAsync(It.IsAny<User>()), Times.Once);
         }
 
@@ -128,7 +130,7 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             _mockSignInManager.Setup(s => s.CheckPasswordSignInAsync(applicationUser, loginRequest.Password, false))
                               .ReturnsAsync(SignInResult.Success);
             _mockUserRepository.Setup(r => r.GetByEmailAsync(loginRequest.Email))
-                               .ReturnsAsync(new User(Guid.Parse(applicationUser.Id), applicationUser.Email, "hashedPassword"));
+                               .ReturnsAsync(new User(Guid.Parse(applicationUser.Id), applicationUser.Email, "hashedPassword", 7));
             _mockJwtService.Setup(j => j.GenerateToken(applicationUser.Id, loginRequest.Email))
                            .Returns("dummy_jwt_token");
 
@@ -139,6 +141,7 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             Assert.NotNull(response);
             Assert.Equal("dummy_jwt_token", response.Token);
             Assert.Equal(loginRequest.Email, response.Email);
+            Assert.Equal(7, response.UserId);
         }
 
         [Fact]
@@ -153,7 +156,7 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             var command = new LoginUserCommand { LoginRequest = loginRequest };
 
             _mockUserManager.Setup(u => u.FindByEmailAsync(loginRequest.Email))
-                            .ReturnsAsync((ApplicationUser)null);
+                            .ReturnsAsync((ApplicationUser?)null);
 
             // Act & Assert
             await Assert.ThrowsAsync<InvalidCredentialsException>(

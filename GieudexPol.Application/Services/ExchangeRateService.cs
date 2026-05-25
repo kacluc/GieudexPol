@@ -17,7 +17,7 @@ namespace GieudexPol.Application.Services
             _exchangeRateRepository = exchangeRateRepository;
         }
 
-        public async Task<ExchangeRate> GetByIdAsync(int id)
+        public async Task<ExchangeRate?> GetByIdAsync(int id)
         {
             return await _exchangeRateRepository.GetByIdAsync(id);
         }
@@ -42,7 +42,7 @@ namespace GieudexPol.Application.Services
             await _exchangeRateRepository.DeleteAsync(entity);
         }
 
-        public async Task<ExchangeRate> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
+        public async Task<ExchangeRate?> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
         {
             return await _exchangeRateRepository.GetByCurrencyPairAsync(baseCurrencySymbol, targetCurrencySymbol);
         }

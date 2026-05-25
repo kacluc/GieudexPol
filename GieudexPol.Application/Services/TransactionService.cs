@@ -26,7 +26,7 @@ namespace GieudexPol.Application.Services
             _transactionFeeRepository = transactionFeeRepository;
         }
 
-        public async Task<Transaction> GetByIdAsync(int id)
+        public async Task<Transaction?> GetByIdAsync(int id)
         {
             return await _transactionRepository.GetByIdAsync(id);
         }

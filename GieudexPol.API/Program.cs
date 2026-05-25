@@ -30,6 +30,11 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Logging.AddFilter("LuckyPennySoftware.MediatR.License", LogLevel.None);
+}
+
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "DataProtectionKeys")));
 

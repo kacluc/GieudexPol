@@ -4,6 +4,6 @@ namespace GieudexPol.Application.Interfaces
 {
     public interface ICurrencyService : IService<Currency>
     {
-        Task<Currency> GetBySymbolAsync(string symbol);
+        Task<Currency?> GetBySymbolAsync(string symbol);
     }
 }

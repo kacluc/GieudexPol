@@ -55,7 +55,7 @@ namespace GieudexPol.Tests
         {
             // Arrange
             var userAlertId = 1;
-            _mockUserAlertRepository.Setup(repo => repo.GetByIdAsync(userAlertId)).ReturnsAsync((UserAlert)null);
+            _mockUserAlertRepository.Setup(repo => repo.GetByIdAsync(userAlertId)).ReturnsAsync((UserAlert?)null);
 
             // Act
             var result = await _userAlertService.GetByIdAsync(userAlertId);

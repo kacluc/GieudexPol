@@ -5,6 +5,6 @@ namespace GieudexPol.Application.Auth.Commands
 {
     public class RegisterUserCommand : IRequest<AuthResponse>
     {
-        public RegisterRequest RegisterRequest { get; set; }
+        public RegisterRequest RegisterRequest { get; set; } = null!;
     }
 }

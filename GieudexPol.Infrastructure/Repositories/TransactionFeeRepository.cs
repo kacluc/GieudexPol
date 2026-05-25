@@ -14,7 +14,7 @@ namespace GieudexPol.Infrastructure.Repositories
         // For now, we\"ll use a simple in-memory collection.
         private readonly List<TransactionFee> _transactionFees = new List<TransactionFee>();
 
-        public async Task<TransactionFee> GetByIdAsync(Guid id)
+        public async Task<TransactionFee?> GetByIdAsync(Guid id)
         {
             return await Task.FromResult(_transactionFees.FirstOrDefault(tf => tf.Id == id));
         }
@@ -50,7 +50,7 @@ namespace GieudexPol.Infrastructure.Repositories
             await Task.CompletedTask;
         }
 
-        public async Task<TransactionFee> GetActiveTransactionFeeByTypeAsync(string type)
+        public async Task<TransactionFee?> GetActiveTransactionFeeByTypeAsync(string type)
         {
             return await Task.FromResult(_transactionFees.FirstOrDefault(tf => tf.Type == type && tf.IsActive));
         }

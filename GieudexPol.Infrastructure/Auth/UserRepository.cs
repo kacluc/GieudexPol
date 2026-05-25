@@ -16,7 +16,7 @@ namespace GieudexPol.Infrastructure.Auth
             _context = context;
         }
 
-        public async Task<AuthUser> GetByEmailAsync(string email)
+        public async Task<AuthUser?> GetByEmailAsync(string email)
         {
             var applicationUser = await _context.Users
                 .AsNoTracking()
@@ -27,7 +27,11 @@ namespace GieudexPol.Infrastructure.Auth
                 return null;
             }
 
-            return new AuthUser(applicationUser.AuthId, applicationUser.Username, applicationUser.PasswordHash);
+            return new AuthUser(
+                applicationUser.AuthId,
+                applicationUser.Username,
+                applicationUser.PasswordHash,
+                applicationUser.Id);
         }
 
         public async Task AddAsync(AuthUser user)
@@ -40,15 +44,17 @@ namespace GieudexPol.Infrastructure.Auth
 
             var hashedPassword = _passwordHasher.HashPassword(user, user.HashedPassword);
 
-            await _context.Users.AddAsync(new AppUser
+            var applicationUser = new AppUser
             {
                 AuthId = user.Id,
                 Username = user.Email,
                 PasswordHash = hashedPassword,
                 Role = "User"
-            });
+            };
 
+            await _context.Users.AddAsync(applicationUser);
             await _context.SaveChangesAsync();
+            user.AssignApplicationUserId(applicationUser.Id);
             user.UpdatePassword(hashedPassword);
         }
 

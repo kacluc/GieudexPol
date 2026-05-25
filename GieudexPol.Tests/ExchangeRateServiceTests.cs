@@ -55,7 +55,7 @@ namespace GieudexPol.Tests
         {
             // Arrange
             var exchangeRateId = 1;
-            _mockExchangeRateRepository.Setup(repo => repo.GetByIdAsync(exchangeRateId)).ReturnsAsync((ExchangeRate)null);
+            _mockExchangeRateRepository.Setup(repo => repo.GetByIdAsync(exchangeRateId)).ReturnsAsync((ExchangeRate?)null);
 
             // Act
             var result = await _exchangeRateService.GetByIdAsync(exchangeRateId);

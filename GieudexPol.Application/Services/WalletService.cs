@@ -91,7 +91,7 @@ namespace GieudexPol.Application.Services
             return await _walletRepository.GetUserWalletsAsync(userId);
         }
 
-        public async Task<Wallet> GetByIdAsync(int id)
+        public async Task<Wallet?> GetByIdAsync(int id)
         {
             return await _walletRepository.GetByIdAsync(id);
         }

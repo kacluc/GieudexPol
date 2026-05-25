@@ -14,7 +14,7 @@ namespace GieudexPol.Application.Services
             _currencyRepository = currencyRepository;
         }
 
-        public async Task<Currency> GetByIdAsync(int id)
+        public async Task<Currency?> GetByIdAsync(int id)
         {
             return await _currencyRepository.GetByIdAsync(id);
         }
@@ -39,7 +39,7 @@ namespace GieudexPol.Application.Services
             await _currencyRepository.DeleteAsync(entity);
         }
 
-        public async Task<Currency> GetBySymbolAsync(string symbol)
+        public async Task<Currency?> GetBySymbolAsync(string symbol)
         {
             return await _currencyRepository.GetBySymbolAsync(symbol);
         }
