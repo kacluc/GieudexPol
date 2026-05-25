@@ -16,6 +16,7 @@ namespace GieudexPol.Infrastructure
         public DbSet<RateSource> RateSources { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<UserAlert> UserAlerts { get; set; }
+        public DbSet<FavoriteCurrency> FavoriteCurrencies { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -110,6 +111,10 @@ namespace GieudexPol.Infrastructure
 
             modelBuilder.Entity<RateSource>()
                 .HasIndex(rs => rs.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<FavoriteCurrency>()
+                .HasIndex(fc => fc.CurrencyCode)
                 .IsUnique();
         }
     }

@@ -14,6 +14,7 @@ export class NavbarComponent {
   readonly navItems = [
     { label: 'Dashboard', path: '/' },
     { label: 'Kursy walut', path: '/rates' },
+    { label: 'Ulubione', path: '/converter' },
     { label: 'Portfel', path: '/wallet' },
     { label: 'Transfer', path: '/transfer' },
     { label: 'Historia', path: '/history' },

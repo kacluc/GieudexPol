@@ -1,68 +1,120 @@
-import { Component } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { FavoriteCurrencyService } from '../../services/favorite-currency.service';
+
+interface CurrencyExchangeSimulationResponse {
+  exchangedAmount: number;
+  feeAmount: number;
+  finalAmount: number;
+}
 
 @Component({
   selector: 'app-currency-converter',
   standalone: true,
   imports: [FormsModule, CommonModule],
   templateUrl: './currency-converter.html',
-  styleUrls: ['./currency-converter.css']
+  styleUrls: ['./currency-converter.css'],
 })
-export class CurrencyConverterComponent {
-  amount: number = 0;
-  sourceCurrency: string = 'PLN';
-  targetCurrency: string = 'USD';
-  fee: number = 1;
+export class CurrencyConverterComponent implements OnInit {
+  amount = 0;
+  sourceCurrency = 'PLN';
+  targetCurrency = 'USD';
+  fee = 1;
+  favorites: string[] = [];
 
   resultAmount: number | null = null;
   resultFee: number | null = null;
   resultTotal: number | null = null;
 
-  // Kursy walut względem PLN (1 PLN = X waluty)
-  private exchangeRates: Record<string, number> = {
-    PLN: 1,
-    USD: 4.25,
-    EUR: 4.50,
-    GBP: 5.30,
-    JPY: 0.032,
-    CHF: 4.60
-  };
+  readonly availableCurrencies: string[] = [
+    'PLN',
+    'EUR',
+    'USD',
+    'CHF',
+    'GBP',
+    'HUF',
+    'CZK',
+    'DKK',
+    'SEK',
+    'NOK',
+    'RON',
+    'TRY',
+    'UAH',
+    'AUD',
+    'CAD',
+    'JPY',
+    'KRW',
+  ];
 
-  get availableCurrencies(): string[] {
-    return Object.keys(this.exchangeRates);
+  constructor(
+    private readonly http: HttpClient,
+    private readonly favoriteService: FavoriteCurrencyService,
+  ) {}
+
+  ngOnInit(): void {
+    this.favoriteService.getFavorites().subscribe({
+      next: (data) => {
+        this.favorites = data;
+      },
+      error: (error) => {
+        console.error('Nie udalo sie pobrac ulubionych walut.', error);
+      },
+    });
   }
 
-  // Funkcja do konwersji kwoty z waluty źródłowej na PLN
-  private convertToPLN(amount: number, currency: string): number {
-    if (currency === 'PLN') {
-      return amount;
-    }
-    return amount * this.exchangeRates[currency];
+  isFavorite(currency: string): boolean {
+    return this.favorites.includes(currency);
   }
 
-  // Funkcja do konwersji kwoty z PLN na walutę docelową
-  private convertFromPLN(amountInPLN: number, currency: string): number {
-    if (currency === 'PLN') {
-      return amountInPLN;
-    }
-    return amountInPLN / this.exchangeRates[currency];
-  }
-
-  // Funkcja do obliczania wymiany walut
-  calculateExchange(): void {
-    if (this.amount <= 0 || !this.sourceCurrency || !this.targetCurrency) {
-      alert('Proszę uzupełnić wszystkie pola poprawnie.');
+  addToFavorites(currency: string): void {
+    if (!currency || this.isFavorite(currency)) {
       return;
     }
 
-    const amountInPLN = this.convertToPLN(this.amount, this.sourceCurrency);
-    const exchangedAmount = this.convertFromPLN(amountInPLN, this.targetCurrency);
-    const feeAmount = exchangedAmount * (this.fee / 100);
-    const totalAmount = exchangedAmount - feeAmount;
+    this.favoriteService.addFavorite(currency).subscribe({
+      next: () => {
+        this.favorites.push(currency);
+      },
+      error: (error) => {
+        console.error('Nie udalo sie dodac ulubionej waluty.', error);
+      },
+    });
+  }
 
-    this.resultAmount = exchangedAmount;
-    this.resultFee = feeAmount;
-    this.resultTotal = totalAmount;
+  removeFromFavorites(currency: string): void {
+    this.favoriteService.removeFavorite(currency).subscribe({
+      next: () => {
+        this.favorites = this.favorites.filter(item => item !== currency);
+      },
+      error: (error) => {
+        console.error('Nie udalo sie usunac ulubionej waluty.', error);
+      },
+    });
+  }
+
+  calculateExchange(): void {
+    if (this.amount <= 0 || !this.sourceCurrency || !this.targetCurrency) {
+      alert('Prosze uzupelnic wszystkie pola poprawnie.');
+      return;
+    }
+
+    this.http.post<CurrencyExchangeSimulationResponse>('/api/exchange/calculate', {
+      amount: this.amount,
+      sourceCurrency: this.sourceCurrency,
+      targetCurrency: this.targetCurrency,
+      feePercent: this.fee,
+    }).subscribe({
+      next: (response) => {
+        this.resultAmount = response.exchangedAmount;
+        this.resultFee = response.feeAmount;
+        this.resultTotal = response.finalAmount;
+      },
+      error: (error) => {
+        console.error('Nie udalo sie obliczyc wymiany.', error);
+        alert(error.error?.message || 'Wystapil blad.');
+      },
+    });
   }
 }

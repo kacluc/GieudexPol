@@ -4,6 +4,7 @@ using GieudexPol.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GieudexPol.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260523162305_AddFavoriteCurrencies")]
+    partial class AddFavoriteCurrencies
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -209,25 +212,16 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("Amount")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
+                        .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal>("AppliedFee")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
+                    b.Property<decimal>("Commission")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("CurrencyId")
                         .HasColumnType("int");
 
-                    b.Property<int>("ReceiverId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("SenderId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("datetime2");
@@ -239,15 +233,16 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CurrencyId");
 
-                    b.HasIndex("ReceiverId");
-
-                    b.HasIndex("SenderId");
-
                     b.HasIndex("TransactionFeeId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Transactions");
                 });
@@ -284,11 +279,6 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<Guid>("AuthId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
-                        .HasDefaultValueSql("NEWID()");
-
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -299,16 +289,9 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     b.Property<string>("Username")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AuthId")
-                        .IsUnique();
-
-                    b.HasIndex("Username")
-                        .IsUnique();
 
                     b.ToTable("Users");
                 });
@@ -420,29 +403,21 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("GieudexPol.Domain.Entities.User", "Receiver")
-                        .WithMany("ReceivedTransactions")
-                        .HasForeignKey("ReceiverId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GieudexPol.Domain.Entities.User", "Sender")
-                        .WithMany("SentTransactions")
-                        .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("GieudexPol.Domain.Entities.TransactionFee", "TransactionFee")
                         .WithMany()
                         .HasForeignKey("TransactionFeeId");
 
+                    b.HasOne("GieudexPol.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Currency");
 
-                    b.Navigation("Receiver");
-
-                    b.Navigation("Sender");
-
                     b.Navigation("TransactionFee");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.UserAlert", b =>
@@ -504,10 +479,6 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     b.Navigation("AuditLogs");
 
                     b.Navigation("Notifications");
-
-                    b.Navigation("ReceivedTransactions");
-
-                    b.Navigation("SentTransactions");
 
                     b.Navigation("UserAlerts");
 

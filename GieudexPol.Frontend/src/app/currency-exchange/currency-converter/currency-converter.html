@@ -1,56 +1,49 @@
 <div class="container">
-    <h1 class="mb-4">Symulator Wymiany Walut</h1>
+    <h1 class="mb-4">Symulator wymiany walut</h1>
     <div class="exchange-form p-4 border rounded">
-        <!-- Kontrola kwoty -->
         <div class="form-group mb-3">
             <label for="amount" class="form-label">Kwota do wymiany:</label>
-            <input type="number" id="amount" placeholder="Wprowadź kwotę" min="0" step="0.01" required [(ngModel)]="amount" class="form-control">
+            <input type="number" id="amount" placeholder="Wprowadz kwote" min="0" step="0.01" required
+                [(ngModel)]="amount" class="form-control">
         </div>
-
-        <!-- Kontrola waluty źródłowej -->
         <div class="form-group mb-3">
-            <label for="sourceCurrency" class="form-label">Waluta źródłowa:</label>
+            <label for="sourceCurrency" class="form-label">Waluta zrodlowa:</label>
             <select id="sourceCurrency" required [(ngModel)]="sourceCurrency" class="form-select">
-                <option value="" disabled selected>Wybierz walutę źródłową</option>
                 @for (currency of availableCurrencies; track currency) {
-                    <option [value]="currency">{{ currency }}</option>
-                } @empty {
-                    <option disabled selected value="">Brak walut dostępnych</option>
+                <option [value]="currency">{{ currency }}{{ isFavorite(currency) ? ' [ulubiona]' : '' }}</option>
                 }
             </select>
+            @if (!isFavorite(sourceCurrency)) {
+            <button type="button" class="btn btn-warning mt-2 w-100" (click)="addToFavorites(sourceCurrency)">
+                Dodaj do ulubionych
+            </button>
+            } @else {
+            <button type="button" class="btn btn-outline-danger mt-2 w-100"
+                (click)="removeFromFavorites(sourceCurrency)">
+                Usun z ulubionych
+            </button>
+            }
         </div>
-
-        <!-- Kontrola waluty docelowej -->
         <div class="form-group mb-3">
             <label for="targetCurrency" class="form-label">Waluta docelowa:</label>
             <select id="targetCurrency" required [(ngModel)]="targetCurrency" class="form-select">
-                <option value="" disabled selected>Wybierz walutę docelową</option>
                 @for (currency of availableCurrencies; track currency) {
-                    <option [value]="currency">{{ currency }}</option>
-                } @empty {
-                    <option disabled selected value="">Brak walut dostępnych</option>
+                <option [value]="currency">{{ currency }}{{ isFavorite(currency) ? ' [ulubiona]' : '' }}</option>
                 }
             </select>
         </div>
-
-        <!-- Kontrola prowizji -->
         <div class="form-group mb-4">
             <label for="fee" class="form-label">Prowizja (%):</label>
-            <input type="number" id="fee" placeholder="Wprowadź prowizję" min="0" max="100" step="0.01" [(ngModel)]="fee" value="1" class="form-control">
+            <input type="number" id="fee" placeholder="Wprowadz prowizje" min="0" max="100" step="0.01"
+                [(ngModel)]="fee" class="form-control">
         </div>
-
-        <button (click)="calculateExchange()" class="btn btn-primary mb-4">Oblicz</button>
-
-        <!-- Wynik wymiany -->
+        <button type="button" (click)="calculateExchange()" class="btn btn-primary mb-4">Oblicz</button>
         @if (resultAmount !== null) {
-            <div class="result p-3 border rounded bg-light">
-                <p class="mb-1">Wynik wymiany:</p>
-                <p class="h4 mb-2"><strong class="text-primary">{{ resultAmount | number:'1.2-2' }} {{ targetCurrency }}</strong></p>
-                <p class="fee-text small text-muted">Prowizja: {{ resultFee | number:'1.2-2' }} {{ targetCurrency }} ({{ fee }}%)</p>
-                <p class="mt-2"><strong class="h5">Kwota netto: {{ resultTotal | number:'1.2-2' }} {{ targetCurrency }}</strong></p>
-            </div>
-        } @else {
-            <!-- Brak wyniku -->
+        <div class="result p-3 border rounded bg-light">
+            <p class="mb-2"><strong>Kwota po kursie:</strong> {{ resultAmount | number:'1.2-2' }} {{ targetCurrency }}</p>
+            <p class="mb-2 text-muted"><strong>Prowizja:</strong> {{ resultFee | number:'1.2-2' }} {{ targetCurrency }} ({{ fee }}%)</p>
+            <p class="mt-2 h5"><strong>Kwota koncowa:</strong> {{ resultTotal | number:'1.2-2' }} {{ targetCurrency }}</p>
+        </div>
         }
     </div>
 </div>

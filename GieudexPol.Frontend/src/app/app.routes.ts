@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { CurrencyConverterComponent } from './currency-exchange/currency-converter/currency-converter';
 import { ExchangeRateDashboard } from './exchange-rate-dashboard/exchange-rate-dashboard';
 import { AlertsComponent } from './features/alerts/components/alerts/alerts.component';
 import { LoginComponent } from './features/auth/login/login.component';
@@ -22,6 +23,7 @@ export const routes: Routes = [
       { path: '', component: DashboardComponent },
       { path: 'dashboard', redirectTo: '', pathMatch: 'full' },
       { path: 'rates', component: ExchangeRateDashboard },
+      { path: 'converter', component: CurrencyConverterComponent },
       { path: 'wallet', component: WalletManagementComponent },
       { path: 'transfer', component: TransactionTransferComponent },
       { path: 'history', component: TransactionHistoryComponent },

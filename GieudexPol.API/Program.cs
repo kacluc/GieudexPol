@@ -224,6 +224,9 @@ builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IUserAlertRepository, UserAlertRepository>();
 builder.Services.AddScoped<IRateSourceRepository, RateSourceRepository>();
 builder.Services.AddScoped<ITransactionFeeRepository, TransactionFeeRepository>();
+builder.Services.AddScoped<ICurrencyExchangeSimulationService, CurrencyExchangeSimulationService>();
+builder.Services.AddScoped<IFavoriteCurrencyRepository, FavoriteCurrencyRepository>();
+builder.Services.AddScoped<FavoriteCurrencyService>();
 
 var app = builder.Build();
 

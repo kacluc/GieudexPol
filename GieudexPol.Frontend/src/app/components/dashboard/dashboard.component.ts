@@ -31,6 +31,12 @@ export class DashboardComponent implements OnInit {
       status: 'Dostepne',
     },
     {
+      title: 'Ulubione waluty',
+      description: 'Symulator wymiany i lista wybranych walut.',
+      route: '/converter',
+      status: 'Dostepne',
+    },
+    {
       title: 'Transfer',
       description: 'Transfer srodkow pomiedzy uzytkownikami.',
       route: '/transfer',

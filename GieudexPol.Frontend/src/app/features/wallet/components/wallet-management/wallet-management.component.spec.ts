@@ -1,113 +1,73 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
+import { of } from 'rxjs';
+import { vi } from 'vitest';
+import { AuthService } from '../../../auth/services/auth.service';
+import { WalletService } from '../../services/wallet.service';
 import { WalletManagementComponent } from './wallet-management.component';
-import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { AuthService } from '../services/auth.service'; // Możliwe poleganie na AuthService w przyszłości
-import { WalletService } from '../services/wallet.service';
-import { By } from '@angular/platform-browser';
-import { of, throwError } from 'rxjs';
 
 describe('WalletManagementComponent', () => {
   let component: WalletManagementComponent;
   let fixture: ComponentFixture<WalletManagementComponent>;
-  let mockWalletService: jasmine.SpyObj<WalletService>;
-  let httpMock: HttpTestingController;
 
-  beforeEach(async(() => {
-    // Mockowanie usługi WalletService
-    mockWalletService = jasmine.createSpyObj('WalletService', ['executeTrade']);
+  const walletService = {
+    getUserWallets: vi.fn(),
+    getAvailableCurrencies: vi.fn(),
+    executeTrade: vi.fn(),
+  };
 
-    TestBed.configureTestingModule({
-      declarations: [WalletManagementComponent],
+  beforeEach(async () => {
+    walletService.getUserWallets.mockReturnValue(of([
+      { id: 1, currencyId: 1, balance: 100, currency: { id: 1, symbol: 'PLN' } },
+      { id: 2, currencyId: 2, balance: 0, currency: { id: 2, symbol: 'EUR' } },
+    ]));
+    walletService.getAvailableCurrencies.mockReturnValue(of([]));
+    walletService.executeTrade.mockReturnValue(of({
+      amountTo: 23.81,
+      sellRateSource: 'PLN',
+      buyRateSource: 'NBP',
+      effectiveDate: '2026-05-25T00:00:00',
+    }));
+
+    await TestBed.configureTestingModule({
+      imports: [WalletManagementComponent],
       providers: [
-        { provide: WalletService, useValue: mockWalletService }
+        { provide: WalletService, useValue: walletService },
+        { provide: AuthService, useValue: { user$: of({ id: 1 }) } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
       ],
-      imports: [
-        // Importowanie modułów potrzebnych do testów (np. FormsModule dla ngModel)
-        // W rzeczywistym projekcie może być konieczne dodanie NgModule z formami.
-      ],
-      schemas: [
-        // Możliwe, że trzeba będzie dodać Schemas dla formularzy Angular
-      ]
     }).compileComponents();
-  }));
 
-  beforeEach(() => {
     fixture = TestBed.createComponent(WalletManagementComponent);
     component = fixture.componentInstance;
-    httpMock = TestBed.inject(HttpTestingController);
-    // Mockowanie inicjalizacji salda, aby testy były czyste
-    spyOn(component as any, 'initializeBalance').and.callThrough();
-    fixture.detectChanges(); // Wywołanie ngOnInit
+    fixture.detectChanges();
+    await fixture.whenStable();
   });
 
-  it('powinien zainicjalizować saldo i ustawić stan początkowy', () => {
-    expect(component).toBeTruthy();
-    // Sprawdzenie, czy komponent załadował domyślne salda po wywołaniu initializeBalance
-    const balanceLi = fixture.debugElement.query(By.css('.balance-summary li')).toArray();
-    expect(balanceLi.length).toBe(3); // PLN, EUR, USD
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  describe('executeTrade', () => {
-    let tradeSpy: jasmine.Spy;
+  it('loads balances for user wallets', () => {
+    expect(component.availableCurrencies).toEqual(['EUR', 'PLN']);
+    expect(component.currentBalance['PLN']).toBe(100);
+  });
 
-    beforeEach(() => {
-      // Spy na metodzie executeTrade w mockowanym serwisie
-      tradeSpy = spyOn(mockWalletService, 'executeTrade').and.returnValue(of({ success: true, message: 'OK' } as any));
+  it('does not call trade endpoint for invalid amount', async () => {
+    await component.executeTrade('PLN', 'EUR', 0);
+
+    expect(walletService.executeTrade).not.toHaveBeenCalled();
+    expect(component.tradeMessage).toContain('Kwota musi byc wieksza od zera');
+  });
+
+  it('executes exchange for currencies available in wallet', async () => {
+    await component.executeTrade('PLN', 'EUR', 10);
+
+    expect(walletService.executeTrade).toHaveBeenCalledWith(1, {
+      fromCurrencyId: 1,
+      amountFrom: 10,
+      toCurrencyId: 2,
     });
-
-    it('powinien wywołać API z poprawnymi danymi przy udanej próbie wymiany', async () => {
-      // Symulacja interakcji użytkownika
-      component['fromCurrency'] = { value: 'PLN' };
-      component['toCurrency'] = { value: 'EUR' };
-      component['amount'] = 100;
-
-      await component.executeTrade('PLN', 'EUR', 100);
-
-      // Sprawdzenie wywołania serwisu
-      expect(tradeSpy).toHaveBeenCalledWith({
-        fromCurrency: 'PLN',
-        toCurrency: 'EUR',
-        amount: 100,
-      });
-    });
-
-    it('powinien ustawić komunikat sukcesu po pomyślnym wywołaniu API', async () => {
-      component['fromCurrency'] = { value: 'PLN' };
-      component['toCurrency'] = { value: 'EUR' };
-      component['amount'] = 100;
-
-      await component.executeTrade('PLN', 'EUR', 100);
-
-      // Sprawdzenie, czy komunikat jest ustawiony i ma poprawny format sukcesu
-      expect(component.tradeMessage).toContain('Sukces!');
-    });
-
-    it('powinien obsłużyć błąd API i wyświetlić komunikat o błędzie', async () => {
-      const mockError = new ErrorEvent('Network Error');
-      // Mockowanie serwisu tak, aby zwrócił błąd
-      tradeSpy.and.returnValue(throwError(() => mockError));
-
-      component['fromCurrency'] = { value: 'PLN' };
-      component['toCurrency'] = { value: 'EUR' };
-      component['amount'] = 100;
-
-      await component.executeTrade('PLN', 'EUR', 100);
-
-      // Sprawdzenie, czy komunikat jest ustawiony i ma poprawny format błędu
-      expect(component.tradeMessage).toContain('Błąd');
-    });
-
-    it('powinien blokować przyciski i nie wywoływać API dla nieważnych danych (np. kwota 0)', async () => {
-        // Ustawienie stanów, które powinny spowodować błąd walidacyjny na froncie
-        component['fromCurrency'] = { value: 'PLN' };
-        component['toCurrency'] = { value: 'EUR' };
-        component['amount'] = 0;
-
-        await component.executeTrade('PLN', 'EUR', 0);
-
-        // Sprawdzenie, że API nie zostało wywołane i wyświetlono komunikat walidacyjny
-        expect(tradeSpy).not.toHaveBeenCalled();
-        expect(component.tradeMessage).toContain('Kwota musi być większa od zera');
-    });
+    expect(component.tradeMessage).toContain('Sukces');
   });
 });
