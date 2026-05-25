@@ -22,12 +22,19 @@ export interface TradeRequest {
   fromCurrencyId: number;
   amountFrom: number;
   toCurrencyId: number;
-  amountTo: number;
 }
 
 export interface TradeResponse {
   success: boolean;
   message: string;
+  amountTo?: number;
+  fromCurrency?: string;
+  toCurrency?: string;
+  fromRateToPln?: number;
+  toRateToPln?: number;
+  sellRateSource?: string;
+  buyRateSource?: string;
+  effectiveDate?: string;
   newBalance?: WalletBalance;
 }
 

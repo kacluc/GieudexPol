@@ -1,11 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { WalletService } from '../../services/wallet.service';
-import { TradeRequest, WalletDto, DepositRequest, WithdrawRequest } from '../../models/wallet-models';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../auth/services/auth.service';
+import { WalletService } from '../../services/wallet.service';
+import { DepositRequest, TradeRequest, WalletCurrency, WalletDto, WithdrawRequest } from '../../models/wallet-models';
 
 @Component({
   selector: 'app-wallet-management',
@@ -17,32 +17,30 @@ import { AuthService } from '../../../auth/services/auth.service';
 export class WalletManagementComponent implements OnInit {
   private readonly developmentUserId = 1;
   private currentUserId = this.developmentUserId;
-  private readonly ratesToPln: Record<string, number> = {
-    PLN: 1,
-    EUR: 4.3,
-    USD: 4.0,
-    CHF: 4.55,
-    GBP: 5.05
-  };
 
   fromCurrency = 'PLN';
   toCurrency = 'EUR';
   amount: number | null = null;
+  depositCurrency = 'PLN';
+  depositAmount: number | null = null;
+  withdrawCurrency = 'PLN';
+  withdrawAmount: number | null = null;
+  newCurrencyId: number | null = null;
 
   availableCurrencies: string[] = [];
+  addableCurrencies: WalletCurrency[] = [];
   currentBalance: { [key: string]: number } = {};
   wallets: WalletDto[] = [];
   isLoading = false;
   tradeMessage: string | null = null;
+  activeTab: 'exchange' | 'deposit' | 'withdraw' = 'exchange';
 
   constructor(
     private walletService: WalletService,
     private router: Router,
-    private authService: AuthService
+    private authService: AuthService,
+    private changeDetector: ChangeDetectorRef
   ) {}
-
-  // Logika zakładek
-  activeTab: 'exchange' | 'deposit' | 'withdraw' = 'exchange';
 
   setActiveTab(tab: 'exchange' | 'deposit' | 'withdraw'): void {
     this.activeTab = tab;
@@ -62,7 +60,10 @@ export class WalletManagementComponent implements OnInit {
     this.isLoading = true;
 
     try {
-      this.wallets = await firstValueFrom(this.walletService.getUserWallets(this.currentUserId));
+      [this.wallets, this.addableCurrencies] = await Promise.all([
+        firstValueFrom(this.walletService.getUserWallets(this.currentUserId)),
+        firstValueFrom(this.walletService.getAvailableCurrencies(this.currentUserId))
+      ]);
       this.currentBalance = {};
       this.availableCurrencies = this.wallets
         .map(wallet => wallet.currency?.symbol)
@@ -76,18 +77,42 @@ export class WalletManagementComponent implements OnInit {
         }
       }
 
-      if (!this.availableCurrencies.includes(this.fromCurrency)) {
-        this.fromCurrency = this.availableCurrencies[0] ?? '';
-      }
-
-      if (!this.availableCurrencies.includes(this.toCurrency)) {
-        this.toCurrency = this.availableCurrencies.find(symbol => symbol !== this.fromCurrency) ?? '';
-      }
+      this.fromCurrency = this.ensureSelectedCurrency(this.fromCurrency);
+      this.toCurrency = this.ensureSelectedCurrency(
+        this.toCurrency,
+        this.availableCurrencies.find(symbol => symbol !== this.fromCurrency) ?? this.fromCurrency
+      );
+      this.depositCurrency = this.ensureSelectedCurrency(this.depositCurrency);
+      this.withdrawCurrency = this.ensureSelectedCurrency(this.withdrawCurrency);
+      this.newCurrencyId = this.addableCurrencies[0]?.id ?? null;
     } catch (error) {
       console.error('Nie udalo sie zaladowac salda:', error);
       this.tradeMessage = 'Blad: Nie mozna zaladowac danych portfela.';
     } finally {
       this.isLoading = false;
+      this.changeDetector.detectChanges();
+    }
+  }
+
+  async addCurrencyWallet(): Promise<void> {
+    if (this.newCurrencyId === null) {
+      return;
+    }
+
+    const currency = this.addableCurrencies.find(item => item.id === this.newCurrencyId);
+    this.isLoading = true;
+    this.tradeMessage = null;
+
+    try {
+      await firstValueFrom(this.walletService.addCurrencyWallet(this.currentUserId, this.newCurrencyId));
+      this.tradeMessage = `Sukces: dodano portfel ${currency?.symbol ?? ''}.`;
+      await this.initializeBalance();
+    } catch (error) {
+      console.error('Blad dodawania waluty:', error);
+      this.tradeMessage = 'Blad: Nie udalo sie dodac wybranej waluty do portfela.';
+    } finally {
+      this.isLoading = false;
+      this.changeDetector.detectChanges();
     }
   }
 
@@ -104,7 +129,6 @@ export class WalletManagementComponent implements OnInit {
 
     const fromWallet = this.findWallet(fromCurrency);
     const toWallet = this.findWallet(toCurrency);
-
     if (!fromWallet || !toWallet) {
       this.tradeMessage = 'Brak portfela dla wybranej waluty.';
       return;
@@ -115,50 +139,37 @@ export class WalletManagementComponent implements OnInit {
       return;
     }
 
-    const amountTo = this.calculateTargetAmount(fromCurrency, toCurrency, amount);
     const tradeRequest: TradeRequest = {
       fromCurrencyId: fromWallet.currencyId,
       amountFrom: amount,
-      toCurrencyId: toWallet.currencyId,
-      amountTo
+      toCurrencyId: toWallet.currencyId
     };
 
     this.isLoading = true;
     this.tradeMessage = null;
 
     try {
-      await firstValueFrom(this.walletService.executeTrade(this.currentUserId, tradeRequest));
-      this.tradeMessage = `Sukces: wymieniono ${amount.toFixed(2)} ${fromCurrency} na ${amountTo.toFixed(2)} ${toCurrency}.`;
+      const response = await firstValueFrom(this.walletService.executeTrade(this.currentUserId, tradeRequest));
+      const amountTo = response.amountTo ?? 0;
+      const rateDate = response.effectiveDate?.slice(0, 10) ?? 'brak daty';
+      this.tradeMessage =
+        `Sukces: wymieniono ${amount.toFixed(2)} ${fromCurrency} na ${amountTo.toFixed(2)} ${toCurrency} ` +
+        `(sprzedaz: ${response.sellRateSource ?? 'PLN'}, zakup: ${response.buyRateSource ?? 'PLN'}, ` +
+        `kursy z ${rateDate}).`;
       this.amount = null;
       await this.initializeBalance();
     } catch (error) {
       console.error('Blad transakcji:', error);
-      this.tradeMessage = 'Blad: Nie udalo sie wykonac transakcji. Sprawdz srodki albo polaczenie z API.';
+      this.tradeMessage = 'Blad: Nie udalo sie wykonac transakcji. Sprawdz srodki albo dostepnosc kursu.';
     } finally {
       this.isLoading = false;
+      this.changeDetector.detectChanges();
     }
   }
 
-  private findWallet(symbol: string): WalletDto | undefined {
-    return this.wallets.find(wallet => wallet.currency?.symbol === symbol);
-  }
-
-  private calculateTargetAmount(fromCurrency: string, toCurrency: string, amount: number): number {
-    const fromRate = this.ratesToPln[fromCurrency] ?? 1;
-    const toRate = this.ratesToPln[toCurrency] ?? 1;
-    return Math.round((amount * fromRate / toRate) * 100) / 100;
-  }
-
-  // Właściwości dla wpłat i wypłat
-  depositCurrency = 'PLN';
-  depositAmount: number | null = null;
-  withdrawCurrency = 'PLN';
-  withdrawAmount: number | null = null;
-
-  // Metoda dla wpłaty
   async executeDeposit(): Promise<void> {
     if (this.depositAmount === null || this.depositAmount <= 0) {
-      this.tradeMessage = 'Kwota wpłaty musi być większa od zera.';
+      this.tradeMessage = 'Kwota wplaty musi byc wieksza od zera.';
       return;
     }
 
@@ -168,31 +179,27 @@ export class WalletManagementComponent implements OnInit {
       return;
     }
 
-    const depositRequest: DepositRequest = {
-      currencyId: wallet.currencyId,
-      amount: this.depositAmount
-    };
-
+    const request: DepositRequest = { currencyId: wallet.currencyId, amount: this.depositAmount };
     this.isLoading = true;
     this.tradeMessage = null;
 
     try {
-      await firstValueFrom(this.walletService.deposit(this.currentUserId, depositRequest));
-      this.tradeMessage = `Sukces: wpłacono ${this.depositAmount.toFixed(2)} ${this.depositCurrency}.`;
+      await firstValueFrom(this.walletService.deposit(this.currentUserId, request));
+      this.tradeMessage = `Sukces: wplacono ${this.depositAmount.toFixed(2)} ${this.depositCurrency}.`;
       this.depositAmount = null;
       await this.initializeBalance();
     } catch (error) {
-      console.error('Błąd wpłaty:', error);
-      this.tradeMessage = 'Błąd: Nie udało się wykonać wpłaty.';
+      console.error('Blad wplaty:', error);
+      this.tradeMessage = 'Blad: Nie udalo sie wykonac wplaty.';
     } finally {
       this.isLoading = false;
+      this.changeDetector.detectChanges();
     }
   }
 
-  // Metoda dla wypłaty
   async executeWithdraw(): Promise<void> {
     if (this.withdrawAmount === null || this.withdrawAmount <= 0) {
-      this.tradeMessage = 'Kwota wypłaty musi być większa od zera.';
+      this.tradeMessage = 'Kwota wyplaty musi byc wieksza od zera.';
       return;
     }
 
@@ -203,33 +210,39 @@ export class WalletManagementComponent implements OnInit {
     }
 
     if ((this.currentBalance[this.withdrawCurrency] ?? 0) < this.withdrawAmount) {
-      this.tradeMessage = 'Brak wystarczających środków do wypłaty.';
+      this.tradeMessage = 'Brak wystarczajacych srodkow do wyplaty.';
       return;
     }
 
-    const withdrawRequest: WithdrawRequest = {
-      currencyId: wallet.currencyId,
-      amount: this.withdrawAmount
-    };
-
+    const request: WithdrawRequest = { currencyId: wallet.currencyId, amount: this.withdrawAmount };
     this.isLoading = true;
     this.tradeMessage = null;
 
     try {
-      await firstValueFrom(this.walletService.withdraw(this.currentUserId, withdrawRequest));
-      this.tradeMessage = `Sukces: wypłacono ${this.withdrawAmount.toFixed(2)} ${this.withdrawCurrency}.`;
+      await firstValueFrom(this.walletService.withdraw(this.currentUserId, request));
+      this.tradeMessage = `Sukces: wyplacono ${this.withdrawAmount.toFixed(2)} ${this.withdrawCurrency}.`;
       this.withdrawAmount = null;
       await this.initializeBalance();
     } catch (error) {
-      console.error('Błąd wypłaty:', error);
-      this.tradeMessage = 'Błąd: Nie udało się wykonać wypłaty.';
+      console.error('Blad wyplaty:', error);
+      this.tradeMessage = 'Blad: Nie udalo sie wykonac wyplaty.';
     } finally {
       this.isLoading = false;
+      this.changeDetector.detectChanges();
     }
   }
 
-  // Metoda przekierowania do transaction-transfer
   navigateToTransfer(): void {
     this.router.navigate(['/transfer']);
+  }
+
+  private findWallet(symbol: string): WalletDto | undefined {
+    return this.wallets.find(wallet => wallet.currency?.symbol === symbol);
+  }
+
+  private ensureSelectedCurrency(value: string, fallback?: string): string {
+    return this.availableCurrencies.includes(value)
+      ? value
+      : (fallback ?? this.availableCurrencies[0] ?? '');
   }
 }

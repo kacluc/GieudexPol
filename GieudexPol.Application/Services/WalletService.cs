@@ -1,9 +1,7 @@
+using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace GieudexPol.Application.Services
 {
@@ -11,84 +9,152 @@ namespace GieudexPol.Application.Services
     {
         private readonly IWalletRepository _walletRepository;
         private readonly ITransactionService _transactionService;
-        
+        private readonly ICurrencyService _currencyService;
+        private readonly IExchangeRateService _exchangeRateService;
 
-        public WalletService(IWalletRepository walletRepository, ITransactionService transactionService)
+        public WalletService(
+            IWalletRepository walletRepository,
+            ITransactionService transactionService,
+            ICurrencyService currencyService,
+            IExchangeRateService exchangeRateService)
         {
             _walletRepository = walletRepository;
             _transactionService = transactionService;
+            _currencyService = currencyService;
+            _exchangeRateService = exchangeRateService;
         }
 
-        /// <summary>
-        /// Pobiera aktualne salda użytkownika dla wszystkich walut.
-        /// </summary>
         public async Task<IEnumerable<Wallet>> GetAvailableBalancesAsync(int userId)
         {
             return await _walletRepository.GetUserWalletsAsync(userId);
         }
 
-        /// <summary>
-        /// Wykonuje transakcję handlową, obciążając portfel źródłowy i kredytując portfel docelowy.
-        /// </summary>
-        public async Task ExecuteTradeTransactionAsync(int userId, int fromCurrencyId, decimal amountFrom, int toCurrencyId, decimal amountTo)
+        public async Task<TradeExecutionResultDto> ExecuteTradeTransactionAsync(
+            int userId,
+            int fromCurrencyId,
+            decimal amountFrom,
+            int toCurrencyId,
+            CancellationToken cancellationToken = default)
         {
-            // Pobieramy wszystkie portfele użytkownika
-            var userWallets = await _walletRepository.GetUserWalletsAsync(userId);
-
-            // Szukamy portfela dla waluty źródłowej
-            var fromWallet = userWallets.FirstOrDefault(w => w.CurrencyId == fromCurrencyId);
-            if (fromWallet == null)
+            if (amountFrom <= 0)
             {
-                throw new InvalidOperationException($"Użytkownik nie posiada portfela dla waluty o ID {fromCurrencyId}");
+                throw new ArgumentException("Kwota wymiany musi byc wieksza od zera.", nameof(amountFrom));
             }
 
-            // Szukamy portfela dla waluty docelowej
-            var toWallet = userWallets.FirstOrDefault(w => w.CurrencyId == toCurrencyId);
-            if (toWallet == null)
+            if (fromCurrencyId == toCurrencyId)
             {
-                throw new InvalidOperationException($"Użytkownik nie posiada portfela dla waluty o ID {toCurrencyId}");
+                throw new InvalidOperationException("Waluta zrodlowa i docelowa musza byc rozne.");
             }
 
-            // 1. Debetowanie przy użyciu ID portfela
-            await _walletRepository.DebitWalletBalanceAsync(fromWallet.Id, amountFrom);
+            var userWallets = (await _walletRepository.GetUserWalletsAsync(userId)).ToList();
+            var fromWallet = userWallets.FirstOrDefault(wallet => wallet.CurrencyId == fromCurrencyId)
+                ?? throw new InvalidOperationException($"Uzytkownik nie posiada portfela dla waluty o ID {fromCurrencyId}.");
+            var toWallet = userWallets.FirstOrDefault(wallet => wallet.CurrencyId == toCurrencyId)
+                ?? throw new InvalidOperationException($"Uzytkownik nie posiada portfela dla waluty o ID {toCurrencyId}.");
 
-            // 2. Kredytowanie przy użyciu ID portfela
-            await _walletRepository.CreditWalletBalanceAsync(toWallet.Id, amountTo);
+            EnsureTradingCurrencyIsAllowed(fromWallet.Currency.Symbol);
+            EnsureTradingCurrencyIsAllowed(toWallet.Currency.Symbol);
 
+            var operationDate = DateTime.Today;
+            var requiredCurrencyIds = new[] { fromWallet, toWallet }
+                .Where(wallet => !string.Equals(wallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase))
+                .Select(wallet => wallet.CurrencyId)
+                .Distinct()
+                .ToArray();
+
+            var rates = await GetRatesForTradeAsync(requiredCurrencyIds, operationDate);
+            var calculation = CalculateTargetAmount(fromWallet, toWallet, amountFrom, rates);
+            var amountTo = calculation.AmountTo;
+            var effectiveDate = rates.Count == 0 ? operationDate : rates[0].EffectiveDate.Date;
             var transactionTime = DateTime.UtcNow;
 
-            // 3. Rejestracja transakcji sprzedaży waluty źródłowej
             var sellTransaction = new Transaction
             {
                 SenderId = userId,
-                ReceiverId = userId, // Self-transaction for trade logging
+                ReceiverId = userId,
                 CurrencyId = fromCurrencyId,
                 TransactionType = "Sell",
                 Amount = amountFrom,
-                AppliedFee = 0, // No fee for internal trade logging
+                AppliedFee = 0,
+                Status = "Completed",
                 Timestamp = transactionTime
             };
 
-            // 4. Rejestracja transakcji kupna waluty docelowej
             var buyTransaction = new Transaction
             {
                 SenderId = userId,
-                ReceiverId = userId, // Self-transaction for trade logging
+                ReceiverId = userId,
                 CurrencyId = toCurrencyId,
                 TransactionType = "Buy",
                 Amount = amountTo,
-                AppliedFee = 0, // No fee for internal trade logging
+                AppliedFee = 0,
+                Status = "Completed",
                 Timestamp = transactionTime
             };
 
-            // Wywołanie metody dodawania z bazowego IService<Transaction>
-            await _transactionService.AddAsync(sellTransaction);
-            await _transactionService.AddAsync(buyTransaction);
+            await _walletRepository.ExecuteTradeAsync(
+                fromWallet,
+                amountFrom,
+                toWallet,
+                amountTo,
+                sellTransaction,
+                buyTransaction);
+
+            return new TradeExecutionResultDto
+            {
+                AmountTo = amountTo,
+                FromCurrency = fromWallet.Currency.Symbol,
+                ToCurrency = toWallet.Currency.Symbol,
+                FromRateToPln = calculation.FromRateToPln,
+                ToRateToPln = calculation.ToRateToPln,
+                SellRateSource = calculation.SellRate?.RateSource.Code ?? TradingCurrencyCatalog.BaseCurrencySymbol,
+                BuyRateSource = calculation.BuyRate?.RateSource.Code ?? TradingCurrencyCatalog.BaseCurrencySymbol,
+                EffectiveDate = effectiveDate
+            };
         }
 
         public async Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId)
         {
             return await _walletRepository.GetUserWalletsAsync(userId);
+        }
+
+        public async Task<IEnumerable<Currency>> GetAvailableWalletCurrenciesAsync(
+            int userId,
+            CancellationToken cancellationToken = default)
+        {
+            var tradableCurrencies = await _currencyService.GetTradableCurrenciesAsync();
+
+            var existingCurrencyIds = (await _walletRepository.GetUserWalletsAsync(userId))
+                .Select(wallet => wallet.CurrencyId)
+                .ToHashSet();
+
+            return tradableCurrencies.Where(currency => !existingCurrencyIds.Contains(currency.Id));
+        }
+
+        public async Task<Wallet> AddCurrencyWalletAsync(
+            int userId,
+            int currencyId,
+            CancellationToken cancellationToken = default)
+        {
+            if (await _walletRepository.GetUserWalletAsync(userId, currencyId) != null)
+            {
+                throw new InvalidOperationException("Portfel dla wybranej waluty juz istnieje.");
+            }
+
+            var allowedCurrencies = await GetAvailableWalletCurrenciesAsync(userId, cancellationToken);
+            var currency = allowedCurrencies.FirstOrDefault(item => item.Id == currencyId)
+                ?? throw new InvalidOperationException("Wybrana waluta nie ma dostepnych kursow i nie moze zostac dodana do portfela.");
+
+            var wallet = new Wallet
+            {
+                UserId = userId,
+                CurrencyId = currencyId,
+                Balance = 0
+            };
+
+            await _walletRepository.AddAsync(wallet);
+            wallet.Currency = currency;
+            return wallet;
         }
 
         public async Task<Wallet?> GetByIdAsync(int id)
@@ -107,90 +173,138 @@ namespace GieudexPol.Application.Services
         }
 
         public async Task<IEnumerable<Wallet>> GetAllAsync() => await _walletRepository.GetAllAsync();
+
         public async Task DeleteAsync(Wallet entity) => await _walletRepository.DeleteAsync(entity);
 
-        /// <summary>
-        /// Wpłata środków na portfel użytkownika
-        /// </summary>
         public async Task DepositAsync(int userId, int currencyId, decimal amount)
         {
             if (amount <= 0)
             {
-                throw new ArgumentException("Kwota wpłaty musi być większa od zera", nameof(amount));
+                throw new ArgumentException("Kwota wplaty musi byc wieksza od zera.", nameof(amount));
             }
 
-            // Pobieramy portfele użytkownika
-            var userWallets = await _walletRepository.GetUserWalletsAsync(userId);
+            var wallet = (await _walletRepository.GetUserWalletsAsync(userId))
+                .FirstOrDefault(item => item.CurrencyId == currencyId)
+                ?? throw new InvalidOperationException($"Uzytkownik nie posiada portfela dla waluty o ID {currencyId}.");
 
-            // Szukamy portfela dla danej waluty
-            var wallet = userWallets.FirstOrDefault(w => w.CurrencyId == currencyId);
-            if (wallet == null)
-            {
-                throw new InvalidOperationException($"Użytkownik nie posiada portfela dla waluty o ID {currencyId}");
-            }
-
-            // Wykonywanie wpłaty
             await _walletRepository.CreditWalletBalanceAsync(wallet.Id, amount);
-
-            // Rejestracja transakcji wpłaty
-            var transaction = new Transaction
-            {
-                SenderId = userId,
-                ReceiverId = userId, // Wpłata jest od i do tego samego użytkownika (system)
-                Amount = amount,
-                CurrencyId = currencyId,
-                TransactionType = "Deposit",
-                AppliedFee = 0,
-                Status = "Completed",
-                Timestamp = DateTime.UtcNow
-            };
-
-            await _transactionService.AddAsync(transaction);
+            await _transactionService.AddAsync(CreateBalanceTransaction(userId, currencyId, amount, "Deposit"));
         }
 
-        /// <summary>
-        /// Wypłata środków z portfela użytkownika
-        /// </summary>
         public async Task WithdrawAsync(int userId, int currencyId, decimal amount)
         {
             if (amount <= 0)
             {
-                throw new ArgumentException("Kwota wypłaty musi być większa od zera", nameof(amount));
+                throw new ArgumentException("Kwota wyplaty musi byc wieksza od zera.", nameof(amount));
             }
 
-            // Pobieramy portfele użytkownika
-            var userWallets = await _walletRepository.GetUserWalletsAsync(userId);
+            var wallet = (await _walletRepository.GetUserWalletsAsync(userId))
+                .FirstOrDefault(item => item.CurrencyId == currencyId)
+                ?? throw new InvalidOperationException($"Uzytkownik nie posiada portfela dla waluty o ID {currencyId}.");
 
-            // Szukamy portfela dla danej waluty
-            var wallet = userWallets.FirstOrDefault(w => w.CurrencyId == currencyId);
-            if (wallet == null)
-            {
-                throw new InvalidOperationException($"Użytkownik nie posiada portfela dla waluty o ID {currencyId}");
-            }
-
-            // Sprawdzenie dostępnych środków
             if (wallet.Balance < amount)
             {
-                throw new InvalidOperationException("Niewystarczające środki na koncie");
+                throw new InvalidOperationException("Niewystarczajace srodki na koncie.");
             }
 
-            // Wykonywanie wypłaty
             await _walletRepository.DebitWalletBalanceAsync(wallet.Id, amount);
+            await _transactionService.AddAsync(CreateBalanceTransaction(userId, currencyId, amount, "Withdrawal"));
+        }
 
-            // Rejestracja transakcji wypłaty
-            var transaction = new Transaction
+        private async Task<IReadOnlyList<ExchangeRate>> GetRatesForTradeAsync(
+            IReadOnlyCollection<int> requiredCurrencyIds,
+            DateTime operationDate)
+        {
+            if (requiredCurrencyIds.Count == 0)
+            {
+                return Array.Empty<ExchangeRate>();
+            }
+
+            var oldestAcceptedDate = operationDate.AddDays(-14).Date;
+            var rates = await _exchangeRateService.GetTradingRateCandidatesAsync(
+                requiredCurrencyIds,
+                oldestAcceptedDate,
+                operationDate);
+
+            if (requiredCurrencyIds.Any(currencyId => rates.All(rate => rate.CurrencyId != currencyId)))
+            {
+                throw new InvalidOperationException("Nie znaleziono lokalnego aktualnego wspolnego dnia kursowego dla wybranych walut. Odswiez kursy walut lub uruchom synchronizacje.");
+            }
+
+            return rates;
+        }
+
+        private static void EnsureTradingCurrencyIsAllowed(string currencySymbol)
+        {
+            if (!string.Equals(
+                    currencySymbol,
+                    TradingCurrencyCatalog.BaseCurrencySymbol,
+                    StringComparison.OrdinalIgnoreCase) &&
+                !TradingCurrencyCatalog.Contains(currencySymbol))
+            {
+                throw new InvalidOperationException("Wybrana waluta nie jest dostepna na wykresach kursow.");
+            }
+        }
+
+        private static TradeCalculation CalculateTargetAmount(
+            Wallet fromWallet,
+            Wallet toWallet,
+            decimal amountFrom,
+            IReadOnlyList<ExchangeRate> rates)
+        {
+            var sellRate = string.Equals(fromWallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : rates
+                    .Where(rate => rate.CurrencyId == fromWallet.CurrencyId)
+                    .OrderByDescending(rate => rate.BuyPrice)
+                    .ThenBy(rate => rate.RateSource.Code)
+                    .First();
+            var buyRate = string.Equals(toWallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : rates
+                    .Where(rate => rate.CurrencyId == toWallet.CurrencyId)
+                    .OrderBy(rate => rate.SellPrice)
+                    .ThenBy(rate => rate.RateSource.Code)
+                    .First();
+            var fromRate = string.Equals(fromWallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase)
+                ? 1m
+                : sellRate!.BuyPrice;
+            var toRate = string.Equals(toWallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase)
+                ? 1m
+                : buyRate!.SellPrice;
+
+            return new TradeCalculation(
+                Math.Round(amountFrom * fromRate / toRate, 2, MidpointRounding.AwayFromZero),
+                fromRate,
+                toRate,
+                sellRate,
+                buyRate);
+        }
+
+        private static Transaction CreateBalanceTransaction(
+            int userId,
+            int currencyId,
+            decimal amount,
+            string transactionType)
+        {
+            return new Transaction
             {
                 SenderId = userId,
-                ReceiverId = userId, // Wypłata jest od i do tego samego użytkownika (system)
+                ReceiverId = userId,
                 Amount = amount,
                 CurrencyId = currencyId,
-                TransactionType = "Withdrawal",
+                TransactionType = transactionType,
                 AppliedFee = 0,
                 Status = "Completed",
                 Timestamp = DateTime.UtcNow
             };
-
-            await _transactionService.AddAsync(transaction);
         }
+
+        private sealed record TradeCalculation(
+            decimal AmountTo,
+            decimal FromRateToPln,
+            decimal ToRateToPln,
+            ExchangeRate? SellRate,
+            ExchangeRate? BuyRate);
     }
 }

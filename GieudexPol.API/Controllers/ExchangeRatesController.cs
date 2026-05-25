@@ -1,6 +1,7 @@
 using System;
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
@@ -8,6 +9,7 @@ namespace GieudexPol.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ExchangeRatesController : ControllerBase
     {
         private static readonly DateTime MinimumSyncDate = new DateTime(2026, 1, 1);
@@ -88,13 +90,22 @@ namespace GieudexPol.API.Controllers
                 resolvedFrom,
                 resolvedTo);
 
-            if (chartData.Points.Count == 0 && IsSyncableSource(sourceCode))
+            var expectedPublicationDate = ResolveExpectedPublicationDate(resolvedTo);
+            var shouldSynchronize = IsSyncableSource(sourceCode) &&
+                (chartData.Points.Count == 0 ||
+                 chartData.Points.All(point => point.Date.Date != expectedPublicationDate));
+
+            if (shouldSynchronize)
             {
                 try
                 {
+                    var syncFrom = chartData.Points.Count == 0
+                        ? resolvedFrom
+                        : expectedPublicationDate;
+
                     await _exchangeRateSyncService.SyncRatesAsync(
                         sourceCode,
-                        resolvedFrom,
+                        syncFrom,
                         resolvedTo,
                         cancellationToken);
                 }
@@ -331,6 +342,18 @@ namespace GieudexPol.API.Controllers
         private static bool IsSyncableSource(string sourceCode)
         {
             return SyncableSources.Contains(sourceCode);
+        }
+
+        private static DateTime ResolveExpectedPublicationDate(DateTime date)
+        {
+            var expectedDate = date.Date;
+
+            while (expectedDate.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            {
+                expectedDate = expectedDate.AddDays(-1);
+            }
+
+            return expectedDate;
         }
     }
 }

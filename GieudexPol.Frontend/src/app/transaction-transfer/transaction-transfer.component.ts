@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TransactionService } from '../services/transaction.service';
@@ -32,7 +32,8 @@ export class TransactionTransferComponent implements OnInit {
     private walletService: WalletService,
     private currencyService: CurrencyService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private changeDetector: ChangeDetectorRef
   ) {
     this.transferForm = this.fb.group({
       receiverUsername: ['', Validators.required],
@@ -55,10 +56,12 @@ export class TransactionTransferComponent implements OnInit {
     this.walletService.getUserWallets(userId).subscribe(
       (wallets) => {
         this.userWallets = wallets;
+        this.changeDetector.detectChanges();
       },
       (error) => {
         console.error('Error loading user wallets:', error);
         this.errorMessage = 'Failed to load user wallets.';
+        this.changeDetector.detectChanges();
       }
     );
   }
@@ -67,10 +70,12 @@ export class TransactionTransferComponent implements OnInit {
     this.currencyService.getAllCurrencies().subscribe(
       (currencies) => {
         this.currencies = currencies;
+        this.changeDetector.detectChanges();
       },
       (error) => {
         console.error('Error loading currencies:', error);
         this.errorMessage = 'Failed to load currencies.';
+        this.changeDetector.detectChanges();
       }
     );
   }
@@ -96,10 +101,12 @@ export class TransactionTransferComponent implements OnInit {
           if (this.currentUserId) {
             this.loadUserWallets(this.currentUserId);
           }
+          this.changeDetector.detectChanges();
         },
         (error) => {
           console.error('Transaction failed:', error);
           this.errorMessage = error.error?.message || 'Transaction failed. Please try again.';
+          this.changeDetector.detectChanges();
         }
       );
     } else {

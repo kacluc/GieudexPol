@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -122,6 +123,19 @@ namespace GieudexPol.Infrastructure.Services
             var currencies = await _context.Currencies.ToDictionaryAsync(
                 currency => currency.Symbol,
                 cancellationToken);
+            if (!currencies.ContainsKey("PLN"))
+            {
+                var baseCurrency = new Currency
+                {
+                    Symbol = "PLN",
+                    Name = "Polish Zloty",
+                    IsActive = true
+                };
+
+                currencies[baseCurrency.Symbol] = baseCurrency;
+                await _context.Currencies.AddAsync(baseCurrency, cancellationToken);
+            }
+
             var existingRates = await LoadExistingRateKeysAsync(rateSource.Id, from, to, cancellationToken);
 
             foreach (var (rangeFrom, rangeTo) in SplitIntoRanges(from, to, exchangeRateClient.MaxRangeDays))
@@ -159,6 +173,10 @@ namespace GieudexPol.Infrastructure.Services
                     foreach (var rate in table.Rates)
                     {
                         var currencyCode = rate.CurrencyCode.Trim().ToUpperInvariant();
+                        if (!TradingCurrencyCatalog.Contains(currencyCode))
+                        {
+                            continue;
+                        }
 
                         if (!currencies.TryGetValue(currencyCode, out var currency))
                         {

@@ -78,5 +78,16 @@ namespace GieudexPol.Application.Services
         {
             return await _exchangeRateRepository.GetLatestRatesAsync(sourceCode, currencyCode);
         }
+
+        public async Task<IReadOnlyList<ExchangeRate>> GetTradingRateCandidatesAsync(
+            IReadOnlyCollection<int> currencyIds,
+            DateTime oldestAcceptedDate,
+            DateTime notAfter)
+        {
+            return await _exchangeRateRepository.GetTradingRateCandidatesAsync(
+                currencyIds,
+                oldestAcceptedDate,
+                notAfter);
+        }
     }
 }

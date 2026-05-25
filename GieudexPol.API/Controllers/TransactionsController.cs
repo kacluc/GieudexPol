@@ -1,5 +1,6 @@
 using GieudexPol.Application.DTOs;
-using GieudexPol.Application.Services;
+using GieudexPol.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
@@ -7,11 +8,12 @@ namespace GieudexPol.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class TransactionsController : ControllerBase
     {
-        private readonly TransactionService _transactionService;
+        private readonly ITransactionService _transactionService;
 
-        public TransactionsController(TransactionService transactionService)
+        public TransactionsController(ITransactionService transactionService)
         {
             _transactionService = transactionService;
         }

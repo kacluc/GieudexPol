@@ -1,3 +1,4 @@
+using GieudexPol.Application.DTOs;
 using GieudexPol.Domain.Entities;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -7,8 +8,15 @@ namespace GieudexPol.Application.Interfaces
     public interface IWalletService
     {
         Task<IEnumerable<Wallet>> GetAvailableBalancesAsync(int userId);
-        Task ExecuteTradeTransactionAsync(int userId, int fromCurrencyId, decimal amountFrom, int toCurrencyId, decimal amountTo);
+        Task<TradeExecutionResultDto> ExecuteTradeTransactionAsync(
+            int userId,
+            int fromCurrencyId,
+            decimal amountFrom,
+            int toCurrencyId,
+            CancellationToken cancellationToken = default);
         Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId);
+        Task<IEnumerable<Currency>> GetAvailableWalletCurrenciesAsync(int userId, CancellationToken cancellationToken = default);
+        Task<Wallet> AddCurrencyWalletAsync(int userId, int currencyId, CancellationToken cancellationToken = default);
 
         // Dodane metody CRUD do kontraktu usługi
         Task<Wallet?> GetByIdAsync(int id);

@@ -53,6 +53,34 @@ namespace GieudexPol.Infrastructure.Repositories
             await _context.SaveChangesAsync();
         }
 
+        public async Task ExecuteTradeAsync(
+            Wallet fromWallet,
+            decimal amountFrom,
+            Wallet toWallet,
+            decimal amountTo,
+            Transaction sellTransaction,
+            Transaction buyTransaction)
+        {
+            var executionStrategy = _context.Database.CreateExecutionStrategy();
+
+            await executionStrategy.ExecuteAsync(async () =>
+            {
+                _context.ChangeTracker.Clear();
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+
+                var persistedFromWallet = await _dbSet.SingleAsync(wallet => wallet.Id == fromWallet.Id);
+                var persistedToWallet = await _dbSet.SingleAsync(wallet => wallet.Id == toWallet.Id);
+                persistedFromWallet.Debit(amountFrom);
+                persistedToWallet.Credit(amountTo);
+
+                await _context.Transactions.AddRangeAsync(
+                    CopyTransaction(sellTransaction),
+                    CopyTransaction(buyTransaction));
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            });
+        }
+
         public async Task<Wallet?> GetByIdAsync(int id)
         {
             return await _dbSet
@@ -77,6 +105,22 @@ namespace GieudexPol.Infrastructure.Repositories
         {
             _dbSet.Remove(entity);
             await _context.SaveChangesAsync();
+        }
+
+        private static Transaction CopyTransaction(Transaction transaction)
+        {
+            return new Transaction
+            {
+                SenderId = transaction.SenderId,
+                ReceiverId = transaction.ReceiverId,
+                CurrencyId = transaction.CurrencyId,
+                TransactionType = transaction.TransactionType,
+                Amount = transaction.Amount,
+                AppliedFee = transaction.AppliedFee,
+                Status = transaction.Status,
+                Timestamp = transaction.Timestamp,
+                TransactionFeeId = transaction.TransactionFeeId
+            };
         }
     }
 }

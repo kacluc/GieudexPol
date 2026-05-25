@@ -52,7 +52,8 @@ namespace GieudexPol.Tests
             rateSource.Code.Should().Be("NBP");
             rateSource.Name.Should().Be("Narodowy Bank Polski");
 
-            var currency = await context.Currencies.SingleAsync();
+            (await context.Currencies.AnyAsync(item => item.Symbol == "PLN")).Should().BeTrue();
+            var currency = await context.Currencies.SingleAsync(item => item.Symbol == "EUR");
             currency.Symbol.Should().Be("EUR");
             currency.Name.Should().Be("euro");
 
@@ -62,6 +63,41 @@ namespace GieudexPol.Tests
             exchangeRate.EffectiveDate.Should().Be(new DateTime(2026, 1, 2));
             exchangeRate.BuyPrice.Should().Be(4.2010m);
             exchangeRate.SellPrice.Should().Be(4.2850m);
+        }
+
+        [Fact]
+        public async Task SyncRatesAsync_ShouldIgnoreCurrencyOutsideTradingCatalog()
+        {
+            await using var context = CreateContext();
+            var client = new FakeExternalExchangeRateClient
+            {
+                SourceCode = "ECB",
+                SourceName = "European Central Bank",
+                TablesToReturn =
+                [
+                    new ExternalExchangeRateTableDto
+                    {
+                        EffectiveDate = new DateTime(2026, 1, 2),
+                        Rates =
+                        [
+                            new ExternalExchangeRateItemDto
+                            {
+                                CurrencyCode = "CNY",
+                                CurrencyName = "yuan",
+                                BuyPrice = 0.55m,
+                                SellPrice = 0.55m
+                            }
+                        ]
+                    }
+                ]
+            };
+            var service = CreateService(context, client);
+
+            var result = await service.SyncRatesAsync("ECB", new DateTime(2026, 1, 1), new DateTime(2026, 1, 2));
+
+            result.Added.Should().Be(0);
+            (await context.Currencies.AnyAsync(currency => currency.Symbol == "CNY")).Should().BeFalse();
+            (await context.ExchangeRates.AnyAsync()).Should().BeFalse();
         }
 
         [Fact]

@@ -213,7 +213,7 @@ builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<BnrExchangeRateClient>());
 
-builder.Services.AddHostedService<NbpExchangeRateStartupSyncService>();
+builder.Services.AddHostedService<ExchangeRateStartupSyncService>();
 
 // Add repositories
 builder.Services.AddScoped<ICurrencyRepository, CurrencyRepository>();

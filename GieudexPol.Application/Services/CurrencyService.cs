@@ -43,5 +43,10 @@ namespace GieudexPol.Application.Services
         {
             return await _currencyRepository.GetBySymbolAsync(symbol);
         }
+
+        public async Task<IReadOnlyList<Currency>> GetTradableCurrenciesAsync()
+        {
+            return await _currencyRepository.GetTradableCurrenciesAsync();
+        }
     }
 }

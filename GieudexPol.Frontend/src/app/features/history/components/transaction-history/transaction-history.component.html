@@ -1,0 +1,45 @@
+<section class="history-page">
+  <header>
+    <p class="eyebrow">Historia</p>
+    <h1>Historia transakcji</h1>
+    <p>Audyt operacji portfela oraz transferow zapisanych w systemie.</p>
+  </header>
+
+  @if (isLoading) {
+    <div class="state">Ladowanie historii...</div>
+  } @else if (errorMessage) {
+    <div class="state error">{{ errorMessage }}</div>
+  } @else if (transactions.length === 0) {
+    <div class="state">
+      Nie znaleziono jeszcze transakcji.
+      <a routerLink="/wallet">Przejdz do portfela</a>
+    </div>
+  } @else {
+    <div class="table-panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Typ</th>
+            <th>Status</th>
+            <th>Kwota</th>
+            <th>Waluta</th>
+            <th>Oplata</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (transaction of transactions; track transaction.id) {
+            <tr>
+              <td>{{ transaction.timestamp | date:'dd.MM.yyyy HH:mm' }}</td>
+              <td>{{ transaction.transactionType }}</td>
+              <td>{{ transaction.status }}</td>
+              <td>{{ transaction.amount | number:'1.2-4' }}</td>
+              <td>#{{ transaction.currencyId }}</td>
+              <td>{{ transaction.appliedFee | number:'1.2-4' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

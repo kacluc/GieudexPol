@@ -102,6 +102,44 @@ namespace GieudexPol.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IReadOnlyList<ExchangeRate>> GetTradingRateCandidatesAsync(
+            IReadOnlyCollection<int> currencyIds,
+            DateTime oldestAcceptedDate,
+            DateTime notAfter)
+        {
+            var requestedCurrencyIds = currencyIds.Distinct().ToList();
+            if (requestedCurrencyIds.Count == 0)
+            {
+                return Array.Empty<ExchangeRate>();
+            }
+
+            var applicableDate = await _dbSet
+                .AsNoTracking()
+                .Where(rate =>
+                    requestedCurrencyIds.Contains(rate.CurrencyId) &&
+                    rate.EffectiveDate >= oldestAcceptedDate.Date &&
+                    rate.EffectiveDate <= notAfter.Date)
+                .GroupBy(rate => rate.EffectiveDate)
+                .Where(group => group.Select(rate => rate.CurrencyId).Distinct().Count() == requestedCurrencyIds.Count)
+                .Select(group => (DateTime?)group.Key)
+                .OrderByDescending(date => date)
+                .FirstOrDefaultAsync();
+
+            if (!applicableDate.HasValue)
+            {
+                return Array.Empty<ExchangeRate>();
+            }
+
+            return await _dbSet
+                .AsNoTracking()
+                .Include(rate => rate.Currency)
+                .Include(rate => rate.RateSource)
+                .Where(rate =>
+                    requestedCurrencyIds.Contains(rate.CurrencyId) &&
+                    rate.EffectiveDate == applicableDate.Value)
+                .ToListAsync();
+        }
+
         public async Task<bool> ExistsAsync(int currencyId, int rateSourceId, DateTime effectiveDate)
         {
             return await _dbSet.AnyAsync(er =>

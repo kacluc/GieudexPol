@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
-import { TradeRequest, TradeResponse, WalletDto, DepositRequest, WithdrawRequest } from '../models/wallet-models';
+import { TradeRequest, TradeResponse, WalletCurrency, WalletDto, DepositRequest, WithdrawRequest } from '../models/wallet-models';
 
 @Injectable({
   providedIn: 'root'
@@ -14,6 +14,14 @@ export class WalletService {
 
   getUserWallets(userId: number): Observable<WalletDto[]> {
     return this.http.get<WalletDto[]>(`${this.apiUrl}/user/${userId}`);
+  }
+
+  getAvailableCurrencies(userId: number): Observable<WalletCurrency[]> {
+    return this.http.get<WalletCurrency[]>(`${this.apiUrl}/available-currencies?userId=${userId}`);
+  }
+
+  addCurrencyWallet(userId: number, currencyId: number): Observable<WalletDto> {
+    return this.http.post<WalletDto>(`${this.apiUrl}/user/${userId}/currencies/${currencyId}`, {});
   }
 
   async getBalance(userId: number): Promise<{ [key: string]: number }> {

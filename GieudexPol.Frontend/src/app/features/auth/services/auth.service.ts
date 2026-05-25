@@ -1,18 +1,21 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { BehaviorSubject } from 'rxjs';
 import { Router } from '@angular/router';
 
 interface AuthResponse {
   token: string;
   email: string;
-  userId: number; // Add userId to AuthResponse
+  userId: number;
 }
 
 interface User {
   id: number;
   email: string;
+}
+
+interface JwtPayload {
+  exp?: number;
 }
 
 @Injectable({
@@ -28,13 +31,16 @@ export class AuthService {
   }
 
   private loadUserFromLocalStorage(): void {
-    const token = localStorage.getItem('authToken');
+    const token = this.getToken();
     const email = localStorage.getItem('userEmail');
     const userId = localStorage.getItem('userId');
 
-    if (token && email && userId) {
-      this.userSubject.next({ id: +userId, email });
+    if (token && email && userId && Number.isInteger(+userId) && +userId > 0) {
+      this.userSubject.next({ id: Number(userId), email });
+      return;
     }
+
+    this.clearSession();
   }
 
   async register(email: string, password: string): Promise<void> {
@@ -42,7 +48,7 @@ export class AuthService {
     if (response?.token) {
       localStorage.setItem('authToken', response.token);
       localStorage.setItem('userEmail', response.email);
-      localStorage.setItem('userId', response.userId.toString()); // Store userId
+      localStorage.setItem('userId', response.userId.toString());
       this.userSubject.next({ id: response.userId, email: response.email });
     }
   }
@@ -52,25 +58,53 @@ export class AuthService {
     if (response?.token) {
       localStorage.setItem('authToken', response.token);
       localStorage.setItem('userEmail', response.email);
-      localStorage.setItem('userId', response.userId.toString()); // Store userId
+      localStorage.setItem('userId', response.userId.toString());
       this.userSubject.next({ id: response.userId, email: response.email });
-      this.router.navigate(['/dashboard']);
+      this.router.navigate(['/']);
     }
   }
 
   logout(): void {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userId'); // Remove userId
-    this.userSubject.next(null);
+    this.clearSession();
     this.router.navigate(['/auth/login']);
   }
 
+  private clearSession(): void {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userId');
+    this.userSubject.next(null);
+  }
+
   getToken(): string | null {
-    return localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken');
+
+    if (!token || !this.hasValidExpiration(token)) {
+      this.clearSession();
+      return null;
+    }
+
+    return token;
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    return this.getToken() !== null;
+  }
+
+  private hasValidExpiration(token: string): boolean {
+    try {
+      const payloadPart = token.split('.')[1];
+      if (!payloadPart) {
+        return false;
+      }
+
+      const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+      const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+      const payload = JSON.parse(atob(paddedBase64)) as JwtPayload;
+
+      return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
+    } catch {
+      return false;
+    }
   }
 }

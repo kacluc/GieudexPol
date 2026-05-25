@@ -20,6 +20,26 @@
         <div class="text-gray-500">Brak danych o saldzie portfela.</div>
       }
     </div>
+
+    @if (addableCurrencies.length > 0) {
+      <div class="mt-4 pt-4 border-t border-gray-200">
+        <label for="newCurrency" class="block text-sm font-medium text-gray-700 mb-1">
+          Dodaj walute dostepna w kursach walut:
+        </label>
+        <div class="flex gap-2">
+          <select id="newCurrency" [(ngModel)]="newCurrencyId" name="newCurrency"
+                  class="flex-1 p-2 border border-gray-300 rounded-md">
+            @for (currency of addableCurrencies; track currency.id) {
+              <option [ngValue]="currency.id">{{ currency.symbol }} - {{ currency.name }}</option>
+            }
+          </select>
+          <button type="button" (click)="addCurrencyWallet()" [disabled]="isLoading || newCurrencyId === null"
+                  class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-300">
+            Dodaj do salda
+          </button>
+        </div>
+      </div>
+    }
   </div>
 
   <!-- Zakładki -->

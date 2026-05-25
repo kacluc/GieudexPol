@@ -1,13 +1,14 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { WalletService } from '../../features/wallet/services/wallet.service';
-import { AuthService } from '../../features/auth/services/auth.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
-  templateUrl: './dashboard.component.html'
+  imports: [CommonModule, RouterLink],
+  templateUrl: './dashboard.component.html',
+  styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit {
   userEmail = '';
@@ -16,10 +17,52 @@ export class DashboardComponent implements OnInit {
   isLoading = true;
   errorMessage: string | null = null;
 
-  constructor(private walletService: WalletService, private authService: AuthService) {}
+  readonly sections = [
+    {
+      title: 'Kursy walut',
+      description: 'Wykres i dane kursowe z dostepnych zrodel.',
+      route: '/rates',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Portfel',
+      description: 'Saldo, wymiana walut, wplaty i wyplaty.',
+      route: '/wallet',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Transfer',
+      description: 'Transfer srodkow pomiedzy uzytkownikami.',
+      route: '/transfer',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Historia transakcji',
+      description: 'Rejestr operacji zapisanych dla uzytkownika.',
+      route: '/history',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Order book',
+      description: 'Planowany podglad ofert kupna i sprzedazy.',
+      route: '/orderbook',
+      status: 'W przygotowaniu',
+    },
+    {
+      title: 'Alerty cenowe',
+      description: 'Progi cenowe zapisane dla walut.',
+      route: '/alerts',
+      status: 'Dostepne',
+    },
+  ];
+
+  constructor(
+    private readonly walletService: WalletService,
+    private readonly changeDetector: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
-    this.loadDashboardData();
+    void this.loadDashboardData();
   }
 
   async loadDashboardData(): Promise<void> {
@@ -42,10 +85,7 @@ export class DashboardComponent implements OnInit {
       this.errorMessage = 'Nie mozna zaladowac danych dashboardu. Sprawdz, czy API dziala na http://localhost:5265.';
     } finally {
       this.isLoading = false;
+      this.changeDetector.detectChanges();
     }
-  }
-
-  logout(): void {
-    this.authService.logout();
   }
 }
