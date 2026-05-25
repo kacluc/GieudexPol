@@ -4,8 +4,12 @@ using GieudexPol.Application.Auth.Services;
 using GieudexPol.API.Services;
 using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Data;
+using GieudexPol.Infrastructure.ExternalServices.BankOfEngland;
+using GieudexPol.Infrastructure.ExternalServices.Bnr;
+using GieudexPol.Infrastructure.ExternalServices.Cnb;
 using GieudexPol.Infrastructure.ExternalServices.Ecb;
 using GieudexPol.Infrastructure.ExternalServices.Nbp;
+using GieudexPol.Infrastructure.ExternalServices.Norges;
 using GieudexPol.Infrastructure.ExternalServices.Riksbank;
 using GieudexPol.Infrastructure.Repositories;
 using GieudexPol.Infrastructure.Services;
@@ -141,12 +145,68 @@ builder.Services.AddHttpClient<RiksbankExchangeRateClient>(client =>
     }
 });
 
+builder.Services.AddHttpClient<BankOfEnglandExchangeRateClient>(client =>
+{
+    var baseUrl = builder.Configuration["BankOfEnglandApi:BaseUrl"] ?? "https://www.bankofengland.co.uk/boeapps/database/";
+    if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
+    {
+        baseUrl += "/";
+    }
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/csv"));
+});
+
+builder.Services.AddHttpClient<CnbExchangeRateClient>(client =>
+{
+    var baseUrl = builder.Configuration["CnbApi:BaseUrl"] ?? "https://api.cnb.cz/cnbapi/";
+    if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
+    {
+        baseUrl += "/";
+    }
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+builder.Services.AddHttpClient<NorgesExchangeRateClient>(client =>
+{
+    var baseUrl = builder.Configuration["NorgesApi:BaseUrl"] ?? "https://data.norges-bank.no/api/";
+    if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
+    {
+        baseUrl += "/";
+    }
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+builder.Services.AddHttpClient<BnrExchangeRateClient>(client =>
+{
+    var baseUrl = builder.Configuration["BnrApi:BaseUrl"] ?? "https://curs.bnr.ro/";
+    if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
+    {
+        baseUrl += "/";
+    }
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
+});
+
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<NbpExchangeRateClient>());
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<EcbExchangeRateClient>());
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<RiksbankExchangeRateClient>());
+builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
+    serviceProvider.GetRequiredService<BankOfEnglandExchangeRateClient>());
+builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
+    serviceProvider.GetRequiredService<CnbExchangeRateClient>());
+builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
+    serviceProvider.GetRequiredService<NorgesExchangeRateClient>());
+builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
+    serviceProvider.GetRequiredService<BnrExchangeRateClient>());
 
 builder.Services.AddHostedService<NbpExchangeRateStartupSyncService>();
 

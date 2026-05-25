@@ -15,7 +15,11 @@ namespace GieudexPol.API.Controllers
         {
             "NBP",
             "ECB",
-            "RIKSBANK"
+            "RIKSBANK",
+            "BOE",
+            "CNB",
+            "NORGES",
+            "BNR"
         };
 
         private readonly IExchangeRateService _exchangeRateService;
@@ -197,6 +201,42 @@ namespace GieudexPol.API.Controllers
             CancellationToken cancellationToken)
         {
             return await SyncRatesBySource("RIKSBANK", from, to, cancellationToken);
+        }
+
+        [HttpPost("sync/boe")]
+        public async Task<IActionResult> SyncBankOfEnglandRates(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
+        {
+            return await SyncRatesBySource("BOE", from, to, cancellationToken);
+        }
+
+        [HttpPost("sync/cnb")]
+        public async Task<IActionResult> SyncCzechNationalBankRates(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
+        {
+            return await SyncRatesBySource("CNB", from, to, cancellationToken);
+        }
+
+        [HttpPost("sync/norges")]
+        public async Task<IActionResult> SyncNorgesBankRates(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
+        {
+            return await SyncRatesBySource("NORGES", from, to, cancellationToken);
+        }
+
+        [HttpPost("sync/bnr")]
+        public async Task<IActionResult> SyncNationalBankOfRomaniaRates(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
+        {
+            return await SyncRatesBySource("BNR", from, to, cancellationToken);
         }
 
         [HttpPost("sync/{sourceCode}")]

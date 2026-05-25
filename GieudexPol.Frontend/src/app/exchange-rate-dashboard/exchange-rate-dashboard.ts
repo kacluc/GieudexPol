@@ -19,6 +19,10 @@ export class ExchangeRateDashboard implements OnInit {
   private readonly nbpSourceCode = 'NBP';
   private readonly ecbSourceCode = 'ECB';
   private readonly riksbankSourceCode = 'RIKSBANK';
+  private readonly boeSourceCode = 'BOE';
+  private readonly cnbSourceCode = 'CNB';
+  private readonly norgesSourceCode = 'NORGES';
+  private readonly bnrSourceCode = 'BNR';
   private readonly mockSourceCode = 'MOCK_BANK_A';
   private readonly nbpBuySellCurrencyCodes = new Set([
     'AUD',
@@ -52,6 +56,74 @@ export class ExchangeRateDashboard implements OnInit {
     'USD',
   ]);
   private readonly riksbankCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly boeCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly cnbCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly norgesCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly bnrCurrencyCodes = new Set([
     'AUD',
     'CAD',
     'CHF',
@@ -103,6 +175,22 @@ export class ExchangeRateDashboard implements OnInit {
       code: 'RIKSBANK',
       label: 'RIKSBANK - kursy referencyjne',
     },
+    {
+      code: 'BOE',
+      label: 'BOE - publikowane kursy spot',
+    },
+    {
+      code: 'CNB',
+      label: 'CNB - kursy referencyjne',
+    },
+    {
+      code: 'NORGES',
+      label: 'NORGES - kursy referencyjne',
+    },
+    {
+      code: 'BNR',
+      label: 'BNR - kursy referencyjne',
+    },
   ];
   readonly rangePresets = [
     { label: '7D', days: 7 },
@@ -112,6 +200,7 @@ export class ExchangeRateDashboard implements OnInit {
     { label: 'DEV', from: '2026-01-01' },
   ];
   readonly minimumRateDate = '2026-01-01';
+  readonly maximumRateDate = this.formatDateInput(new Date());
   readonly chartWidth = 920;
   readonly chartHeight = 320;
   readonly chartPadding = {
@@ -124,7 +213,7 @@ export class ExchangeRateDashboard implements OnInit {
   currency = 'EUR';
   source = 'MOCK_BANK_A';
   from = '2026-01-01';
-  to = this.formatDateInput(new Date());
+  to = this.maximumRateDate;
 
   chartPoints: ExchangeRateChartPoint[] = [];
   latestRates: ExchangeRateTableRow[] = [];
@@ -401,6 +490,22 @@ export class ExchangeRateDashboard implements OnInit {
       return this.riksbankCurrencyCodes.has(currencyCode);
     }
 
+    if (sourceCode === this.boeSourceCode) {
+      return this.boeCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.cnbSourceCode) {
+      return this.cnbCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.norgesSourceCode) {
+      return this.norgesCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.bnrSourceCode) {
+      return this.bnrCurrencyCodes.has(currencyCode);
+    }
+
     return false;
   }
 
@@ -432,6 +537,14 @@ export class ExchangeRateDashboard implements OnInit {
   onDateRangeChange(): void {
     this.from = this.clampToMinimumRateDate(this.from);
     this.to = this.clampToMinimumRateDate(this.to);
+
+    if (this.from > this.maximumRateDate) {
+      this.from = this.maximumRateDate;
+    }
+
+    if (this.to > this.maximumRateDate) {
+      this.to = this.maximumRateDate;
+    }
   }
 
   private validateFilters(): boolean {

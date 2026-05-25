@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -8,6 +10,9 @@ namespace GieudexPol.Infrastructure.Services
 {
     public class ExchangeRateSyncService : IExchangeRateSyncService
     {
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> SyncLocks =
+            new(StringComparer.OrdinalIgnoreCase);
+
         private readonly ApplicationDbContext _context;
         private readonly IEnumerable<IExternalExchangeRateClient> _exchangeRateClients;
         private readonly ILogger<ExchangeRateSyncService> _logger;
@@ -69,6 +74,38 @@ namespace GieudexPol.Infrastructure.Services
                 throw new InvalidOperationException($"Exchange rate source '{sourceCode}' is not supported.");
             }
 
+            var syncLock = SyncLocks.GetOrAdd(exchangeRateClient.SourceCode, _ => new SemaphoreSlim(1, 1));
+            await syncLock.WaitAsync(cancellationToken);
+
+            try
+            {
+                try
+                {
+                    return await SyncRatesCoreAsync(exchangeRateClient, from, to, cancellationToken);
+                }
+                catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "A concurrent {SourceCode} sync saved matching records first. Retrying after reloading persisted data.",
+                        exchangeRateClient.SourceCode);
+
+                    _context.ChangeTracker.Clear();
+                    return await SyncRatesCoreAsync(exchangeRateClient, from, to, cancellationToken);
+                }
+            }
+            finally
+            {
+                syncLock.Release();
+            }
+        }
+
+        private async Task<NbpSyncResultDto> SyncRatesCoreAsync(
+            IExternalExchangeRateClient exchangeRateClient,
+            DateTime from,
+            DateTime to,
+            CancellationToken cancellationToken)
+        {
             var result = new NbpSyncResultDto
             {
                 From = from,
@@ -169,6 +206,11 @@ namespace GieudexPol.Infrastructure.Services
                 result.TablesFetched);
 
             return result;
+        }
+
+        private static bool IsUniqueConstraintViolation(DbUpdateException exception)
+        {
+            return exception.InnerException is SqlException { Number: 2601 or 2627 };
         }
 
         private async Task<RateSource> GetOrCreateRateSourceAsync(

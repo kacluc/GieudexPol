@@ -7,6 +7,10 @@ actor "Administrator" as AdminActor
 actor "NBP API" as NbpApi
 actor "ECB XML" as EcbApi
 actor "Riksbank API" as RiksbankApi
+actor "BoE Database CSV" as BoeApi
+actor "CNB API" as CnbApi
+actor "Norges Bank API" as NorgesApi
+actor "BNR XML" as BnrApi
 
 rectangle "System GieudexPol" {
   (Zarzadzanie portfelem) as UC1
@@ -14,10 +18,15 @@ rectangle "System GieudexPol" {
   (Ustawianie alertu cenowego) as UC3
   (Podglad kursow walut) as UC4
   (Wybor waluty, zrodla i zakresu dat) as UC4a
+  (Walidacja zakresu 01.01.2026 - dzis) as UC4g
   (Automatyczne pobranie brakujacych kursow) as UC4b
   (Synchronizacja NBP) as UC4c
   (Synchronizacja ECB) as UC4d
   (Synchronizacja Riksbank) as UC4f
+  (Synchronizacja BOE) as UC4h
+  (Synchronizacja CNB) as UC4i
+  (Synchronizacja NORGES) as UC4j
+  (Synchronizacja BNR) as UC4k
   (Wyswietlenie wykresu kursow PLN) as UC4e
 
   (Zarzadzanie walutami) as UC5
@@ -30,15 +39,24 @@ UserActor --> UC2
 UserActor --> UC3
 UserActor --> UC4
 UC4 .> UC4a : include
+UC4a .> UC4g : include
 UC4 .> UC4b : include
 UC4 .> UC4e : include
 
 UC4b .> UC4c : extend\nsource = NBP
 UC4b .> UC4d : extend\nsource = ECB
 UC4b .> UC4f : extend\nsource = RIKSBANK
+UC4b .> UC4h : extend\nsource = BOE
+UC4b .> UC4i : extend\nsource = CNB
+UC4b .> UC4j : extend\nsource = NORGES
+UC4b .> UC4k : extend\nsource = BNR
 UC4c --> NbpApi
 UC4d --> EcbApi
 UC4f --> RiksbankApi
+UC4h --> BoeApi
+UC4i --> CnbApi
+UC4j --> NorgesApi
+UC4k --> BnrApi
 
 AdminActor --> UC5
 AdminActor --> UC6

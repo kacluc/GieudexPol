@@ -1,5 +1,5 @@
 @startuml
-title External exchange rate integration - NBP, ECB and Riksbank sequence
+title External exchange rate integration - PLN-normalized provider sequence
 
 actor "User" as User
 participant "ExchangeRateDashboard\nAngular /rates" as Frontend
@@ -12,10 +12,18 @@ participant "IExternalExchangeRateClient[]" as Clients
 participant "NbpExchangeRateClient" as NbpClient
 participant "EcbExchangeRateClient" as EcbClient
 participant "RiksbankExchangeRateClient" as RiksbankClient
+participant "BankOfEnglandExchangeRateClient" as BoeClient
+participant "CnbExchangeRateClient" as CnbClient
+participant "NorgesExchangeRateClient" as NorgesClient
+participant "BnrExchangeRateClient" as BnrClient
 database "ApplicationDbContext\nSQL Server" as Db
 participant "NBP API\nTable C" as NbpApi
 participant "ECB XML\nEuro foreign exchange rates" as EcbApi
 participant "Riksbank API\nSWEA REST" as RiksbankApi
+participant "BoE Database\nCSV daily spot" as BoeApi
+participant "CNB API\nJSON daily" as CnbApi
+participant "Norges Bank API\nSDMX-JSON daily" as NorgesApi
+participant "BNR XML\nannual daily observations" as BnrApi
 
 == API startup ==
 
@@ -42,12 +50,14 @@ end
 == Chart cache-miss flow ==
 
 User -> Frontend: opens /rates and selects currency/source/date range
+Frontend -> Frontend: limit from/to to 2026-01-01 .. today
 Frontend -> FrontendApi: getChartData(currency, source, from?, to?)
 FrontendApi -> Controller: GET /api/ExchangeRates/chart
 
 alt from/to missing
     Controller -> Controller: from = Jan 1 current year, to = today
 end
+Controller -> Controller: reject from < 2026-01-01 or to > today
 
 Controller -> ReadService: GetChartDataAsync(currency, source, from, to)
 ReadService -> Db: read local ExchangeRates for selected source only
@@ -56,9 +66,10 @@ ReadService --> Controller: ExchangeRateChartResponseDto
 
 alt local data exists
     Controller --> FrontendApi: 200 OK
-else no local data and source is NBP, ECB or RIKSBANK
+else no local data and source is supported
     Controller -> SyncService: SyncRatesAsync(source, from, to)
     SyncService -> Clients: select client by SourceCode
+    SyncService -> SyncService: acquire per-SourceCode lock
 
     alt source == NBP
         Clients --> SyncService: NbpExchangeRateClient
@@ -86,13 +97,51 @@ else no local data and source is NBP, ECB or RIKSBANK
         RiksbankClient -> RiksbankClient: SEK_CURRENCY / SEK_PLN
         RiksbankClient -> RiksbankClient: BuyPrice = SellPrice = PLN-relative rate
         RiksbankClient --> SyncService: ExternalExchangeRateTableDto[]
+    else source == BOE
+        Clients --> SyncService: BankOfEnglandExchangeRateClient
+        SyncService -> BoeClient: GetBuySellRatesAsync(from, to)
+        BoeClient -> BoeApi: GET CSV export for daily spot series
+        BoeApi --> BoeClient: currency units per GBP
+        BoeClient -> BoeClient: GBP_PLN / GBP_CURRENCY
+        BoeClient -> BoeClient: BuyPrice = SellPrice = PLN-relative rate
+        BoeClient --> SyncService: ExternalExchangeRateTableDto[]
+    else source == CNB
+        Clients --> SyncService: CnbExchangeRateClient
+        SyncService -> CnbClient: GetBuySellRatesAsync(from, to)
+        CnbClient -> CnbApi: GET exrates/daily?date=...&lang=EN
+        CnbApi --> CnbClient: amount currency = rate CZK
+        CnbClient -> CnbClient: CurrencyToCZK / PLNToCZK
+        CnbClient -> CnbClient: BuyPrice = SellPrice = PLN-relative rate
+        CnbClient --> SyncService: ExternalExchangeRateTableDto[]
+    else source == NORGES
+        Clients --> SyncService: NorgesExchangeRateClient
+        SyncService -> NorgesClient: GetBuySellRatesAsync(from, to)
+        NorgesClient -> NorgesApi: GET data/EXR/B.{currency}.NOK.SP
+        NorgesApi --> NorgesClient: daily NOK-relative observations
+        NorgesClient -> NorgesClient: CurrencyToNOK / PLNToNOK
+        NorgesClient -> NorgesClient: BuyPrice = SellPrice = PLN-relative rate
+        NorgesClient --> SyncService: ExternalExchangeRateTableDto[]
+    else source == BNR
+        Clients --> SyncService: BnrExchangeRateClient
+        SyncService -> BnrClient: GetBuySellRatesAsync(from, to)
+        BnrClient -> BnrApi: GET files/xml/years/nbrfxrates{year}.xml
+        BnrApi --> BnrClient: multiplier currency = rate RON
+        BnrClient -> BnrClient: CurrencyToRON / PLNToRON
+        BnrClient -> BnrClient: BuyPrice = SellPrice = PLN-relative rate
+        BnrClient --> SyncService: ExternalExchangeRateTableDto[]
     end
 
     SyncService -> Db: get/create RateSource(source)
     SyncService -> Db: add missing Currency rows
     SyncService -> Db: add new ExchangeRates, skip duplicates
     SyncService -> Db: SaveChangesAsync()
-    Db --> SyncService: saved
+    alt no unique-key conflict
+        Db --> SyncService: saved
+    else concurrent matching insert
+        Db --> SyncService: unique-key conflict
+        SyncService -> SyncService: clear tracking and retry persisted-data check
+    end
+    SyncService -> SyncService: release per-SourceCode lock
     SyncService --> Controller: NbpSyncResultDto
 
     Controller -> ReadService: GetChartDataAsync(currency, source, from, to)
@@ -115,7 +164,7 @@ Db --> ReadService: latest rows or empty list
 alt no rows or no rows from current year
     Controller -> SyncService: SyncCurrentYearRatesAsync(source)
     SyncService -> SyncService: from = Jan 1 current year, to = today
-    SyncService -> Clients: select NBP, ECB or RIKSBANK client
+    SyncService -> Clients: select NBP / ECB / RIKSBANK / BOE / CNB / NORGES / BNR client
     SyncService -> Db: persist missing current-year rates
     Controller -> ReadService: GetLatestRatesAsync(source, currency?)
 end

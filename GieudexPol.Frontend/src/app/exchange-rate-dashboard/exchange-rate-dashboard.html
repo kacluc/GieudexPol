@@ -43,6 +43,7 @@
         [(ngModel)]="from"
         (ngModelChange)="onDateRangeChange()"
         [min]="minimumRateDate"
+        [max]="maximumRateDate"
       />
     </label>
 
@@ -54,6 +55,7 @@
         [(ngModel)]="to"
         (ngModelChange)="onDateRangeChange()"
         [min]="minimumRateDate"
+        [max]="maximumRateDate"
       />
     </label>
 

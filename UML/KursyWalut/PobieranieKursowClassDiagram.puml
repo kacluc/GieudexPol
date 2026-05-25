@@ -1,5 +1,5 @@
 @startuml
-title Diagram klas - zrodla kursow NBP, ECB i Riksbank
+title Diagram klas - zrodla kursow normalizowane do PLN
 
 skinparam classAttributeIconSize 0
 hide empty members
@@ -10,12 +10,15 @@ package "Frontend Angular" {
         - source: string
         - from: string
         - to: string
+        + minimumRateDate: string = "2026-01-01"
+        + maximumRateDate: string = dzisiaj
         - chartPoints: ExchangeRateChartPoint[]
         - latestRates: ExchangeRateTableRow[]
         + fetchData(): Promise<void>
         + onSourceChange(source: string): void
         + selectCurrency(currency: string): void
         + isCurrencyAvailableForSource(currencyCode: string, sourceCode: string): boolean
+        + onDateRangeChange(): void
         - loadDataFromBackend(): Promise<void>
     }
 
@@ -31,11 +34,17 @@ package "API" {
     class ExchangeRatesController <<controller>> {
         - _exchangeRateService: IExchangeRateService
         - _exchangeRateSyncService: IExchangeRateSyncService
+        - MinimumSyncDate: DateTime = 2026-01-01
+        - SyncableSources: HashSet<string>
         + GetChartData(currency: string, source: string, from: DateTime?, to: DateTime?)
         + GetLatestRates(source: string, currency: string?)
         + SyncNbpRates(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
         + SyncEcbRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
         + SyncRiksbankRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncBankOfEnglandRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncCzechNationalBankRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncNorgesBankRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncNationalBankOfRomaniaRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
         + SyncRatesBySource(sourceCode: string, from: DateTime?, to: DateTime?)
         - ResolveDateRange(from: DateTime?, to: DateTime?): DateRange
     }
@@ -79,6 +88,7 @@ package "Infrastructure.Services" {
     class ExchangeRateSyncService <<service>> {
         - _context: ApplicationDbContext
         - _exchangeRateClients: IEnumerable<IExternalExchangeRateClient>
+        - SyncLocks: ConcurrentDictionary<string, SemaphoreSlim>
         + SyncRatesAsync(sourceCode: string, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
         + SyncCurrentYearRatesAsync(sourceCode: string, cancellationToken: CancellationToken)
         + SyncNbpRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
@@ -111,6 +121,40 @@ package "Infrastructure.ExternalServices" {
         + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
         + ConvertObservationsToPlnRates(observations: IEnumerable<RiksbankObservation>, from: DateTime, to: DateTime)
         + ParseGroupObservations(root: JsonElement)
+    }
+
+    class BankOfEnglandExchangeRateClient <<http client>> {
+        + SourceCode: string = "BOE"
+        + SourceName: string = "Bank of England"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParsePublishedSpotRates(csv: string, from: DateTime, to: DateTime)
+    }
+
+    class CnbExchangeRateClient <<http client>> {
+        + SourceCode: string = "CNB"
+        + SourceName: string = "Czech National Bank"
+        + MaxRangeDays: int = 31
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParseDailyRates(root: JsonElement)
+        + ConvertDailyRatesToPlnRates(rates: IEnumerable<CnbPublishedRate>, from: DateTime, to: DateTime)
+    }
+
+    class NorgesExchangeRateClient <<http client>> {
+        + SourceCode: string = "NORGES"
+        + SourceName: string = "Norges Bank"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParseDailyObservations(root: JsonElement)
+        + ConvertObservationsToPlnRates(observations: IEnumerable<NorgesObservation>, from: DateTime, to: DateTime)
+    }
+
+    class BnrExchangeRateClient <<http client>> {
+        + SourceCode: string = "BNR"
+        + SourceName: string = "National Bank of Romania"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParsePublishedRates(document: XDocument, from: DateTime, to: DateTime)
     }
 }
 
@@ -194,6 +238,10 @@ IExchangeRateSyncService <|.. ExchangeRateSyncService
 IExternalExchangeRateClient <|.. NbpExchangeRateClient
 IExternalExchangeRateClient <|.. EcbExchangeRateClient
 IExternalExchangeRateClient <|.. RiksbankExchangeRateClient
+IExternalExchangeRateClient <|.. BankOfEnglandExchangeRateClient
+IExternalExchangeRateClient <|.. CnbExchangeRateClient
+IExternalExchangeRateClient <|.. NorgesExchangeRateClient
+IExternalExchangeRateClient <|.. BnrExchangeRateClient
 IExchangeRateRepository <|.. ExchangeRateRepository
 
 ExchangeRateService --> IExchangeRateRepository
@@ -202,6 +250,10 @@ ExchangeRateSyncService --> IExternalExchangeRateClient : wybiera po SourceCode
 NbpExchangeRateClient --> ExternalExchangeRateTableDto : JSON NBP C -> DTO
 EcbExchangeRateClient --> ExternalExchangeRateTableDto : XML ECB -> PLN DTO
 RiksbankExchangeRateClient --> ExternalExchangeRateTableDto : JSON Riksbank -> PLN DTO
+BankOfEnglandExchangeRateClient --> ExternalExchangeRateTableDto : CSV BoE spot -> PLN DTO
+CnbExchangeRateClient --> ExternalExchangeRateTableDto : JSON CNB -> PLN DTO
+NorgesExchangeRateClient --> ExternalExchangeRateTableDto : SDMX-JSON Norges -> PLN DTO
+BnrExchangeRateClient --> ExternalExchangeRateTableDto : XML BNR -> PLN DTO
 ExternalExchangeRateTableDto "1" *-- "many" ExternalExchangeRateItemDto
 
 ApplicationDbContext --> Currency
@@ -217,6 +269,18 @@ Unikalnosc:
 CurrencyId + RateSourceId + EffectiveDate
 end note
 
+note bottom of ExchangeRateDashboard
+Zakres wyboru dat:
+2026-01-01 <= data <= dzisiaj.
+end note
+
+note right of ExchangeRateSyncService
+Klient jest wybierany po SourceCode.
+Blokada per zrodlo i ponowna proba po
+konflikcie klucza chronia RateSource
+przed duplikatem rownoleglej synchronizacji.
+end note
+
 note bottom of EcbExchangeRateClient
 ECB publikuje kursy wzgledem EUR.
 Klient zapisuje do DTO kursy wzgledem PLN:
@@ -229,6 +293,30 @@ Riksbank publikuje kursy jako SEK za 1 walute.
 Klient zapisuje do DTO kursy wzgledem PLN:
 RateToPLN = SEK_CURRENCY / SEK_PLN.
 Dla Riksbank BuyPrice = SellPrice.
+end note
+
+note bottom of BankOfEnglandExchangeRateClient
+BoE publikuje kursy spot wzgledem GBP.
+RateToPLN = GBP_PLN / GBP_CURRENCY.
+Dla BOE BuyPrice = SellPrice.
+end note
+
+note bottom of CnbExchangeRateClient
+CNB publikuje amount waluty = rate CZK.
+RateToPLN = CurrencyToCZK / PLNToCZK.
+Dla CNB BuyPrice = SellPrice.
+end note
+
+note bottom of NorgesExchangeRateClient
+Norges Bank publikuje kursy wzgledem NOK.
+RateToPLN = CurrencyToNOK / PLNToNOK.
+Dla NORGES BuyPrice = SellPrice.
+end note
+
+note bottom of BnrExchangeRateClient
+BNR publikuje multiplier waluty = rate RON.
+RateToPLN = CurrencyToRON / PLNToRON.
+Dla BNR BuyPrice = SellPrice.
 end note
 
 @enduml
