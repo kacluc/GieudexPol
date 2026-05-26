@@ -68,6 +68,18 @@ export class CurrencyConverterComponent implements OnInit {
     return this.favorites.includes(currency);
   }
 
+  get sortedCurrencies(): string[] {
+    return [...this.availableCurrencies].sort((a, b) => {
+      const aFav = this.isFavorite(a);
+      const bFav = this.isFavorite(b);
+
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+
+      return a.localeCompare(b);
+    });
+  }
+
   addToFavorites(currency: string): void {
     if (!currency || this.isFavorite(currency)) {
       return;

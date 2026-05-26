@@ -9,7 +9,7 @@
         <div class="form-group mb-3">
             <label for="sourceCurrency" class="form-label">Waluta zrodlowa:</label>
             <select id="sourceCurrency" required [(ngModel)]="sourceCurrency" class="form-select">
-                @for (currency of availableCurrencies; track currency) {
+                @for (currency of sortedCurrencies; track currency) {
                 <option [value]="currency">{{ currency }}{{ isFavorite(currency) ? ' [ulubiona]' : '' }}</option>
                 }
             </select>
@@ -27,7 +27,7 @@
         <div class="form-group mb-3">
             <label for="targetCurrency" class="form-label">Waluta docelowa:</label>
             <select id="targetCurrency" required [(ngModel)]="targetCurrency" class="form-select">
-                @for (currency of availableCurrencies; track currency) {
+                @for (currency of sortedCurrencies; track currency) {
                 <option [value]="currency">{{ currency }}{{ isFavorite(currency) ? ' [ulubiona]' : '' }}</option>
                 }
             </select>
