@@ -101,7 +101,7 @@ public class CurrencyExchangeSimulationService
             exchangedAmount * (request.FeePercent / 100);
 
         decimal finalAmount =
-            exchangedAmount - feeAmount;
+            exchangedAmount + feeAmount;
 
 
 
