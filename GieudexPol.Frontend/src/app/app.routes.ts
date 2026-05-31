@@ -11,6 +11,7 @@ import { OrderbookComponent } from './features/orderbook/components/orderbook/or
 import { WalletManagementComponent } from './features/wallet/components/wallet-management/wallet-management.component';
 import { MainLayoutComponent } from './layouts/main-layout/main-layout.component';
 import { TransactionTransferComponent } from './transaction-transfer/transaction-transfer.component';
+import { WhaleRankingListComponent } from './features/whale-ranking/components/whale-ranking-list.component';
 
 export const routes: Routes = [
   { path: 'auth/login', component: LoginComponent },
@@ -29,6 +30,7 @@ export const routes: Routes = [
       { path: 'history', component: TransactionHistoryComponent },
       { path: 'orderbook', component: OrderbookComponent },
       { path: 'alerts', component: AlertsComponent },
+      { path: 'whale-ranking', component: WhaleRankingListComponent },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -1,0 +1,55 @@
+.whale-ranking-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.whale-ranking-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.whale-ranking-container button {
+  display: block;
+  margin: 0 auto 20px;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.whale-ranking-container button:hover {
+  background-color: #0056b3;
+}
+
+.whale-ranking-container button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.whale-ranking-container .loading {
+  text-align: center;
+  font-style: italic;
+  color: #666666;
+}
+
+.whale-ranking-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.whale-ranking-container th, .whale-ranking-container td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #dddddd;
+}
+
+.whale-ranking-container th {
+  background-color: #f2f2f2;
+}
+
+.whale-ranking-container tr:hover {
+  background-color: #f5f5f5;
+}

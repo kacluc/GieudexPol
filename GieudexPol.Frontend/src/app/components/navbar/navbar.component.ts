@@ -11,7 +11,7 @@ import { AuthService } from '../../features/auth/services/auth.service';
 })
 export class NavbarComponent {
   readonly userEmail = localStorage.getItem('userEmail') ?? '';
-  readonly navItems = [
+   readonly navItems = [
     { label: 'Dashboard', path: '/' },
     { label: 'Kursy walut', path: '/rates' },
     { label: 'Ulubione', path: '/converter' },
@@ -20,6 +20,7 @@ export class NavbarComponent {
     { label: 'Historia', path: '/history' },
     { label: 'Order book', path: '/orderbook' },
     { label: 'Alerty', path: '/alerts' },
+    { label: 'Top Walenie', path: '/whale-ranking' },
   ];
 
   constructor(private readonly authService: AuthService) {}

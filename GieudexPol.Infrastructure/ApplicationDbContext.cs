@@ -17,6 +17,7 @@ namespace GieudexPol.Infrastructure
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<UserAlert> UserAlerts { get; set; }
         public DbSet<FavoriteCurrency> FavoriteCurrencies { get; set; }
+        public DbSet<WhaleRanking> WhaleRankings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -116,6 +117,15 @@ namespace GieudexPol.Infrastructure
             modelBuilder.Entity<FavoriteCurrency>()
                 .HasIndex(fc => fc.CurrencyCode)
                 .IsUnique();
+
+            modelBuilder.Entity<WhaleRanking>()
+                .HasOne(wr => wr.User)
+                .WithMany()
+                .HasForeignKey(wr => wr.UserId);
+
+            modelBuilder.Entity<WhaleRanking>()
+                .Property(wr => wr.TotalPortfolioValue)
+                .HasPrecision(18, 4);
         }
     }
 }

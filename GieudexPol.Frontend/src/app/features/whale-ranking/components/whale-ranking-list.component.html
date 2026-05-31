@@ -1,0 +1,23 @@
+<div class="whale-ranking-container">
+  <h2>Ranking Waleni</h2>
+  <button (click)="refreshRanking()" [disabled]="isLoading()">Odśwież Ranking</button>
+  <div *ngIf="isLoading()" class="loading">Ładowanie...</div>
+  <table *ngIf="!isLoading()">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Użytkownik</th>
+        <th>Wartość Portfela (PLN)</th>
+        <th>Ostatnia Aktualizacja</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let whale of whaleRankings()">
+        <td>{{ whale.rank }}</td>
+        <td>{{ whale.username }}</td>
+        <td>{{ whale.totalPortfolioValue | number:'1.2-2' }}</td>
+        <td>{{ whale.lastUpdated | date:'medium' }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

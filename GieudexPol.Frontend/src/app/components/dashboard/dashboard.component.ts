@@ -54,12 +54,18 @@ export class DashboardComponent implements OnInit {
       route: '/orderbook',
       status: 'W przygotowaniu',
     },
-    {
-      title: 'Alerty cenowe',
-      description: 'Progi cenowe zapisane dla walut.',
-      route: '/alerts',
-      status: 'Dostepne',
-    },
+     {
+       title: 'Alerty cenowe',
+       description: 'Progi cenowe zapisane dla walut.',
+       route: '/alerts',
+       status: 'Dostepne',
+     },
+     {
+       title: 'Ranking Waleni',
+       description: 'Ranking najbogatszych uzytkownikow.',
+       route: '/whale-ranking',
+       status: 'Dostepne',
+     },
   ];
 
   constructor(

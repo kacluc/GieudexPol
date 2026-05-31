@@ -109,6 +109,15 @@ src/app/
 *   **ExchangeRates:** Historical records of rates (Buy/Sell) with high precision (`decimal(18,4)`).
 *   **Transactions:** Immutable ledger of all operations (transfers, buy/sell), including applied fees and current status.
 *   **UserAlerts:** Configuration for user-defined price thresholds and associated currencies.
+*   **WhaleRanking:** Stores the ranking of the richest users (whales) based on their total portfolio value.
+
+### Whale Ranking Data Model
+
+*   **WhaleRanking:** Contains the ranking of users based on their total portfolio value.
+    *   **UserId:** Foreign key to the Users table.
+    *   **TotalPortfolioValue:** The total value of the user's portfolio in PLN.
+    *   **Rank:** The user's rank in the whale ranking.
+    *   **LastUpdated:** The date and time when the ranking was last updated.
 
 ## 🚀 4. System Scope & Functionalities
 
@@ -147,6 +156,12 @@ src/app/
 3.  **Market Management:** Ability to add new trading pairs and temporarily suspend markets.
 4.  **Security Monitoring:** Viewing system logs and detecting suspicious activity/intrusion attempts.
 5.  **Financial Reporting:** Generating reports on total turnover volume and platform profit.
+6.  **Whale Ranking:** Display and management of the richest users (whales) based on their total portfolio value.
+
+### C. Whale Ranking Features
+1.  **Whale Ranking Display:** Real-time display of the top users based on their total portfolio value.
+2.  **Whale Ranking Management:** Ability to update and refresh the whale ranking.
+3.  **Whale Ranking API:** Endpoints to retrieve and update the whale ranking data.
 
 ## ⚙️ 5. Deployment & Setup Instructions (DevOps)
 
@@ -308,6 +323,14 @@ POST /api/ExchangeRates/sync/ecb?from=2026-01-01&to=2026-05-24
 POST /api/ExchangeRates/sync/riksbank
 POST /api/ExchangeRates/sync/riksbank?from=2026-01-01&to=2026-05-24
 POST /api/ExchangeRates/sync/{sourceCode}
+```
+
+### Whale Ranking Endpoints
+
+```http
+GET /api/whale-ranking
+GET /api/whale-ranking/top/{topN}
+POST /api/whale-ranking/refresh
 ```
 
 ### Configuration
