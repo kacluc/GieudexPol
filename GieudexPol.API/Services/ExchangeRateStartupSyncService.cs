@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GieudexPol.API.Services
 {
-    public class ExchangeRateStartupSyncService : IHostedService
+    public class ExchangeRateStartupSyncService : BackgroundService
     {
         private static readonly string[] SourceCodes =
         [
@@ -38,7 +38,7 @@ namespace GieudexPol.API.Services
             _logger = logger;
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken)
+        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -75,17 +75,12 @@ namespace GieudexPol.API.Services
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                throw;
+                _logger.LogDebug("Startup exchange-rate sync was canceled because the host is stopping.");
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Startup exchange-rate sync failed. The API will continue to start.");
             }
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
         }
 
         private async Task SynchronizeSourceIfRequiredAsync(

@@ -20,13 +20,16 @@ namespace GieudexPol.Infrastructure.Repositories
         public async Task<IEnumerable<WhaleRanking>> GetAllAsync()
         {
             return await _context.WhaleRankings
+                .AsNoTracking()
                 .Include(wr => wr.User)
+                .OrderBy(wr => wr.Rank)
                 .ToListAsync();
         }
 
         public async Task<WhaleRanking?> GetByIdAsync(int id)
         {
             return await _context.WhaleRankings
+                .AsNoTracking()
                 .Include(wr => wr.User)
                 .FirstOrDefaultAsync(wr => wr.Id == id);
         }
@@ -34,6 +37,7 @@ namespace GieudexPol.Infrastructure.Repositories
         public async Task<WhaleRanking?> GetByUserIdAsync(int userId)
         {
             return await _context.WhaleRankings
+                .AsNoTracking()
                 .Include(wr => wr.User)
                 .FirstOrDefaultAsync(wr => wr.UserId == userId);
         }
@@ -59,6 +63,7 @@ namespace GieudexPol.Infrastructure.Repositories
         public async Task<IEnumerable<WhaleRanking>> GetTopWhalesAsync(int topN)
         {
             return await _context.WhaleRankings
+                .AsNoTracking()
                 .Include(wr => wr.User)
                 .OrderByDescending(wr => wr.TotalPortfolioValue)
                 .Take(topN)
@@ -81,6 +86,12 @@ namespace GieudexPol.Infrastructure.Repositories
 
                 foreach (var wallet in wallets)
                 {
+                    if (wallet.Currency.Symbol == "PLN")
+                    {
+                        totalPortfolioValue += wallet.Balance;
+                        continue;
+                    }
+
                     var exchangeRate = await _context.ExchangeRates
                         .Where(er => er.CurrencyId == wallet.CurrencyId)
                         .OrderByDescending(er => er.EffectiveDate)

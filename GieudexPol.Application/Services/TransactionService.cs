@@ -66,7 +66,8 @@ namespace GieudexPol.Application.Services
                 throw new ArgumentException("Sender not found.");
             }
 
-            var receiver = await _userRepository.GetByUsernameAsync(request.ReceiverUsername);
+            var receiverEmail = request.ReceiverUsername.Trim();
+            var receiver = await _userRepository.GetByUsernameAsync(receiverEmail);
             if (receiver == null)
             {
                 throw new ArgumentException("Receiver not found.");

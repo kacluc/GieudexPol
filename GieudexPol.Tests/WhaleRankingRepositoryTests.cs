@@ -1,5 +1,5 @@
 using GieudexPol.Domain.Entities;
-using GieudexPol.Infrastructure.Data;
+using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -31,6 +31,17 @@ namespace GieudexPol.Tests
             _context.Dispose();
         }
 
+        private async Task SeedUsersAsync(params int[] userIds)
+        {
+            var users = userIds.Select(id => new User
+            {
+                Id = id,
+                Username = $"User{id}"
+            });
+
+            await _context.Users.AddRangeAsync(users);
+        }
+
         [Fact]
         public async Task GetAllAsync_ReturnsAllWhaleRankings()
         {
@@ -41,6 +52,7 @@ namespace GieudexPol.Tests
                 new WhaleRanking { Id = 2, UserId = 2, TotalPortfolioValue = 2000, Rank = 2, LastUpdated = DateTime.UtcNow }
             };
 
+            await SeedUsersAsync(1, 2);
             await _context.WhaleRankings.AddRangeAsync(whaleRankings);
             await _context.SaveChangesAsync();
 
@@ -58,6 +70,7 @@ namespace GieudexPol.Tests
             // Arrange
             var whaleRanking = new WhaleRanking { Id = 1, UserId = 1, TotalPortfolioValue = 1000, Rank = 1, LastUpdated = DateTime.UtcNow };
 
+            await SeedUsersAsync(1);
             await _context.WhaleRankings.AddAsync(whaleRanking);
             await _context.SaveChangesAsync();
 
@@ -85,6 +98,7 @@ namespace GieudexPol.Tests
             // Arrange
             var whaleRanking = new WhaleRanking { Id = 1, UserId = 1, TotalPortfolioValue = 1000, Rank = 1, LastUpdated = DateTime.UtcNow };
 
+            await SeedUsersAsync(1);
             await _context.WhaleRankings.AddAsync(whaleRanking);
             await _context.SaveChangesAsync();
 
@@ -169,6 +183,7 @@ namespace GieudexPol.Tests
                 new WhaleRanking { Id = 3, UserId = 3, TotalPortfolioValue = 3000, Rank = 3, LastUpdated = DateTime.UtcNow }
             };
 
+            await SeedUsersAsync(1, 2, 3);
             await _context.WhaleRankings.AddRangeAsync(whaleRankings);
             await _context.SaveChangesAsync();
 
@@ -221,7 +236,9 @@ namespace GieudexPol.Tests
             await _repository.RefreshRankingAsync();
 
             // Assert
-            var result = await _context.WhaleRankings.ToListAsync();
+            var result = await _context.WhaleRankings
+                .OrderBy(wr => wr.Rank)
+                .ToListAsync();
             Assert.NotNull(result);
             Assert.Equal(2, result.Count());
             Assert.Equal(1, result.First().Rank);

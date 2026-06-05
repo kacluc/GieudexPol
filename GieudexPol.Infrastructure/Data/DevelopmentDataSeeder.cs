@@ -12,7 +12,124 @@ namespace GieudexPol.Infrastructure.Data
         private const string DevelopmentSourceCode = "MOCK_BANK_A";
         public const string DevelopmentUserEmail = "dev@gieudexpol.local";
         public const string DevelopmentUserPassword = "DevPassword123!";
+        public const string DemoUserPassword = "DemoPassword123!";
         private static readonly Guid DevelopmentUserAuthId = new("11111111-1111-1111-1111-111111111111");
+        private static readonly Guid DevelopmentTransferFeeId = new("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        private static readonly UserSeed[] SeedUsers =
+        [
+            new(
+                DevelopmentUserAuthId,
+                DevelopmentUserEmail,
+                "Development User",
+                DevelopmentUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 10_000m,
+                    ["EUR"] = 1_000m,
+                    ["USD"] = 1_000m,
+                    ["CHF"] = 500m,
+                    ["GBP"] = 500m
+                }),
+            new(
+                new Guid("22222222-2222-2222-2222-222222222222"),
+                "zbigniew.stonoga@gieudexpol.local",
+                "Zbigniew Stonoga",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 420_000m,
+                    ["EUR"] = 18_000m,
+                    ["USD"] = 12_500m
+                }),
+            new(
+                new Guid("33333333-3333-3333-3333-333333333333"),
+                "adam.malysz@gieudexpol.local",
+                "Adam Małysz",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 615_000m,
+                    ["EUR"] = 32_000m,
+                    ["CHF"] = 21_000m
+                }),
+            new(
+                new Guid("44444444-4444-4444-4444-444444444444"),
+                "robert.kubica@gieudexpol.local",
+                "Robert Kubica",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 940_000m,
+                    ["EUR"] = 75_000m,
+                    ["USD"] = 56_000m
+                }),
+            new(
+                new Guid("55555555-5555-5555-5555-555555555555"),
+                "robert.lewandowski@gieudexpol.local",
+                "Robert Lewandowski",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 1_800_000m,
+                    ["EUR"] = 180_000m,
+                    ["GBP"] = 90_000m
+                }),
+            new(
+                new Guid("66666666-6666-6666-6666-666666666666"),
+                "lukasz.stanislawowski@gieudexpol.local",
+                "Łukasz Stanisławowski",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 280_000m,
+                    ["USD"] = 6_666_666_666m,
+                    ["CHF"] = 7_000m
+                }),
+            new(
+                new Guid("77777777-7777-7777-7777-777777777777"),
+                "zenek.martyniuk@gieudexpol.local",
+                "Zenek Martyniuk",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 760_000m,
+                    ["EUR"] = 45_000m,
+                    ["GBP"] = 22_000m
+                }),
+            new(
+                new Guid("88888888-8888-8888-8888-888888888888"),
+                "maryla.rodowicz@gieudexpol.local",
+                "Maryla Rodowicz",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 880_000m,
+                    ["EUR"] = 62_000m,
+                    ["USD"] = 35_000m
+                }),
+            new(
+                new Guid("99999999-9999-9999-9999-999999999999"),
+                "teddy.kaczynski@gieudexpol.local",
+                "Teddy Kaczynski",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 350_000m,
+                    ["USD"] = 40_000m,
+                    ["CHF"] = 12_000m
+                }),
+            new(
+                new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                "janusz.kowalski@gieudexpol.local",
+                "Janusz Kowalski",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 225_000m,
+                    ["EUR"] = 9_000m,
+                    ["USD"] = 8_000m
+                })
+        ];
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
@@ -30,38 +147,55 @@ namespace GieudexPol.Infrastructure.Data
             var addedCurrencies = await SeedCurrenciesAsync(context);
             var addedUsers = await SeedUsersAsync(context);
             var addedWallets = await SeedWalletsAsync(context);
+            var addedTransactionFees = await SeedTransactionFeesAsync(context);
             var rateSource = await SeedRateSourceAsync(context);
             var addedRates = await SeedExchangeRatesAsync(context, rateSource);
 
             logger.LogInformation(
-                "Development seed completed. Added {CurrencyCount} currencies, {UserCount} users, {WalletCount} wallets and {RateCount} exchange rates.",
+                "Development seed completed. Added {CurrencyCount} currencies, {UserCount} users, {WalletCount} wallets, {TransactionFeeCount} transaction fees and {RateCount} exchange rates.",
                 addedCurrencies,
                 addedUsers,
                 addedWallets,
+                addedTransactionFees,
                 addedRates);
         }
 
         private static async Task<int> SeedUsersAsync(ApplicationDbContext context)
         {
-            var existingUser = await context.Users.AnyAsync(user => user.Username == DevelopmentUserEmail);
-            if (existingUser)
+            var seedEmails = SeedUsers.Select(seed => seed.Email).ToList();
+            var existingUsers = await context.Users
+                .Where(user => seedEmails.Contains(user.Username))
+                .ToListAsync();
+            var existingUsersByEmail = existingUsers.ToDictionary(user => user.Username);
+            var passwordHasher = new PasswordHasher<AuthUser>();
+            var usersToAdd = new List<User>();
+
+            foreach (var seed in SeedUsers)
             {
-                return 0;
+                if (existingUsersByEmail.TryGetValue(seed.Email, out var existingUser))
+                {
+                    existingUser.DisplayName = seed.DisplayName;
+                    continue;
+                }
+
+                var authUser = new AuthUser(seed.AuthId, seed.Email, seed.Password);
+                usersToAdd.Add(new User
+                {
+                    AuthId = seed.AuthId,
+                    Username = seed.Email,
+                    DisplayName = seed.DisplayName,
+                    PasswordHash = passwordHasher.HashPassword(authUser, seed.Password),
+                    Role = "User"
+                });
             }
 
-            var authUser = new AuthUser(DevelopmentUserAuthId, DevelopmentUserEmail, DevelopmentUserPassword);
-            var passwordHash = new PasswordHasher<AuthUser>().HashPassword(authUser, DevelopmentUserPassword);
-
-            await context.Users.AddAsync(new User
+            if (usersToAdd.Count > 0)
             {
-                AuthId = DevelopmentUserAuthId,
-                Username = DevelopmentUserEmail,
-                PasswordHash = passwordHash,
-                Role = "User"
-            });
+                await context.Users.AddRangeAsync(usersToAdd);
+            }
 
             await context.SaveChangesAsync();
-            return 1;
+            return usersToAdd.Count;
         }
 
         private static async Task<int> SeedCurrenciesAsync(ApplicationDbContext context)
@@ -109,60 +243,60 @@ namespace GieudexPol.Infrastructure.Data
 
         private static async Task<int> SeedWalletsAsync(ApplicationDbContext context)
         {
-            var developmentUser = await context.Users
-                .FirstOrDefaultAsync(user => user.Username == DevelopmentUserEmail);
-
-            if (developmentUser == null)
-            {
-                return 0;
-            }
-
-            var seedBalances = new Dictionary<string, decimal>
-            {
-                ["PLN"] = 10000m,
-                ["EUR"] = 1000m,
-                ["USD"] = 1000m,
-                ["CHF"] = 500m,
-                ["GBP"] = 500m
-            };
-
-            var symbols = seedBalances.Keys.ToList();
+            var seedEmails = SeedUsers.Select(seed => seed.Email).ToList();
+            var users = await context.Users
+                .Where(user => seedEmails.Contains(user.Username))
+                .ToDictionaryAsync(user => user.Username);
+            var symbols = SeedUsers
+                .SelectMany(seed => seed.Balances.Keys)
+                .Distinct()
+                .ToList();
             var currencies = await context.Currencies
                 .Where(currency => symbols.Contains(currency.Symbol))
                 .ToDictionaryAsync(currency => currency.Symbol);
-
+            var userIds = users.Values.Select(user => user.Id).ToList();
             var existingWallets = await context.Wallets
-                .Where(wallet => wallet.UserId == developmentUser.Id)
+                .Where(wallet => userIds.Contains(wallet.UserId))
                 .ToListAsync();
-
-            var existingWalletsByCurrencyId = existingWallets.ToDictionary(wallet => wallet.CurrencyId);
+            var existingWalletsByKey = existingWallets
+                .ToDictionary(wallet => (wallet.UserId, wallet.CurrencyId));
             var walletsToAdd = new List<Wallet>();
             var updatedWallets = 0;
 
-            foreach (var (symbol, balance) in seedBalances)
+            foreach (var seed in SeedUsers)
             {
-                if (!currencies.TryGetValue(symbol, out var currency))
+                if (!users.TryGetValue(seed.Email, out var user))
                 {
                     continue;
                 }
 
-                if (existingWalletsByCurrencyId.TryGetValue(currency.Id, out var existingWallet))
+                foreach (var (symbol, balance) in seed.Balances)
                 {
-                    if (existingWallet.Balance < balance)
+                    if (!currencies.TryGetValue(symbol, out var currency))
                     {
-                        existingWallet.Balance = balance;
-                        updatedWallets++;
+                        continue;
                     }
 
-                    continue;
-                }
+                    if (existingWalletsByKey.TryGetValue((user.Id, currency.Id), out var existingWallet))
+                    {
+                        if (seed.Email == "lukasz.stanislawowski@gieudexpol.local" &&
+                            symbol == "USD" &&
+                            existingWallet.Balance == 15_500m)
+                        {
+                            existingWallet.Balance = balance;
+                            updatedWallets++;
+                        }
 
-                walletsToAdd.Add(new Wallet
-                {
-                    UserId = developmentUser.Id,
-                    CurrencyId = currency.Id,
-                    Balance = balance
-                });
+                        continue;
+                    }
+
+                    walletsToAdd.Add(new Wallet
+                    {
+                        UserId = user.Id,
+                        CurrencyId = currency.Id,
+                        Balance = balance
+                    });
+                }
             }
 
             if (walletsToAdd.Count == 0 && updatedWallets == 0)
@@ -197,6 +331,32 @@ namespace GieudexPol.Infrastructure.Data
             await context.SaveChangesAsync();
 
             return rateSource;
+        }
+
+        private static async Task<int> SeedTransactionFeesAsync(ApplicationDbContext context)
+        {
+            var transferFee = await context.Set<TransactionFee>()
+                .FirstOrDefaultAsync(fee => fee.Type == "Transfer");
+
+            if (transferFee != null)
+            {
+                transferFee.FeePercentage = 0.25m;
+                transferFee.FlatFee = 0m;
+                transferFee.IsActive = true;
+                await context.SaveChangesAsync();
+                return 0;
+            }
+
+            await context.Set<TransactionFee>().AddAsync(new TransactionFee
+            {
+                Id = DevelopmentTransferFeeId,
+                Type = "Transfer",
+                FeePercentage = 0.25m,
+                FlatFee = 0m,
+                IsActive = true
+            });
+            await context.SaveChangesAsync();
+            return 1;
         }
 
         private static async Task<int> SeedExchangeRatesAsync(ApplicationDbContext context, RateSource rateSource)
@@ -317,5 +477,12 @@ namespace GieudexPol.Infrastructure.Data
             decimal StartMidPrice,
             decimal DailyTrend,
             decimal BaseSpread);
+
+        private sealed record UserSeed(
+            Guid AuthId,
+            string Email,
+            string DisplayName,
+            string Password,
+            IReadOnlyDictionary<string, decimal> Balances);
     }
 }

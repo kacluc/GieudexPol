@@ -27,6 +27,10 @@ namespace GieudexPol.Infrastructure
                 .HasMaxLength(256);
 
             modelBuilder.Entity<User>()
+                .Property(u => u.DisplayName)
+                .HasMaxLength(256);
+
+            modelBuilder.Entity<User>()
                 .Property(u => u.AuthId)
                 .HasDefaultValueSql("NEWID()");
 
@@ -82,6 +86,14 @@ namespace GieudexPol.Infrastructure
             modelBuilder.Entity<Transaction>()
                .Property(t => t.AppliedFee)
                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<TransactionFee>()
+                .Property(fee => fee.FeePercentage)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<TransactionFee>()
+                .Property(fee => fee.FlatFee)
+                .HasPrecision(18, 4);
 
             modelBuilder.Entity<UserAlert>()
                 .HasOne(a => a.Currency)

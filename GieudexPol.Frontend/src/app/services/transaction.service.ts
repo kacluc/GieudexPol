@@ -12,7 +12,7 @@ export class TransactionService {
 
   constructor(private http: HttpClient) { }
 
-  createTransfer(transferRequest: { senderId: number; receiverUsername: string; amount: number; currencyId: number }): Observable<Transaction> {
+  createTransfer(transferRequest: { receiverUsername: string; amount: number; currencyId: number }): Observable<Transaction> {
     return this.http.post<Transaction>(`${this.apiUrl}/transfer`, transferRequest);
   }
 

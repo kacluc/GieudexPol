@@ -26,6 +26,11 @@ export class TransactionTransferComponent implements OnInit {
   successMessage: string = '';
   currentUserId: number | null = null;
 
+  get transferableCurrencies(): Currency[] {
+    const walletCurrencyIds = new Set(this.userWallets.map(wallet => wallet.currencyId));
+    return this.currencies.filter(currency => walletCurrencyIds.has(currency.id));
+  }
+
   constructor(
     private fb: FormBuilder,
     private transactionService: TransactionService,
@@ -36,7 +41,7 @@ export class TransactionTransferComponent implements OnInit {
     private changeDetector: ChangeDetectorRef
   ) {
     this.transferForm = this.fb.group({
-      receiverUsername: ['', Validators.required],
+      receiverUsername: ['', [Validators.required, Validators.email]],
       amount: ['', [Validators.required, Validators.min(0.01)]],
       currencyId: ['', Validators.required]
     });
@@ -87,15 +92,14 @@ export class TransactionTransferComponent implements OnInit {
 
       const { receiverUsername, amount, currencyId } = this.transferForm.value;
       const request = {
-        senderId: this.currentUserId,
-        receiverUsername: receiverUsername,
+        receiverUsername: receiverUsername.trim(),
         amount: amount,
         currencyId: currencyId
       };
 
       this.transactionService.createTransfer(request).subscribe(
         (response) => {
-          this.successMessage = 'Transaction successful!';
+          this.successMessage = 'Transfer zakończony pomyślnie.';
           this.transferForm.reset();
           // Optionally, refresh wallets or navigate
           if (this.currentUserId) {
@@ -105,12 +109,12 @@ export class TransactionTransferComponent implements OnInit {
         },
         (error) => {
           console.error('Transaction failed:', error);
-          this.errorMessage = error.error?.message || 'Transaction failed. Please try again.';
+          this.errorMessage = error.error?.message || 'Nie udało się wykonać transferu.';
           this.changeDetector.detectChanges();
         }
       );
     } else {
-      this.errorMessage = 'Please fill all required fields correctly.';
+      this.errorMessage = 'Uzupełnij poprawnie wszystkie wymagane pola.';
     }
   }
 }

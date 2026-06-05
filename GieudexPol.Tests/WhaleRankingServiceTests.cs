@@ -20,14 +20,32 @@ namespace GieudexPol.Tests
             _service = new WhaleRankingService(_mockRepository.Object);
         }
 
+        private static WhaleRanking CreateRanking(int id, decimal totalPortfolioValue, int rank)
+        {
+            var user = new User
+            {
+                Id = id,
+                Username = $"user{id}@example.com"
+            };
+
+            return new WhaleRanking
+            {
+                Id = id,
+                UserId = user.Id,
+                User = user,
+                TotalPortfolioValue = totalPortfolioValue,
+                Rank = rank
+            };
+        }
+
         [Fact]
         public async Task GetAllAsync_ReturnsAllWhaleRankings()
         {
             // Arrange
             var whaleRankings = new List<WhaleRanking>
             {
-                new WhaleRanking { Id = 1, UserId = 1, TotalPortfolioValue = 1000, Rank = 1 },
-                new WhaleRanking { Id = 2, UserId = 2, TotalPortfolioValue = 2000, Rank = 2 }
+                CreateRanking(1, 1000, 1),
+                CreateRanking(2, 2000, 2)
             };
 
             _mockRepository.Setup(repo => repo.GetAllAsync()).ReturnsAsync(whaleRankings);
@@ -38,6 +56,7 @@ namespace GieudexPol.Tests
             // Assert
             Assert.NotNull(result);
             Assert.Equal(2, result.Count());
+            Assert.Equal("user1@example.com", result.First().Username);
             _mockRepository.Verify(repo => repo.GetAllAsync(), Times.Once);
         }
 
@@ -45,7 +64,7 @@ namespace GieudexPol.Tests
         public async Task GetByIdAsync_ReturnsWhaleRanking_WhenWhaleRankingExists()
         {
             // Arrange
-            var whaleRanking = new WhaleRanking { Id = 1, UserId = 1, TotalPortfolioValue = 1000, Rank = 1 };
+            var whaleRanking = CreateRanking(1, 1000, 1);
 
             _mockRepository.Setup(repo => repo.GetByIdAsync(1)).ReturnsAsync(whaleRanking);
 
@@ -55,6 +74,7 @@ namespace GieudexPol.Tests
             // Assert
             Assert.NotNull(result);
             Assert.Equal(1, result.Id);
+            Assert.Equal("user1@example.com", result.Username);
             _mockRepository.Verify(repo => repo.GetByIdAsync(1), Times.Once);
         }
 
@@ -76,7 +96,7 @@ namespace GieudexPol.Tests
         public async Task GetByUserIdAsync_ReturnsWhaleRanking_WhenWhaleRankingExists()
         {
             // Arrange
-            var whaleRanking = new WhaleRanking { Id = 1, UserId = 1, TotalPortfolioValue = 1000, Rank = 1 };
+            var whaleRanking = CreateRanking(1, 1000, 1);
 
             _mockRepository.Setup(repo => repo.GetByUserIdAsync(1)).ReturnsAsync(whaleRanking);
 
@@ -109,9 +129,9 @@ namespace GieudexPol.Tests
             // Arrange
             var whaleRankings = new List<WhaleRanking>
             {
-                new WhaleRanking { Id = 1, UserId = 1, TotalPortfolioValue = 1000, Rank = 1 },
-                new WhaleRanking { Id = 2, UserId = 2, TotalPortfolioValue = 2000, Rank = 2 },
-                new WhaleRanking { Id = 3, UserId = 3, TotalPortfolioValue = 3000, Rank = 3 }
+                CreateRanking(1, 1000, 1),
+                CreateRanking(2, 2000, 2),
+                CreateRanking(3, 3000, 3)
             };
 
             _mockRepository.Setup(repo => repo.GetTopWhalesAsync(2)).ReturnsAsync(whaleRankings.Take(2));

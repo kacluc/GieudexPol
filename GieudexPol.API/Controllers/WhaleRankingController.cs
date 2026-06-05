@@ -1,14 +1,11 @@
 using GieudexPol.Application.Interfaces;
-using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace GieudexPol.API.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/whale-ranking")]
     [Authorize]
     public class WhaleRankingController : ControllerBase
     {

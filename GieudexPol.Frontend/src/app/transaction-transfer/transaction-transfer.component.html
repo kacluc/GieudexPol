@@ -3,10 +3,10 @@
 
     <form [formGroup]="transferForm" (ngSubmit)="onSubmit()">
         <div class="form-group">
-            <label for="receiverUsername">Receiver Username:</label>
-            <input id="receiverUsername" type="text" formControlName="receiverUsername">
+            <label for="receiverUsername">E-mail odbiorcy:</label>
+            <input id="receiverUsername" type="email" formControlName="receiverUsername" placeholder="zenek.martyniuk@gieudexpol.local">
         <div *ngIf="transferForm.get('receiverUsername')?.invalid && (transferForm.get('receiverUsername')?.dirty || transferForm.get('receiverUsername')?.touched)" class="error-message">
-                Receiver Username is required.
+                E-mail odbiorcy jest wymagany.
         </div>
         </div>
 
@@ -22,7 +22,7 @@
             <label for="currency">Currency:</label>
             <select id="currency" formControlName="currencyId">
                 <option [ngValue]="null" disabled>Select Currency</option>
-                <option *ngFor="let currency of currencies" [ngValue]="currency.id">
+                <option *ngFor="let currency of transferableCurrencies" [ngValue]="currency.id">
                     {{ currency.symbol }} - {{ currency.name }}
                 </option>
             </select>

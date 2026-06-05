@@ -1,58 +1,66 @@
-
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace GieudexPol.Infrastructure.Repositories
 {
     public class TransactionFeeRepository : ITransactionFeeRepository
     {
-        // In a real application, this would interact with a database context.
-        // For now, we\"ll use a simple in-memory collection.
-        private readonly List<TransactionFee> _transactionFees = new List<TransactionFee>();
+        private readonly ApplicationDbContext _context;
+        private readonly DbSet<TransactionFee> _transactionFees;
+
+        public TransactionFeeRepository(ApplicationDbContext context)
+        {
+            _context = context;
+            _transactionFees = context.Set<TransactionFee>();
+        }
 
         public async Task<TransactionFee?> GetByIdAsync(Guid id)
         {
-            return await Task.FromResult(_transactionFees.FirstOrDefault(tf => tf.Id == id));
+            return await _transactionFees.FindAsync(id);
         }
 
         public async Task<IEnumerable<TransactionFee>> GetAllAsync()
         {
-            return await Task.FromResult(_transactionFees);
+            return await _transactionFees
+                .AsNoTracking()
+                .ToListAsync();
         }
 
         public async Task AddAsync(TransactionFee entity)
         {
-            entity.Id = Guid.NewGuid();
-            _transactionFees.Add(entity);
-            await Task.CompletedTask;
+            if (entity.Id == Guid.Empty)
+            {
+                entity.Id = Guid.NewGuid();
+            }
+
+            await _transactionFees.AddAsync(entity);
+            await _context.SaveChangesAsync();
         }
 
         public async Task UpdateAsync(TransactionFee entity)
         {
-            var existingFee = _transactionFees.FirstOrDefault(tf => tf.Id == entity.Id);
-            if (existingFee != null)
-            {
-                existingFee.Type = entity.Type;
-                existingFee.FeePercentage = entity.FeePercentage;
-                existingFee.FlatFee = entity.FlatFee;
-                existingFee.IsActive = entity.IsActive;
-            }
-            await Task.CompletedTask;
+            _transactionFees.Update(entity);
+            await _context.SaveChangesAsync();
         }
 
         public async Task DeleteAsync(Guid id)
         {
-            _transactionFees.RemoveAll(tf => tf.Id == id);
-            await Task.CompletedTask;
+            var entity = await _transactionFees.FindAsync(id);
+            if (entity == null)
+            {
+                return;
+            }
+
+            _transactionFees.Remove(entity);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<TransactionFee?> GetActiveTransactionFeeByTypeAsync(string type)
         {
-            return await Task.FromResult(_transactionFees.FirstOrDefault(tf => tf.Type == type && tf.IsActive));
+            return await _transactionFees
+                .AsNoTracking()
+                .FirstOrDefaultAsync(fee => fee.Type == type && fee.IsActive);
         }
     }
 }

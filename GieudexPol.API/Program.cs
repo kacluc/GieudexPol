@@ -139,6 +139,7 @@ builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<ITransactionService, GieudexPol.Application.Services.TransactionService>();
 builder.Services.AddScoped<IUserAlertService, UserAlertService>();
 builder.Services.AddScoped<IExchangeRateSyncService, ExchangeRateSyncService>();
+builder.Services.AddScoped<IWhaleRankingService, WhaleRankingService>();
 
 builder.Services.AddHttpClient<NbpExchangeRateClient>(client =>
 {
@@ -259,6 +260,7 @@ builder.Services.AddScoped<IUserRepository, GieudexPol.Infrastructure.Repositori
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IUserAlertRepository, UserAlertRepository>();
+builder.Services.AddScoped<IWhaleRankingRepository, WhaleRankingRepository>();
 builder.Services.AddScoped<IRateSourceRepository, RateSourceRepository>();
 builder.Services.AddScoped<ITransactionFeeRepository, TransactionFeeRepository>();
 builder.Services.AddScoped<ICurrencyExchangeSimulationService, CurrencyExchangeSimulationService>();

@@ -6,6 +6,7 @@ using GieudexPol.Application.Services;
 using GieudexPol.Domain.Entities;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System;
 
 namespace GieudexPol.Tests
 {
@@ -142,6 +143,54 @@ namespace GieudexPol.Tests
             // Assert
             result.Should().BeEquivalentTo(expectedTransactions);
             _mockTransactionRepository.Verify(repo => repo.GetByUserIdAsync(userId), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateTransfer_WithActiveFee_UpdatesWalletsAndCompletesTransaction()
+        {
+            var sender = new User { Id = 4, Username = "robert.kubica@gieudexpol.local" };
+            var receiver = new User { Id = 7, Username = "zenek.martyniuk@gieudexpol.local" };
+            var senderWallet = new Wallet { Id = 1, UserId = sender.Id, CurrencyId = 1, Balance = 1000m };
+            var receiverWallet = new Wallet { Id = 2, UserId = receiver.Id, CurrencyId = 1, Balance = 500m };
+            var fee = new TransactionFee
+            {
+                Id = Guid.NewGuid(),
+                Type = "Transfer",
+                FeePercentage = 0.25m,
+                FlatFee = 0m,
+                IsActive = true
+            };
+
+            _mockTransactionFeeRepository
+                .Setup(repo => repo.GetActiveTransactionFeeByTypeAsync("Transfer"))
+                .ReturnsAsync(fee);
+            _mockUserRepository
+                .Setup(repo => repo.GetByIdAsync(sender.Id))
+                .ReturnsAsync(sender);
+            _mockUserRepository
+                .Setup(repo => repo.GetByUsernameAsync(receiver.Username))
+                .ReturnsAsync(receiver);
+            _mockWalletRepository
+                .Setup(repo => repo.GetUserWalletAsync(sender.Id, 1))
+                .ReturnsAsync(senderWallet);
+            _mockWalletRepository
+                .Setup(repo => repo.GetUserWalletAsync(receiver.Id, 1))
+                .ReturnsAsync(receiverWallet);
+
+            var result = await _transactionService.CreateTransfer(new GieudexPol.Application.DTOs.TransferRequest
+            {
+                SenderId = sender.Id,
+                ReceiverUsername = receiver.Username,
+                Amount = 100m,
+                CurrencyId = 1
+            });
+
+            result.Status.Should().Be("Completed");
+            result.AppliedFee.Should().Be(0.25m);
+            senderWallet.Balance.Should().Be(899.75m);
+            receiverWallet.Balance.Should().Be(600m);
+            _mockTransactionRepository.Verify(repo => repo.AddAsync(result), Times.Once);
+            _mockTransactionRepository.Verify(repo => repo.UpdateAsync(result), Times.Once);
         }
     }
 }
