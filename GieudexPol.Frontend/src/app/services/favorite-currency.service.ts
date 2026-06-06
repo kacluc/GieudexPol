@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, BehaviorSubject } from 'rxjs';
+import { map, shareReplay } from 'rxjs/operators';
 
 interface FavoriteCurrencyDto {
     currencyCode: string;
@@ -11,10 +11,25 @@ interface FavoriteCurrencyDto {
     providedIn: 'root'
 })
 export class FavoriteCurrencyService {
-
     private readonly apiUrl = '/api/favorites';
+    private favoritesSubject$: BehaviorSubject<string[]> = new BehaviorSubject<string[]>([]);
 
-    constructor(private http: HttpClient) { }
+    favorites$ = this.favoritesSubject$.asObservable().pipe(shareReplay(1));
+
+    constructor(private http: HttpClient) {
+        this.loadFavorites();
+    }
+
+    private loadFavorites(): void {
+        this.getFavorites().subscribe({
+            next: (data) => {
+                this.favoritesSubject$.next(data);
+            },
+            error: (error) => {
+                console.error('Nie udalo sie pobrac ulubionych walut.', error);
+            }
+        });
+    }
 
     getFavorites(): Observable<string[]> {
         return this.http.get<FavoriteCurrencyDto[]>(this.apiUrl).pipe(
@@ -23,10 +38,20 @@ export class FavoriteCurrencyService {
     }
 
     addFavorite(currencyCode: string): Observable<void> {
-        return this.http.post<void>(this.apiUrl, { currencyCode });
+        return this.http.post<void>(this.apiUrl, { currencyCode }).pipe(
+            map(() => {
+                this.favoritesSubject$.next([...this.favoritesSubject$.value, currencyCode]);
+                return;
+            })
+        );
     }
 
     removeFavorite(currencyCode: string): Observable<void> {
-        return this.http.delete<void>(`${this.apiUrl}/${currencyCode}`);
+        return this.http.delete<void>(`${this.apiUrl}/${currencyCode}`).pipe(
+            map(() => {
+                this.favoritesSubject$.next(this.favoritesSubject$.value.filter(item => item !== currencyCode));
+                return;
+            })
+        );
     }
 }

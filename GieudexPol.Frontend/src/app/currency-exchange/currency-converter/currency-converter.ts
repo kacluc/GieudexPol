@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { FavoriteCurrencyService } from '../../services/favorite-currency.service';
+import { Observable } from 'rxjs';
 
 interface CurrencyExchangeSimulationResponse {
   exchangedAmount: number;
@@ -54,7 +55,7 @@ export class CurrencyConverterComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.favoriteService.getFavorites().subscribe({
+    this.favoriteService.favorites$.subscribe({
       next: (data) => {
         this.favorites = data;
       },
@@ -87,7 +88,7 @@ export class CurrencyConverterComponent implements OnInit {
 
     this.favoriteService.addFavorite(currency).subscribe({
       next: () => {
-        this.favorites.push(currency);
+        // No need to update favorites here as it's handled by BehaviorSubject
       },
       error: (error) => {
         console.error('Nie udalo sie dodac ulubionej waluty.', error);
@@ -98,7 +99,7 @@ export class CurrencyConverterComponent implements OnInit {
   removeFromFavorites(currency: string): void {
     this.favoriteService.removeFavorite(currency).subscribe({
       next: () => {
-        this.favorites = this.favorites.filter(item => item !== currency);
+        // No need to update favorites here as it's handled by BehaviorSubject
       },
       error: (error) => {
         console.error('Nie udalo sie usunac ulubionej waluty.', error);
