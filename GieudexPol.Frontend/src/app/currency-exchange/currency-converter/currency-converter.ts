@@ -4,6 +4,8 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { FavoriteCurrencyService } from '../../services/favorite-currency.service';
 import { Observable } from 'rxjs';
+//spprawdz i upewnij sie
+
 
 interface CurrencyExchangeSimulationResponse {
   exchangedAmount: number;

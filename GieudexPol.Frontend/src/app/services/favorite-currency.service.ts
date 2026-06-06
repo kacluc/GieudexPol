@@ -6,7 +6,7 @@ import { map, shareReplay } from 'rxjs/operators';
 interface FavoriteCurrencyDto {
     currencyCode: string;
 }
-
+//sprawdz i upewnij sie
 @Injectable({
     providedIn: 'root'
 })
