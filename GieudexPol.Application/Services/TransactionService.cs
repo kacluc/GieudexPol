@@ -32,12 +32,12 @@ namespace GieudexPol.Application.Services
             return await _transactionRepository.GetByIdAsync(id);
         }
 
-        public async Task<IEnumerable<Transaction>> GetAllAsync()
+        public Task<IEnumerable<Transaction>> GetAllAsync()
         {
             // This method might need to be reconsidered if getting all transactions across all users is not desired or performant.
             // For now, it will return an empty list or throw an exception.
             // Alternatively, you could implement a repository method to fetch all transactions without user filtering.
-            return Enumerable.Empty<Transaction>(); // Or throw new NotImplementedException("GetAllAsync for transactions is not implemented for all users.");
+            return Task.FromResult(Enumerable.Empty<Transaction>()); // Or throw new NotImplementedException("GetAllAsync for transactions is not implemented for all users.");
         }
 
         public async Task AddAsync(Transaction entity)

@@ -36,7 +36,8 @@ export class TransactionHistoryComponent implements OnInit {
     }
 
     try {
-      this.transactions = await firstValueFrom(this.transactionService.getUserTransactions(userId));
+      const result = await firstValueFrom(this.transactionService.getUserTransactions(userId));
+      this.transactions = result.items;
     } catch (error) {
       console.error('Nie udalo sie zaladowac historii transakcji:', error);
       this.errorMessage = 'Nie mozna pobrac historii transakcji z API.';

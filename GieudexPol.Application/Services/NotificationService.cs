@@ -14,7 +14,7 @@ namespace GieudexPol.Application.Services
             _notificationRepository = notificationRepository;
         }
 
-        public async Task<Notification> GetByIdAsync(int id)
+        public async Task<Notification?> GetByIdAsync(int id)
         {
             return await _notificationRepository.GetByIdAsync(id);
         }

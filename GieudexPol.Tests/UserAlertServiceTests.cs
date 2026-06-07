@@ -94,13 +94,13 @@ namespace GieudexPol.Tests
         {
             // Arrange
             int alertId = 1;
-            _mockUserAlertRepository.Setup(r => r.GetByIdAsync(alertId)).ReturnsAsync((UserAlert)null);
+            _mockUserAlertRepository.Setup(r => r.GetByIdAsync(alertId)).ReturnsAsync((UserAlert?)null);
 
             // Act
             await _userAlertService.DeleteUserAlertAsync(alertId);
 
             // Assert
-            _mockUserAlertRepository.Verify(r => r.DeleteAsync(It.Any<UserAlert>()), Times.Never);
+            _mockUserAlertRepository.Verify(r => r.DeleteAsync(It.IsAny<UserAlert>()), Times.Never);
         }
 
         [Fact]
@@ -127,14 +127,14 @@ namespace GieudexPol.Tests
             // Arrange
             int alertId = 1;
             string message = "Test Alert Triggered";
-            _mockUserAlertRepository.Setup(r => r.GetByIdAsync(alertId)).ReturnsAsync((UserAlert)null);
+            _mockUserAlertRepository.Setup(r => r.GetByIdAsync(alertId)).ReturnsAsync((UserAlert?)null);
 
             // Act
             await _userAlertService.TriggerAlertAsync(alertId, message);
 
             // Assert
-            _mockUserAlertRepository.Verify(r => r.UpdateAsync(It.Any<UserAlert>()), Times.Never);
-            _mockNotificationService.Verify(s => s.AddAsync(It.Any<Notification>()), Times.Never);
+            _mockUserAlertRepository.Verify(r => r.UpdateAsync(It.IsAny<UserAlert>()), Times.Never);
+            _mockNotificationService.Verify(s => s.AddAsync(It.IsAny<Notification>()), Times.Never);
         }
     }
 }

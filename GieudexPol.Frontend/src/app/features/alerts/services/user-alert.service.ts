@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { UserAlertDto, UserAlertCreateDto, UserAlertUpdateDto } from '../../../../shared/models/user-alert.model';
-import { environment } from '../../../../../environments/environment';
+import { UserAlertDto, UserAlertCreateDto, UserAlertUpdateDto } from '../../../shared/models/user-alert.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
