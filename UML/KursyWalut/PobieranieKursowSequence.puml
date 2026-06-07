@@ -1,212 +1,62 @@
 @startuml
-title Synchronizacja kursow walut z wielu zrodel
+title Odczyt kursow i automatyczna synchronizacja
 
-actor "Uzytkownik" as User
+actor Uzytkownik as User
 participant "ExchangeRateDashboard\nAngular /rates" as Frontend
-participant "ExchangeRateApiService" as FrontendApi
+participant "ExchangeRateApiService" as ApiClient
 participant "ExchangeRatesController" as Controller
 participant "ExchangeRateService" as ReadService
 participant "ExchangeRateSyncService" as SyncService
-participant "IExternalExchangeRateClient[]" as Clients
-participant "NbpExchangeRateClient" as NbpClient
-participant "EcbExchangeRateClient" as EcbClient
-participant "RiksbankExchangeRateClient" as RiksbankClient
-participant "BankOfEnglandExchangeRateClient" as BoeClient
-participant "CnbExchangeRateClient" as CnbClient
-participant "NorgesExchangeRateClient" as NorgesClient
-participant "BnrExchangeRateClient" as BnrClient
-database "ApplicationDbContext\nSQL Server" as Db
-participant "NBP API\nTabela C JSON" as NbpApi
-participant "ECB\nXML eurofxref-hist" as EcbApi
-participant "Riksbank API\nSWEA REST" as RiksbankApi
-participant "BoE Database\nCSV daily spot" as BoeApi
-participant "CNB API\nJSON daily" as CnbApi
-participant "Norges Bank API\nSDMX-JSON daily" as NorgesApi
-participant "BNR XML\npliki roczne daily" as BnrApi
+database "SQL Server\nExchangeRates" as Db
 
-User -> Frontend: wybiera walute, zrodlo i zakres dat
-activate Frontend
-Frontend -> Frontend: ogranicz daty do 2026-01-01 .. dzisiaj
+User -> Frontend: wybiera walute, zrodlo i daty
+Frontend -> Frontend: ogranicz daty do\n2026-01-01 .. dzisiaj
 
-Frontend -> FrontendApi: getChartData(currency, source, from?, to?)
-activate FrontendApi
-FrontendApi -> Controller: GET /api/ExchangeRates/chart
-activate Controller
+par dane wykresu
+  Frontend -> ApiClient: getChartData(currency, source, from, to)
+  ApiClient -> Controller: GET /api/ExchangeRates/chart
+  Controller -> Controller: waliduj parametry i ustaw domyslny YTD
+  Controller -> ReadService: GetChartDataAsync(...)
+  ReadService -> Db: SELECT po walucie, zrodle i zakresie
+  Db --> ReadService: ExchangeRateChartPointDto[]
+  ReadService --> Controller: odpowiedz wykresu
 
-alt from/to nie podane
-    Controller -> Controller: from = 1 stycznia biezacego roku\nto = dzisiaj
-end
-Controller -> Controller: odrzuc from < 2026-01-01 lub to > dzisiaj
-
-Controller -> ReadService: GetChartDataAsync(currency, source, from, to)
-activate ReadService
-ReadService -> Db: odczytaj ExchangeRates dla currency + source + zakres
-activate Db
-Db --> ReadService: punkty wykresu albo pusta lista
-deactivate Db
-ReadService --> Controller: ExchangeRateChartResponseDto
-deactivate ReadService
-
-alt dane istnieja w bazie
-    Controller --> FrontendApi: 200 OK z punktami wykresu
-else cache miss dla obslugiwanego SourceCode
+  alt brak danych / brak oczekiwanej daty / stare rowne ceny
     Controller -> SyncService: SyncRatesAsync(source, from, to)
-    activate SyncService
-    SyncService -> Clients: wybierz klienta po SourceCode
-    SyncService -> SyncService: przejmij blokade per SourceCode
+    SyncService -> SyncService: pobierz, znormalizuj i zapisz kursy
+    SyncService -> Db: INSERT nowych lub UPDATE syntetycznych
+    Db --> SyncService: zapisano
+    Controller -> ReadService: GetChartDataAsync(...)
+    ReadService -> Db: ponowny SELECT
+    Db --> ReadService: aktualne punkty
+    ReadService --> Controller: odpowiedz wykresu
+  end
 
-    alt source == "NBP"
-        Clients --> SyncService: NbpExchangeRateClient
-        loop zakresy po max 93 dni
-            SyncService -> NbpClient: GetBuySellRatesAsync(rangeFrom, rangeTo)
-            activate NbpClient
-            NbpClient -> NbpApi: GET /api/exchangerates/tables/C/{from}/{to}/?format=json
-            activate NbpApi
-            NbpApi --> NbpClient: JSON z bid/ask albo 404
-            deactivate NbpApi
-            NbpClient --> SyncService: ExternalExchangeRateTableDto[]
-            deactivate NbpClient
-        end
-    else source == "ECB"
-        Clients --> SyncService: EcbExchangeRateClient
-        SyncService -> EcbClient: GetBuySellRatesAsync(from, to)
-        activate EcbClient
-        EcbClient -> EcbApi: GET /stats/eurofxref/eurofxref-hist.xml
-        activate EcbApi
-        EcbApi --> EcbClient: XML Cube z kursami wzgledem EUR
-        deactivate EcbApi
-        EcbClient -> EcbClient: filtruj daty from..to
-        EcbClient -> EcbClient: znajdz EUR_PLN dla dnia
-        EcbClient -> EcbClient: RateToPLN = EUR_PLN / EUR_CURRENCY
-        EcbClient -> EcbClient: BuyPrice = SellPrice = RateToPLN
-        EcbClient --> SyncService: ExternalExchangeRateTableDto[]
-        deactivate EcbClient
-    else source == "RIKSBANK"
-        Clients --> SyncService: RiksbankExchangeRateClient
-        SyncService -> RiksbankClient: GetBuySellRatesAsync(from, to)
-        activate RiksbankClient
-        RiksbankClient -> RiksbankApi: GET /swea/v1/Observations/ByGroup/130/{from}/{to}
-        activate RiksbankApi
-        RiksbankApi --> RiksbankClient: JSON seriesId/date/value wzgledem SEK
-        deactivate RiksbankApi
-        RiksbankClient -> RiksbankClient: filtruj obslugiwane waluty
-        RiksbankClient -> RiksbankClient: znajdz SEK_PLN dla dnia
-        RiksbankClient -> RiksbankClient: RateToPLN = SEK_CURRENCY / SEK_PLN
-        RiksbankClient -> RiksbankClient: BuyPrice = SellPrice = RateToPLN
-        RiksbankClient --> SyncService: ExternalExchangeRateTableDto[]
-        deactivate RiksbankClient
-    else source == "BOE"
-        Clients --> SyncService: BankOfEnglandExchangeRateClient
-        SyncService -> BoeClient: GetBuySellRatesAsync(from, to)
-        activate BoeClient
-        BoeClient -> BoeApi: GET eksport CSV daily spot series
-        BoeApi --> BoeClient: currency units per GBP
-        BoeClient -> BoeClient: RateToPLN = GBP_PLN / GBP_CURRENCY
-        BoeClient -> BoeClient: BuyPrice = SellPrice = RateToPLN
-        BoeClient --> SyncService: ExternalExchangeRateTableDto[]
-        deactivate BoeClient
-    else source == "CNB"
-        Clients --> SyncService: CnbExchangeRateClient
-        SyncService -> CnbClient: GetBuySellRatesAsync(from, to)
-        activate CnbClient
-        CnbClient -> CnbApi: GET exrates/daily?date=...&lang=EN
-        CnbApi --> CnbClient: JSON amount currency = rate CZK
-        CnbClient -> CnbClient: RateToPLN = CurrencyToCZK / PLNToCZK
-        CnbClient -> CnbClient: BuyPrice = SellPrice = RateToPLN
-        CnbClient --> SyncService: ExternalExchangeRateTableDto[]
-        deactivate CnbClient
-    else source == "NORGES"
-        Clients --> SyncService: NorgesExchangeRateClient
-        SyncService -> NorgesClient: GetBuySellRatesAsync(from, to)
-        activate NorgesClient
-        NorgesClient -> NorgesApi: GET data/EXR/B.{currency}.NOK.SP
-        NorgesApi --> NorgesClient: SDMX-JSON daily NOK-relative observations
-        NorgesClient -> NorgesClient: RateToPLN = CurrencyToNOK / PLNToNOK
-        NorgesClient -> NorgesClient: BuyPrice = SellPrice = RateToPLN
-        NorgesClient --> SyncService: ExternalExchangeRateTableDto[]
-        deactivate NorgesClient
-    else source == "BNR"
-        Clients --> SyncService: BnrExchangeRateClient
-        SyncService -> BnrClient: GetBuySellRatesAsync(from, to)
-        activate BnrClient
-        BnrClient -> BnrApi: GET files/xml/years/nbrfxrates{year}.xml
-        BnrApi --> BnrClient: XML daily multiplier currency = rate RON
-        BnrClient -> BnrClient: RateToPLN = CurrencyToRON / PLNToRON
-        BnrClient -> BnrClient: BuyPrice = SellPrice = RateToPLN
-        BnrClient --> SyncService: ExternalExchangeRateTableDto[]
-        deactivate BnrClient
-    end
+  Controller --> ApiClient: 200 ExchangeRateChartResponseDto
+  ApiClient --> Frontend: date, buyPrice, midPrice, sellPrice
+else najnowsze kursy
+  Frontend -> ApiClient: getLatestRates(source)
+  ApiClient -> Controller: GET /api/ExchangeRates/latest
+  Controller -> ReadService: GetLatestRatesAsync(source)
+  ReadService -> Db: najnowszy dzien dla kazdej waluty
+  Db --> ReadService: ExchangeRateTableRowDto[]
+  ReadService --> Controller: lista kursow
 
-    SyncService -> Db: znajdz lub utworz RateSource(source)
-    activate Db
-    Db --> SyncService: RateSource
-    deactivate Db
-
-    SyncService -> Db: pobierz waluty i istniejace klucze kursow
-    activate Db
-    Db --> SyncService: Currency[], ExistingRateKey[]
-    deactivate Db
-
-    loop kazda tabela i kazdy kurs
-        alt waluta nie istnieje
-            SyncService -> Db: dodaj Currency
-        end
-
-        alt kurs juz istnieje dla Currency + Source + EffectiveDate
-            SyncService -> SyncService: Skipped++
-        else nowy kurs
-            SyncService -> Db: dodaj ExchangeRate(BuyPrice, SellPrice, EffectiveDate, FetchedAt)
-            SyncService -> SyncService: Added++
-        end
-    end
-
-    SyncService -> Db: SaveChangesAsync()
-    activate Db
-    alt brak konfliktu unikalnosci
-        Db --> SyncService: zapisano zmiany
-    else rownolegly zapis tego samego klucza
-        Db --> SyncService: unique-key conflict
-        SyncService -> SyncService: wyczysc tracking i powtorz synchronizacje
-    end
-    deactivate Db
-    SyncService -> SyncService: zwolnij blokade SourceCode
-    SyncService --> Controller: NbpSyncResultDto
-    deactivate SyncService
-
-    Controller -> ReadService: GetChartDataAsync(currency, source, from, to)
-    activate ReadService
-    ReadService -> Db: ponowny odczyt zapisanych kursow
-    activate Db
-    Db --> ReadService: punkty wykresu dla wybranego zrodla
-    deactivate Db
-    ReadService --> Controller: ExchangeRateChartResponseDto
-    deactivate ReadService
-
-    Controller --> FrontendApi: 200 OK
-end
-
-deactivate Controller
-FrontendApi --> Frontend: dane wykresu
-deactivate FrontendApi
-
-Frontend -> FrontendApi: getLatestRates(source, currency?)
-FrontendApi -> Controller: GET /api/ExchangeRates/latest
-Controller -> ReadService: GetLatestRatesAsync(source, currency?)
-ReadService -> Db: najnowsze rekordy z danego zrodla
-Db --> ReadService: ExchangeRateTableRowDto[]
-ReadService --> Controller: DTO[]
-
-alt brak danych z biezacego roku dla source
+  alt brak danych biezacego roku lub stare rowne ceny
     Controller -> SyncService: SyncCurrentYearRatesAsync(source)
-    SyncService -> SyncService: from = 1 stycznia biezacego roku, to = dzisiaj
-    SyncService -> Clients: wybierz klienta NBP / ECB / RIKSBANK / BOE / CNB / NORGES / BNR
-    SyncService -> Db: zapisz brakujace kursy
+    SyncService -> Db: zapisz lub odswiez kursy
     Controller -> ReadService: ponowny odczyt latest
+  end
+
+  Controller --> ApiClient: 200 ExchangeRateTableRowDto[]
+  ApiClient --> Frontend: najnowsze kursy
 end
 
-Controller --> FrontendApi: 200 OK
-FrontendApi --> Frontend: latest rates
-Frontend -> Frontend: wyswietl wykres i tabele
-deactivate Frontend
+Frontend -> Frontend: wykres BuyPrice/SellPrice,\nMidPrice, spread i tabele
 
+note right of Frontend
+Perspektywa uzytkownika:
+Sprzedajesz po = BuyPrice
+Kupujesz po = SellPrice
+end note
 @enduml

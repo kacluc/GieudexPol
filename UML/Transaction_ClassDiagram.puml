@@ -71,6 +71,7 @@ package "GieudexPol.Application.Interfaces" {
 
     interface IWalletRepository {
         + GetUserWalletAsync(userId: int, currencyId: int): Task<Wallet>
+        + ExecuteTransferAsync(senderWalletId: int, receiverUserId: int, currencyId: int, amount: decimal, fee: decimal, transaction: Transaction): Task
     }
 
     interface ITransactionFeeRepository {
@@ -83,7 +84,7 @@ package "GieudexPol.Application.Interfaces" {
         + AddAsync(entity: Transaction): Task
         + UpdateAsync(entity: Transaction): Task
         + DeleteAsync(entity: Transaction): Task
-        + CreateTransfer(request: TransferRequest): Task<Transaction>
+        + CreateTransfer(senderId: int, request: TransferRequest): Task<Transaction>
         + GetUserTransactions(userId: int, pageNumber: int, pageSize: int, transactionType: string?, currencyId: int?, startDate: DateTime?, endDate: DateTime?): Task<PaginatedResult<TransactionDto>>
     }
 }
@@ -101,14 +102,13 @@ package "GieudexPol.Application.Services" {
         + AddAsync(entity: Transaction): Task
         + UpdateAsync(entity: Transaction): Task
         + DeleteAsync(entity: Transaction): Task
-        + CreateTransfer(request: TransferRequest): Task<Transaction>
+        + CreateTransfer(senderId: int, request: TransferRequest): Task<Transaction>
         + GetUserTransactions(userId: int, pageNumber: int, pageSize: int, transactionType: string?, currencyId: int?, startDate: DateTime?, endDate: DateTime?): Task<PaginatedResult<TransactionDto>>
     }
 }
 
 package "GieudexPol.Application.DTOs" {
     class TransferRequest {
-        + SenderId: int
         + ReceiverUsername: string
         + Amount: decimal
         + CurrencyId: int

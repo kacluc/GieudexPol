@@ -6,7 +6,6 @@ export enum AlertType {
 }
 
 export interface UserAlertCreateDto {
-  userId: number;
   currencyId: number;
   alertType: AlertType;
   thresholdValue?: number;

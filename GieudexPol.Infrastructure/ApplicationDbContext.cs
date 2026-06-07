@@ -106,6 +106,14 @@ namespace GieudexPol.Infrastructure
                 .WithMany(c => c.UserAlerts)
                 .HasForeignKey(a => a.CurrencyId);
 
+            modelBuilder.Entity<UserAlert>()
+                .Property(a => a.ThresholdValue)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<UserAlert>()
+                .Property(a => a.PercentageChange)
+                .HasPrecision(18, 4);
+
             modelBuilder.Entity<ExchangeRate>()
                 .HasOne(er => er.Currency)
                 .WithMany(c => c.ExchangeRates)
@@ -126,6 +134,10 @@ namespace GieudexPol.Infrastructure
 
             modelBuilder.Entity<ExchangeRate>()
                 .Property(er => er.SellPrice)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<ExchangeRate>()
+                .Property(er => er.MidPrice)
                 .HasPrecision(18, 4);
 
             modelBuilder.Entity<RateSource>()

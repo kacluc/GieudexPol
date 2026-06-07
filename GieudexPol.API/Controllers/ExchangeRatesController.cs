@@ -23,6 +23,8 @@ namespace GieudexPol.API.Controllers
             "NORGES",
             "BNR"
         };
+        private static readonly HashSet<string> SyntheticRateSources =
+            new(SyncableSources.Where(code => code != "NBP"), StringComparer.OrdinalIgnoreCase);
 
         private readonly IExchangeRateService _exchangeRateService;
         private readonly IExchangeRateSyncService _exchangeRateSyncService;
@@ -91,15 +93,19 @@ namespace GieudexPol.API.Controllers
                 resolvedTo);
 
             var expectedPublicationDate = ResolveExpectedPublicationDate(resolvedTo);
+            var requiresSyntheticRefresh =
+                SyntheticRateSources.Contains(sourceCode) &&
+                chartData.Points.Any(point => point.BuyPrice == point.SellPrice);
             var shouldSynchronize = IsSyncableSource(sourceCode) &&
-                (chartData.Points.Count == 0 ||
+                (requiresSyntheticRefresh ||
+                 chartData.Points.Count == 0 ||
                  chartData.Points.All(point => point.Date.Date != expectedPublicationDate));
 
             if (shouldSynchronize)
             {
                 try
                 {
-                    var syncFrom = chartData.Points.Count == 0
+                    var syncFrom = requiresSyntheticRefresh || chartData.Points.Count == 0
                         ? resolvedFrom
                         : expectedPublicationDate;
 
@@ -142,8 +148,14 @@ namespace GieudexPol.API.Controllers
 
             var rates = (await _exchangeRateService.GetLatestRatesAsync(sourceCode, currencyCode)).ToList();
             var currentYearStart = new DateTime(DateTime.Today.Year, 1, 1);
+            var requiresSyntheticRefresh =
+                SyntheticRateSources.Contains(sourceCode) &&
+                rates.Any(rate => rate.BuyPrice == rate.SellPrice);
 
-            if ((!rates.Any() || rates.All(rate => rate.EffectiveDate < currentYearStart)) && IsSyncableSource(sourceCode))
+            if ((requiresSyntheticRefresh ||
+                 !rates.Any() ||
+                 rates.All(rate => rate.EffectiveDate < currentYearStart)) &&
+                IsSyncableSource(sourceCode))
             {
                 try
                 {

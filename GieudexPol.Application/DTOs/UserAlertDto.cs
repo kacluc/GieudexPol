@@ -5,7 +5,6 @@ namespace GieudexPol.Application.DTOs
 {
     public class UserAlertCreateDto
     {
-        public int UserId { get; set; }
         public int CurrencyId { get; set; }
         public AlertType AlertType { get; set; }
         public decimal? ThresholdValue { get; set; }

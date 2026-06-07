@@ -204,7 +204,8 @@ namespace GieudexPol.Infrastructure.ExternalServices.Cnb
                 CurrencyCode = currencyCode,
                 CurrencyName = currencyCode,
                 BuyPrice = roundedRate,
-                SellPrice = roundedRate
+                SellPrice = roundedRate,
+                ReferenceRate = roundedRate
             };
         }
 

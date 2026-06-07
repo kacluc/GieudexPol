@@ -49,7 +49,8 @@ namespace GieudexPol.Infrastructure.Repositories
                 {
                     Date = er.EffectiveDate,
                     BuyPrice = er.BuyPrice,
-                    SellPrice = er.SellPrice
+                    SellPrice = er.SellPrice,
+                    MidPrice = er.MidPrice
                 })
                 .ToListAsync();
         }
@@ -97,7 +98,8 @@ namespace GieudexPol.Infrastructure.Repositories
                     SourceName = er.RateSource.Name,
                     EffectiveDate = er.EffectiveDate,
                     BuyPrice = er.BuyPrice,
-                    SellPrice = er.SellPrice
+                    SellPrice = er.SellPrice,
+                    MidPrice = er.MidPrice
                 })
                 .ToListAsync();
         }

@@ -11,6 +11,7 @@ namespace GieudexPol.Domain.Entities
         public RateSource RateSource { get; set; } = null!;
         public decimal BuyPrice { get; set; }
         public decimal SellPrice { get; set; }
+        public decimal? MidPrice { get; set; }
         public DateTime EffectiveDate { get; set; }
         public DateTime FetchedAt { get; set; }
     }

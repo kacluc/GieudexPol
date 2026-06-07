@@ -55,7 +55,7 @@ namespace GieudexPol.Application.Services
             await _transactionRepository.DeleteAsync(entity.Id);
         }
 
-        public async Task<Transaction> CreateTransfer(TransferRequest request)
+        public async Task<Transaction> CreateTransfer(int senderId, TransferRequest request)
         {
             var transactionFee = await _transactionFeeRepository.GetActiveTransactionFeeByTypeAsync("Transfer");
             if (transactionFee == null)
@@ -63,7 +63,7 @@ namespace GieudexPol.Application.Services
                 throw new InvalidOperationException("No active transaction fee found for transfers.");
             }
 
-            var sender = await _userRepository.GetByIdAsync(request.SenderId);
+            var sender = await _userRepository.GetByIdAsync(senderId);
             if (sender == null)
             {
                 throw new ArgumentException("Sender not found.");
@@ -85,58 +85,37 @@ namespace GieudexPol.Application.Services
             decimal calculatedFee = request.Amount * (transactionFee.FeePercentage / 100) + transactionFee.FlatFee;
             decimal totalAmountToDeduct = request.Amount + calculatedFee;
 
-            var senderWallet = await _walletRepository.GetUserWalletAsync(request.SenderId, request.CurrencyId);
+            var senderWallet = await _walletRepository.GetUserWalletAsync(senderId, request.CurrencyId);
             if (senderWallet == null || senderWallet.Balance < totalAmountToDeduct)
             {
                 throw new InvalidOperationException("Insufficient funds or wallet not found for sender.");
             }
 
-            var receiverWallet = await _walletRepository.GetUserWalletAsync(receiver.Id, request.CurrencyId);
-            if (receiverWallet == null)
-            {
-                // Create receiver wallet if it doesn't exist for the currency
-                receiverWallet = new Wallet
-                {
-                    UserId = receiver.Id,
-                    CurrencyId = request.CurrencyId,
-                    Balance = 0m // Initialize with 0
-                };
-                await _walletRepository.AddAsync(receiverWallet);
-            }
-
             var transaction = new Transaction
             {
-                SenderId = request.SenderId,
+                SenderId = senderId,
                 ReceiverId = receiver.Id,
                 Amount = request.Amount,
                 CurrencyId = request.CurrencyId,
                 Timestamp = DateTime.UtcNow,
-                Status = "Pending",
+                Status = "Completed",
                 TransactionType = "Transfer",
                 AppliedFee = calculatedFee,
                 TransactionFeeId = transactionFee.Id
             };
 
-            await _transactionRepository.AddAsync(transaction);
-
             try
             {
-                // Deduct from sender's wallet (amount + fee)
-                senderWallet.Balance -= totalAmountToDeduct;
-                await _walletRepository.UpdateAsync(senderWallet);
-
-                // Add to receiver's wallet (only amount)
-                receiverWallet.Balance += request.Amount;
-                await _walletRepository.UpdateAsync(receiverWallet);
-
-                transaction.Status = "Completed";
-                await _transactionRepository.UpdateAsync(transaction);
+                await _walletRepository.ExecuteTransferAsync(
+                    senderWallet.Id,
+                    receiver.Id,
+                    request.CurrencyId,
+                    request.Amount,
+                    calculatedFee,
+                    transaction);
             }
             catch (Exception ex)
             {
-                transaction.Status = "Failed";
-                await _transactionRepository.UpdateAsync(transaction);
-                // Log the exception
                 throw new InvalidOperationException("Transaction failed due to an error.", ex);
             }
 

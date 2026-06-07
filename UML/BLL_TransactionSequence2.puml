@@ -3,7 +3,6 @@ actor User as U
 participant "Frontend (Angular)" as FE
 participant "API (TransactionsController)" as API
 participant "Application (TransactionService)" as App
-participant "Infrastructure (TransactionRepository)" as Infra
 participant "Infrastructure (UserRepository)" as UserRepo
 participant "Infrastructure (WalletRepository)" as WalletRepo
 participant "Infrastructure (TransactionFeeRepository)" as FeeRepo
@@ -12,7 +11,11 @@ participant "Database (SQL Server)" as DB
 
 U -> FE: Initiates money transfer (Receiver Username, Amount, Currency)
 FE -> API: POST /api/transactions/transfer (TransferRequest)
-API -> App: CreateTransfer(TransferRequest)
+API -> UserRepo: GetByAuthId(JWT NameIdentifier)
+UserRepo -> DB: SELECT * FROM Users WHERE AuthId = @AuthId
+DB --> UserRepo: Authenticated Sender
+UserRepo --> API: Sender User
+API -> App: CreateTransfer(SenderId, TransferRequest)
 
 App -> FeeRepo: GetActiveTransactionFeeByTypeAsync("Transfer")
 FeeRepo -> DB: SELECT * FROM TransactionFees WHERE Type = "Transfer" AND IsActive = TRUE
@@ -36,23 +39,16 @@ alt Insufficient Balance or Invalid Receiver
     API --> FE: 400 Bad Request / Error message
     FE --> U: Displays error
 else Successful Validation
-    App -> Domain: Create new Transaction object (Pending status, AppliedFee, TransactionFeeId)
-    App -> Infra: AddTransaction(Transaction)
-    Infra -> DB: INSERT INTO Transactions (...)
-    DB --> Infra: Transaction saved (Id)
-    Infra --> App: Transaction object with Id
-
-    App -> WalletRepo: UpdateWalletBalance(SenderId, CurrencyId, -(Amount + AppliedFee))
-    WalletRepo -> DB: UPDATE Wallets SET Balance = Balance - (@Amount + @AppliedFee) WHERE UserId = @SenderId AND CurrencyId = @CurrencyId
-    DB --> WalletRepo: Sender Wallet updated
-
-    App -> WalletRepo: UpdateWalletBalance(ReceiverId, CurrencyId, +Amount)
-    WalletRepo -> DB: UPDATE Wallets SET Balance = Balance + @Amount WHERE UserId = @ReceiverId AND CurrencyId = @CurrencyId
-    DB --> WalletRepo: Receiver Wallet updated
-
-    App -> Infra: UpdateTransactionStatus(TransactionId, "Completed")
-    Infra -> DB: UPDATE Transactions SET Status = "Completed" WHERE Id = @TransactionId
-    DB --> Infra: Transaction status updated
+    App -> Domain: Create completed Transaction object
+    App -> WalletRepo: ExecuteTransferAsync(SenderWalletId, ReceiverId, CurrencyId, Amount, Fee, Transaction)
+    WalletRepo -> DB: BEGIN TRANSACTION
+    WalletRepo -> DB: Debit sender by Amount + Fee
+    WalletRepo -> DB: Create receiver wallet if missing
+    WalletRepo -> DB: Credit receiver by Amount
+    WalletRepo -> DB: INSERT completed Transaction
+    WalletRepo -> DB: COMMIT
+    DB --> WalletRepo: Transfer committed
+    WalletRepo --> App: Transaction with Id
 
     App --> API: Return successful Transaction details
     API --> FE: 200 OK / Transaction details

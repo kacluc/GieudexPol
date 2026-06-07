@@ -1,5 +1,6 @@
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Application.Services;
+using GieudexPol.Application.Settings;
 using GieudexPol.Application.Auth.Services;
 using GieudexPol.API.Services;
 using GieudexPol.Infrastructure;
@@ -42,8 +43,12 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "DataProtectionKeys")));
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.Configure<ExchangeRateSettings>(
+    builder.Configuration.GetSection(ExchangeRateSettings.SectionName));
 
 // Add DbContext for production
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

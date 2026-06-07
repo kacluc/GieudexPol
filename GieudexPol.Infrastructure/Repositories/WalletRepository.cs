@@ -81,6 +81,53 @@ namespace GieudexPol.Infrastructure.Repositories
             });
         }
 
+        public async Task ExecuteTransferAsync(
+            int senderWalletId,
+            int receiverUserId,
+            int currencyId,
+            decimal amount,
+            decimal fee,
+            Transaction transaction)
+        {
+            var executionStrategy = _context.Database.CreateExecutionStrategy();
+
+            await executionStrategy.ExecuteAsync(async () =>
+            {
+                _context.ChangeTracker.Clear();
+                await using var databaseTransaction = await _context.Database.BeginTransactionAsync();
+
+                var senderWallet = await _dbSet.SingleOrDefaultAsync(wallet =>
+                    wallet.Id == senderWalletId && wallet.CurrencyId == currencyId);
+                if (senderWallet == null)
+                {
+                    throw new InvalidOperationException("Sender wallet was not found.");
+                }
+
+                var receiverWallet = await _dbSet.SingleOrDefaultAsync(wallet =>
+                    wallet.UserId == receiverUserId && wallet.CurrencyId == currencyId);
+                if (receiverWallet == null)
+                {
+                    receiverWallet = new Wallet
+                    {
+                        UserId = receiverUserId,
+                        CurrencyId = currencyId,
+                        Balance = 0m
+                    };
+                    await _dbSet.AddAsync(receiverWallet);
+                }
+
+                senderWallet.Debit(amount + fee);
+                receiverWallet.Credit(amount);
+
+                var persistedTransaction = CopyTransaction(transaction);
+                await _context.Transactions.AddAsync(persistedTransaction);
+                await _context.SaveChangesAsync();
+                await databaseTransaction.CommitAsync();
+
+                transaction.Id = persistedTransaction.Id;
+            });
+        }
+
         public async Task<Wallet?> GetByIdAsync(int id)
         {
             return await _dbSet

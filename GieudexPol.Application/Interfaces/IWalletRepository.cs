@@ -17,6 +17,13 @@ namespace GieudexPol.Application.Interfaces
             decimal amountTo,
             Transaction sellTransaction,
             Transaction buyTransaction);
+        Task ExecuteTransferAsync(
+            int senderWalletId,
+            int receiverUserId,
+            int currencyId,
+            decimal amount,
+            decimal fee,
+            Transaction transaction);
         
         // Dodane metody CRUD do kontraktu repozytorium
         Task<Wallet?> GetByIdAsync(int id);

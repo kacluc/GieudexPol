@@ -27,6 +27,7 @@ public class CurrencyExchangeSimulationService
         ExchangeRate? exchangeRate = null;
 
         decimal exchangedAmount;
+        decimal appliedRate = 1m;
 
         if (request.SourceCurrency == request.TargetCurrency)
         {
@@ -49,6 +50,7 @@ public class CurrencyExchangeSimulationService
 
             exchangedAmount =
                 request.Amount / exchangeRate.SellPrice;
+            appliedRate = exchangeRate.SellPrice;
         }
         else if (request.TargetCurrency == "PLN")
         {
@@ -66,7 +68,8 @@ public class CurrencyExchangeSimulationService
             }
 
             exchangedAmount =
-                request.Amount * exchangeRate.SellPrice;
+                request.Amount * exchangeRate.BuyPrice;
+            appliedRate = exchangeRate.BuyPrice;
         }
         else
         {
@@ -89,12 +92,13 @@ public class CurrencyExchangeSimulationService
             }
 
             decimal amountInPln =
-                request.Amount * sourceRate.SellPrice;
+                request.Amount * sourceRate.BuyPrice;
 
             exchangedAmount =
                 amountInPln / targetRate.SellPrice;
 
             exchangeRate = sourceRate;
+            appliedRate = sourceRate.BuyPrice / targetRate.SellPrice;
         }
 
         decimal feeAmount =
@@ -110,7 +114,7 @@ public class CurrencyExchangeSimulationService
             Amount = request.Amount,
             SourceCurrency = request.SourceCurrency,
             TargetCurrency = request.TargetCurrency,
-            ExchangeRate = exchangeRate?.SellPrice ?? 1,
+            ExchangeRate = appliedRate,
             FeePercent = request.FeePercent,
             FeeAmount = feeAmount,
             FinalAmount = finalAmount,

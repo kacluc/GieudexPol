@@ -36,20 +36,13 @@ namespace GieudexPol.API.Controllers
 
             try
             {
-                var senderEmail = User.FindFirstValue(ClaimTypes.Email);
-                if (string.IsNullOrWhiteSpace(senderEmail))
-                {
-                    return Unauthorized();
-                }
-
-                var sender = await _userRepository.GetByUsernameAsync(senderEmail);
+                var sender = await GetAuthenticatedUserAsync();
                 if (sender == null)
                 {
                     return Unauthorized();
                 }
 
-                request.SenderId = sender.Id;
-                var transaction = await _transactionService.CreateTransfer(request);
+                var transaction = await _transactionService.CreateTransfer(sender.Id, request);
                 return Ok(MapToResponseDto(transaction));
             }
             catch (ArgumentException ex)
@@ -72,16 +65,32 @@ namespace GieudexPol.API.Controllers
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
-            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (currentUserId == null || int.Parse(currentUserId) != userId)
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
             {
                 return Unauthorized();
+            }
+
+            if (currentUser.Id != userId)
+            {
+                return Forbid();
             }
 
             var paginatedResult = await _transactionService.GetUserTransactions(
                 userId, pageNumber, pageSize, transactionType, currencyId, startDate, endDate);
             
             return Ok(paginatedResult);
+        }
+
+        private async Task<Domain.Entities.User?> GetAuthenticatedUserAsync()
+        {
+            var authIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(authIdValue, out var authId))
+            {
+                return null;
+            }
+
+            return await _userRepository.GetByAuthIdAsync(authId);
         }
 
         private static TransactionResponseDto MapToResponseDto(Domain.Entities.Transaction transaction)

@@ -2,6 +2,7 @@ export interface ExchangeRateChartPoint {
   date: string;
   buyPrice: number;
   sellPrice: number;
+  midPrice: number | null;
 }
 
 export interface ExchangeRateChartResponse {
@@ -20,6 +21,7 @@ export interface ExchangeRateTableRow {
   effectiveDate: string;
   buyPrice: number;
   sellPrice: number;
+  midPrice: number | null;
 }
 
 export interface NbpSyncResult {

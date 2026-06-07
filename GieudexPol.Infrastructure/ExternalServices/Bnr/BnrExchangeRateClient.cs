@@ -188,7 +188,8 @@ namespace GieudexPol.Infrastructure.ExternalServices.Bnr
                 CurrencyCode = currencyCode,
                 CurrencyName = currencyCode,
                 BuyPrice = roundedRate,
-                SellPrice = roundedRate
+                SellPrice = roundedRate,
+                ReferenceRate = roundedRate
             };
         }
     }

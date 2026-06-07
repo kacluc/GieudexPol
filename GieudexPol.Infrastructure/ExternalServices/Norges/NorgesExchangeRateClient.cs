@@ -385,7 +385,8 @@ namespace GieudexPol.Infrastructure.ExternalServices.Norges
                 CurrencyCode = currencyCode,
                 CurrencyName = currencyCode,
                 BuyPrice = roundedRate,
-                SellPrice = roundedRate
+                SellPrice = roundedRate,
+                ReferenceRate = roundedRate
             };
         }
     }

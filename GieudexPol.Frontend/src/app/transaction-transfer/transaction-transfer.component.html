@@ -1,120 +1,172 @@
-<div class="transaction-transfer-container">
-    <h2>Transfer Money</h2>
-
-    <form [formGroup]="transferForm" (ngSubmit)="onSubmit()">
-        <div class="form-group">
-            <label for="receiverUsername">E-mail odbiorcy:</label>
-            <input id="receiverUsername" type="email" formControlName="receiverUsername" placeholder="zenek.martyniuk@gieudexpol.local">
-        <div *ngIf="transferForm.get('receiverUsername')?.invalid && (transferForm.get('receiverUsername')?.dirty || transferForm.get('receiverUsername')?.touched)" class="error-message">
-                E-mail odbiorcy jest wymagany.
+<main class="transfer-page">
+    <header class="page-header">
+        <div>
+            <span class="eyebrow">Portfel</span>
+            <h1>Transfer środków</h1>
+            <p>Wyślij środki innemu użytkownikowi i sprawdź historię operacji.</p>
         </div>
-        </div>
+    </header>
 
-        <div class="form-group">
-            <label for="amount">Amount:</label>
-            <input id="amount" type="number" formControlName="amount">
-            <div *ngIf="transferForm.get('amount')?.invalid && (transferForm.get('amount')?.dirty || transferForm.get('amount')?.touched)" class="error-message">
-                Amount is required and must be greater than 0.
+    <section class="panel transfer-panel" aria-labelledby="transfer-heading">
+        <div class="panel-heading">
+            <div class="step-marker">1</div>
+            <div>
+                <h2 id="transfer-heading">Nowy transfer</h2>
+                <p>Uzupełnij dane odbiorcy, kwotę oraz walutę.</p>
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="currency">Currency:</label>
-            <select id="currency" formControlName="currencyId">
-                <option [ngValue]="null" disabled>Select Currency</option>
-                <option *ngFor="let currency of transferableCurrencies" [ngValue]="currency.id">
-                    {{ currency.symbol }} - {{ currency.name }}
-                </option>
-            </select>
-            <div *ngIf="transferForm.get('currencyId')?.invalid && (transferForm.get('currencyId')?.dirty || transferForm.get('currencyId')?.touched)" class="error-message">
-                Currency is required.
+        <form class="transfer-form" [formGroup]="transferForm" (ngSubmit)="onSubmit()">
+            <div class="form-grid">
+                <div class="form-group receiver-field">
+                    <label for="receiverUsername">E-mail odbiorcy</label>
+                    <input
+                        id="receiverUsername"
+                        type="email"
+                        formControlName="receiverUsername"
+                        placeholder="np. nazwa@gieudex.local"
+                        autocomplete="email">
+                    <span class="field-hint">Podaj adres przypisany do konta odbiorcy.</span>
+                    <div
+                        *ngIf="transferForm.get('receiverUsername')?.invalid && (transferForm.get('receiverUsername')?.dirty || transferForm.get('receiverUsername')?.touched)"
+                        class="field-error">
+                        Wprowadź poprawny adres e-mail odbiorcy.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="amount">Kwota</label>
+                    <input
+                        id="amount"
+                        type="number"
+                        formControlName="amount"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0,00">
+                    <div
+                        *ngIf="transferForm.get('amount')?.invalid && (transferForm.get('amount')?.dirty || transferForm.get('amount')?.touched)"
+                        class="field-error">
+                        Kwota musi być większa od 0.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="currency">Waluta</label>
+                    <select id="currency" formControlName="currencyId">
+                        <option value="" disabled>Wybierz walutę</option>
+                        <option *ngFor="let currency of transferableCurrencies" [ngValue]="currency.id">
+                            {{ currency.symbol }} - {{ currency.name }}
+                        </option>
+                    </select>
+                    <div
+                        *ngIf="transferForm.get('currencyId')?.invalid && (transferForm.get('currencyId')?.dirty || transferForm.get('currencyId')?.touched)"
+                        class="field-error">
+                        Wybierz walutę transferu.
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <button type="submit" [disabled]="transferForm.invalid">Transfer</button>
-    </form>
-
-    <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
-    <div *ngIf="successMessage" class="success-message">{{ successMessage }}</div>
-
-    <hr>
-
-    <h2>Transaction History</h2>
-
-    <form [formGroup]="transactionHistoryForm">
-        <div class="filter-group">
-            <div class="form-group">
-                <label for="transactionType">Transaction Type:</label>
-                <select id="transactionType" formControlName="transactionType">
-                    <option [ngValue]="null">All</option>
-                    <option *ngFor="let type of transactionTypes" [ngValue]="type">{{ type }}</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="currencyFilter">Currency:</label>
-                <select id="currencyFilter" formControlName="currencyId">
-                    <option [ngValue]="null">All</option>
-                    <option *ngFor="let currency of currencies" [ngValue]="currency.id">
-                        {{ currency.symbol }}
-                    </option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="startDate">Start Date:</label>
-                <input id="startDate" type="date" formControlName="startDate">
-            </div>
-
-            <div class="form-group">
-                <label for="endDate">End Date:</label>
-                <input id="endDate" type="date" formControlName="endDate">
-            </div>
-        </div>
-    </form>
-
-    <div *ngIf="transactions.length > 0" class="transaction-list">
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Sender</th>
-                    <th>Receiver</th>
-                    <th>Amount</th>
-                    <th>Currency</th>
-                    <th>Fee</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr *ngFor="let transaction of transactions">
-                    <td>{{ transaction.timestamp | date:
-            'short' }}</td>
-                    <td>{{ transaction.transactionType }}</td>
-                    <td>{{ transaction.senderUsername }}</td>
-                    <td>{{ transaction.receiverUsername }}</td>
-                    <td>{{ transaction.amount | number: '1.2-4' }}</td>
-                    <td>{{ transaction.currencySymbol }}</td>
-                    <td>{{ transaction.appliedFee | number: '1.2-4' }}</td>
-                    <td>{{ transaction.status }}</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <div class="pagination">
-            <button [disabled]="paginatedResult.pageNumber <= 1" (click)="onPageChange(paginatedResult.pageNumber - 1)">
-                Previous
+            <button class="primary-button" type="submit" [disabled]="transferForm.invalid">
+                Wykonaj transfer
             </button>
-            <span>Page {{ paginatedResult.pageNumber }} of {{ (paginatedResult.totalCount / paginatedResult.pageSize) | ceil
-                }}</span>
-            <button [disabled]="paginatedResult.pageNumber * paginatedResult.pageSize >= paginatedResult.totalCount"
-                (click)="onPageChange(paginatedResult.pageNumber + 1)">
-                Next
-            </button>
+        </form>
+
+        <div *ngIf="errorMessage" class="message message-error" role="alert">{{ errorMessage }}</div>
+        <div *ngIf="successMessage" class="message message-success" role="status">{{ successMessage }}</div>
+    </section>
+
+    <section class="panel history-panel" aria-labelledby="history-heading">
+        <div class="panel-heading">
+            <div class="step-marker secondary">2</div>
+            <div>
+                <h2 id="history-heading">Historia transakcji</h2>
+                <p>Filtruj operacje według typu, waluty lub zakresu dat.</p>
+            </div>
         </div>
-    </div>
-    <div *ngIf="transactions.length === 0 && !errorMessage" class="no-transactions">
-        No transactions found.
-    </div>
-</div>
+
+        <form class="filters" [formGroup]="transactionHistoryForm">
+            <div class="filter-grid">
+                <div class="form-group">
+                    <label for="transactionType">Typ transakcji</label>
+                    <select id="transactionType" formControlName="transactionType">
+                        <option [ngValue]="null">Wszystkie typy</option>
+                        <option *ngFor="let type of transactionTypes" [ngValue]="type">{{ type }}</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="currencyFilter">Waluta</label>
+                    <select id="currencyFilter" formControlName="currencyId">
+                        <option [ngValue]="null">Wszystkie waluty</option>
+                        <option *ngFor="let currency of currencies" [ngValue]="currency.id">
+                            {{ currency.symbol }}
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="startDate">Data od</label>
+                    <input id="startDate" type="date" formControlName="startDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="endDate">Data do</label>
+                    <input id="endDate" type="date" formControlName="endDate">
+                </div>
+            </div>
+        </form>
+
+        <div *ngIf="transactions.length > 0" class="transaction-list">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Typ</th>
+                        <th>Nadawca</th>
+                        <th>Odbiorca</th>
+                        <th>Kwota</th>
+                        <th>Waluta</th>
+                        <th>Opłata</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let transaction of transactions">
+                        <td class="date-cell">{{ transaction.timestamp | date: 'short' }}</td>
+                        <td>{{ transaction.transactionType }}</td>
+                        <td>{{ transaction.senderUsername }}</td>
+                        <td>{{ transaction.receiverUsername }}</td>
+                        <td class="amount-cell">{{ transaction.amount | number: '1.2-4' }}</td>
+                        <td><span class="currency-badge">{{ transaction.currencySymbol }}</span></td>
+                        <td>{{ transaction.appliedFee | number: '1.2-4' }}</td>
+                        <td><span class="status-badge">{{ transaction.status }}</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <nav class="pagination" aria-label="Stronicowanie historii transakcji">
+                <button
+                    type="button"
+                    [disabled]="paginatedResult.pageNumber <= 1"
+                    (click)="onPageChange(paginatedResult.pageNumber - 1)">
+                    Poprzednia
+                </button>
+                <span>
+                    Strona {{ paginatedResult.pageNumber }} z
+                    {{ (paginatedResult.totalCount / paginatedResult.pageSize) | ceil }}
+                </span>
+                <button
+                    type="button"
+                    [disabled]="paginatedResult.pageNumber * paginatedResult.pageSize >= paginatedResult.totalCount"
+                    (click)="onPageChange(paginatedResult.pageNumber + 1)">
+                    Następna
+                </button>
+            </nav>
+        </div>
+
+        <div *ngIf="transactions.length === 0 && !errorMessage" class="empty-state">
+            <strong>Brak transakcji</strong>
+            <span>Nie znaleziono operacji spełniających wybrane kryteria.</span>
+        </div>
+    </section>
+</main>

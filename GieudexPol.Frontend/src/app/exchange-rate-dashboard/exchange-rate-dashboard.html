@@ -2,7 +2,7 @@
   <section class="rates-header">
     <div>
       <p class="eyebrow">Kursy walut</p>
-      <h1>Historia kursow kupna i sprzedazy</h1>
+      <h1>Historia kursow wymiany walut</h1>
     </div>
   </section>
 
@@ -111,11 +111,11 @@
       <strong>{{ chartPoints.length }}</strong>
     </article>
     <article>
-      <span>Najnowszy kurs kupna</span>
+      <span>Sprzedajesz walute po</span>
       <strong>{{ latestPoint?.buyPrice ?? 0 | number:'1.4-4' }}</strong>
     </article>
     <article>
-      <span>Najnowszy kurs sprzedazy</span>
+      <span>Kupujesz walute po</span>
       <strong>{{ latestPoint?.sellPrice ?? 0 | number:'1.4-4' }}</strong>
     </article>
     <article>
@@ -128,11 +128,11 @@
     <div class="section-heading">
       <div>
         <h2>Wykres liniowy</h2>
-        <span>Kupno i sprzedaz w czasie</span>
+        <span>Kursy z perspektywy uzytkownika</span>
       </div>
       <div class="legend" aria-label="Legenda wykresu">
-        <span><i class="buy-line"></i> BuyPrice</span>
-        <span><i class="sell-line"></i> SellPrice</span>
+        <span><i class="buy-line"></i> Sprzedajesz po (BuyPrice)</span>
+        <span><i class="sell-line"></i> Kupujesz po (SellPrice)</span>
       </div>
     </div>
 
@@ -178,8 +178,8 @@
             <g class="tooltip" [attr.transform]="'translate(' + selectedTooltipX + ' ' + selectedTooltipY + ')'">
               <rect width="176" height="76" rx="6"></rect>
               <text x="12" y="22">{{ selectedPoint.date | date:'yyyy-MM-dd' }}</text>
-              <text x="12" y="44">Kupno: {{ selectedPoint.buyPrice | number:'1.4-4' }}</text>
-              <text x="12" y="62">Sprzedaz: {{ selectedPoint.sellPrice | number:'1.4-4' }}</text>
+              <text x="12" y="44">Sprzedajesz: {{ selectedPoint.buyPrice | number:'1.4-4' }}</text>
+              <text x="12" y="62">Kupujesz: {{ selectedPoint.sellPrice | number:'1.4-4' }}</text>
             </g>
           </g>
         } @else {
@@ -213,8 +213,9 @@
         <thead>
           <tr>
             <th>Date</th>
-            <th>BuyPrice</th>
-            <th>SellPrice</th>
+            <th>Sprzedajesz po</th>
+            <th>Kurs referencyjny</th>
+            <th>Kupujesz po</th>
             <th>Spread</th>
           </tr>
         </thead>
@@ -223,12 +224,13 @@
             <tr>
               <td>{{ point.date | date:'yyyy-MM-dd' }}</td>
               <td>{{ point.buyPrice | number:'1.4-4' }}</td>
+              <td>{{ point.midPrice == null ? '-' : (point.midPrice | number:'1.4-4') }}</td>
               <td>{{ point.sellPrice | number:'1.4-4' }}</td>
               <td>{{ spread(point) | number:'1.4-4' }}</td>
             </tr>
           } @empty {
             <tr>
-              <td colspan="4" class="empty">Brak danych dla wybranego zakresu.</td>
+              <td colspan="5" class="empty">Brak danych dla wybranego zakresu.</td>
             </tr>
           }
         </tbody>
@@ -249,8 +251,9 @@
             <th>Waluta</th>
             <th>Nazwa</th>
             <th>Data</th>
-            <th>Kupno</th>
-            <th>Sprzedaz</th>
+            <th>Sprzedajesz po</th>
+            <th>Kurs referencyjny</th>
+            <th>Kupujesz po</th>
           </tr>
         </thead>
         <tbody>
@@ -260,11 +263,12 @@
               <td>{{ rate.currencyName }}</td>
               <td>{{ rate.effectiveDate | date:'yyyy-MM-dd' }}</td>
               <td>{{ rate.buyPrice | number:'1.4-4' }}</td>
+              <td>{{ rate.midPrice == null ? '-' : (rate.midPrice | number:'1.4-4') }}</td>
               <td>{{ rate.sellPrice | number:'1.4-4' }}</td>
             </tr>
           } @empty {
             <tr>
-              <td colspan="5" class="empty">Brak najnowszych kursow dla tego zrodla.</td>
+              <td colspan="6" class="empty">Brak najnowszych kursow dla tego zrodla.</td>
             </tr>
           }
         </tbody>

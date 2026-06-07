@@ -15,5 +15,7 @@ namespace GieudexPol.Application.DTOs
 
         [JsonPropertyName("ask")]
         public decimal SellPrice { get; set; }
+
+        public decimal? ReferenceRate { get; set; }
     }
 }

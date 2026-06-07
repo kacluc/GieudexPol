@@ -153,32 +153,51 @@ namespace GieudexPol.Tests
                 .Setup(repo => repo.GetUserWalletAsync(sender.Id, currency.Id))
                 .ReturnsAsync(senderWallet);
             _mockWalletRepository
-                .Setup(repo => repo.GetUserWalletAsync(receiver.Id, currency.Id))
-                .ReturnsAsync(receiverWallet);
-            _mockWalletRepository
-                .Setup(repo => repo.AddAsync(It.IsAny<Wallet>()))
+                .Setup(repo => repo.ExecuteTransferAsync(
+                    senderWallet.Id,
+                    receiver.Id,
+                    currency.Id,
+                    100m,
+                    0.25m,
+                    It.IsAny<Transaction>()))
+                .Callback<int, int, int, decimal, decimal, Transaction>(
+                    (_, _, _, amount, appliedFee, transaction) =>
+                    {
+                        senderWallet.Balance -= amount + appliedFee;
+                        receiverWallet.Balance += amount;
+                        transaction.Id = 123;
+                    })
                 .Returns(Task.CompletedTask);
 
             var request = new TransferRequest
             {
-                SenderId = sender.Id,
                 ReceiverUsername = receiver.Username,
                 Amount = 100m,
                 CurrencyId = currency.Id
             };
 
             // Act
-            var result = await _transactionService.CreateTransfer(request);
+            var result = await _transactionService.CreateTransfer(sender.Id, request);
 
             // Assert
+            result.Id.Should().Be(123);
             result.Status.Should().Be("Completed");
             result.AppliedFee.Should().Be(0.25m);
             senderWallet.Balance.Should().Be(899.75m);
             receiverWallet.Balance.Should().Be(600m);
-            _mockTransactionRepository.Verify(repo => repo.AddAsync(It.IsAny<Transaction>()), Times.Once);
-            _mockTransactionRepository.Verify(repo => repo.UpdateAsync(It.IsAny<Transaction>()), Times.Once);
-            _mockWalletRepository.Verify(repo => repo.UpdateAsync(senderWallet), Times.Once);
-            _mockWalletRepository.Verify(repo => repo.UpdateAsync(receiverWallet), Times.Once);
+            _mockWalletRepository.Verify(repo => repo.ExecuteTransferAsync(
+                senderWallet.Id,
+                receiver.Id,
+                currency.Id,
+                100m,
+                0.25m,
+                It.Is<Transaction>(transaction =>
+                    transaction.SenderId == sender.Id &&
+                    transaction.ReceiverId == receiver.Id &&
+                    transaction.Status == "Completed")),
+                Times.Once);
+            _mockTransactionRepository.Verify(repo => repo.AddAsync(It.IsAny<Transaction>()), Times.Never);
+            _mockTransactionRepository.Verify(repo => repo.UpdateAsync(It.IsAny<Transaction>()), Times.Never);
         }
 
         [Fact]

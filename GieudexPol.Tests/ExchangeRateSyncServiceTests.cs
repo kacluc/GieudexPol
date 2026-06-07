@@ -1,12 +1,14 @@
 using FluentAssertions;
 using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Application.Settings;
 using GieudexPol.Domain.Entities;
 using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace GieudexPol.Tests
 {
@@ -63,6 +65,85 @@ namespace GieudexPol.Tests
             exchangeRate.EffectiveDate.Should().Be(new DateTime(2026, 1, 2));
             exchangeRate.BuyPrice.Should().Be(4.2010m);
             exchangeRate.SellPrice.Should().Be(4.2850m);
+            exchangeRate.MidPrice.Should().Be(4.2430m);
+        }
+
+        [Fact]
+        public async Task SyncNbpRatesAsync_ShouldPreserveRealBidAndAskWithoutSyntheticSpread()
+        {
+            await using var context = CreateContext();
+            var client = new FakeExternalExchangeRateClient
+            {
+                TablesToReturn =
+                [
+                    new ExternalExchangeRateTableDto
+                    {
+                        Table = "C",
+                        EffectiveDate = new DateTime(2026, 1, 2),
+                        Rates =
+                        [
+                            new ExternalExchangeRateItemDto
+                            {
+                                CurrencyCode = "EUR",
+                                CurrencyName = "euro",
+                                BuyPrice = 4.90m,
+                                SellPrice = 5.10m
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            var service = CreateService(context, client);
+            await service.SyncNbpRatesAsync(
+                new DateTime(2026, 1, 2),
+                new DateTime(2026, 1, 2));
+
+            var exchangeRate = await context.ExchangeRates.SingleAsync();
+            exchangeRate.BuyPrice.Should().Be(4.90m);
+            exchangeRate.SellPrice.Should().Be(5.10m);
+            exchangeRate.MidPrice.Should().Be(5.00m);
+        }
+
+        [Fact]
+        public async Task SyncRatesAsync_ShouldGenerateSyntheticBidAndAskForReferenceSource()
+        {
+            await using var context = CreateContext();
+            var client = new FakeExternalExchangeRateClient
+            {
+                SourceCode = "ECB",
+                SourceName = "European Central Bank",
+                TablesToReturn =
+                [
+                    new ExternalExchangeRateTableDto
+                    {
+                        Table = "ECB",
+                        EffectiveDate = new DateTime(2026, 1, 2),
+                        Rates =
+                        [
+                            new ExternalExchangeRateItemDto
+                            {
+                                CurrencyCode = "EUR",
+                                CurrencyName = "euro",
+                                BuyPrice = 5.00m,
+                                SellPrice = 5.00m,
+                                ReferenceRate = 5.00m
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            var service = CreateService(context, client);
+            await service.SyncRatesAsync(
+                "ECB",
+                new DateTime(2026, 1, 2),
+                new DateTime(2026, 1, 2));
+
+            var exchangeRate = await context.ExchangeRates.SingleAsync();
+            exchangeRate.MidPrice.Should().Be(5.00m);
+            exchangeRate.BuyPrice.Should().Be(4.95m);
+            exchangeRate.SellPrice.Should().Be(5.05m);
         }
 
         [Fact]
@@ -155,6 +236,62 @@ namespace GieudexPol.Tests
             var unchangedRate = await context.ExchangeRates.SingleAsync();
             unchangedRate.BuyPrice.Should().Be(4.1000m);
             unchangedRate.SellPrice.Should().Be(4.2000m);
+        }
+
+        [Fact]
+        public async Task SyncRatesAsync_ShouldRefreshExistingSyntheticRate()
+        {
+            await using var context = CreateContext();
+            var currency = new Currency { Symbol = "EUR", Name = "euro", IsActive = true };
+            var rateSource = new RateSource { Code = "ECB", Name = "European Central Bank", IsActive = true };
+            context.ExchangeRates.Add(new ExchangeRate
+            {
+                Currency = currency,
+                RateSource = rateSource,
+                EffectiveDate = new DateTime(2026, 1, 2),
+                FetchedAt = new DateTime(2026, 1, 2, 12, 0, 0, DateTimeKind.Utc),
+                BuyPrice = 5.00m,
+                SellPrice = 5.00m,
+                MidPrice = 5.00m
+            });
+            await context.SaveChangesAsync();
+
+            var client = new FakeExternalExchangeRateClient
+            {
+                SourceCode = "ECB",
+                SourceName = "European Central Bank",
+                TablesToReturn =
+                [
+                    new ExternalExchangeRateTableDto
+                    {
+                        EffectiveDate = new DateTime(2026, 1, 2),
+                        Rates =
+                        [
+                            new ExternalExchangeRateItemDto
+                            {
+                                CurrencyCode = "EUR",
+                                CurrencyName = "euro",
+                                BuyPrice = 5.00m,
+                                SellPrice = 5.00m,
+                                ReferenceRate = 5.00m
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            var service = CreateService(context, client);
+            var result = await service.SyncRatesAsync(
+                "ECB",
+                new DateTime(2026, 1, 2),
+                new DateTime(2026, 1, 2));
+
+            result.Added.Should().Be(0);
+            result.Skipped.Should().Be(1);
+            var refreshedRate = await context.ExchangeRates.SingleAsync();
+            refreshedRate.BuyPrice.Should().Be(4.95m);
+            refreshedRate.SellPrice.Should().Be(5.05m);
+            refreshedRate.MidPrice.Should().Be(5.00m);
         }
 
         [Fact]
@@ -580,7 +717,8 @@ namespace GieudexPol.Tests
             return new ExchangeRateSyncService(
                 context,
                 clients,
-                NullLogger<ExchangeRateSyncService>.Instance);
+                NullLogger<ExchangeRateSyncService>.Instance,
+                Options.Create(new ExchangeRateSettings()));
         }
 
         private sealed class FakeExternalExchangeRateClient : IExternalExchangeRateClient

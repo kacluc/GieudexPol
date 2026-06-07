@@ -18,6 +18,8 @@ namespace GieudexPol.API.Services
             "NORGES",
             "BNR"
         ];
+        private static readonly HashSet<string> SyntheticRateSourceCodes =
+            new(SourceCodes.Where(code => code != "NBP"), StringComparer.OrdinalIgnoreCase);
 
         private static readonly DateTime DefaultStartDate = new(2026, 1, 1);
 
@@ -98,7 +100,18 @@ namespace GieudexPol.API.Services
                     .Where(rate => rate.RateSource.Code == sourceCode)
                     .MaxAsync(rate => (DateTime?)rate.EffectiveDate, cancellationToken);
 
-                if (latestRateDate.HasValue && latestRateDate.Value.Date >= expectedPublicationDate)
+                var legacySyntheticRateDate = SyntheticRateSourceCodes.Contains(sourceCode)
+                    ? await context.ExchangeRates
+                        .AsNoTracking()
+                        .Where(rate =>
+                            rate.RateSource.Code == sourceCode &&
+                            rate.BuyPrice == rate.SellPrice)
+                        .MinAsync(rate => (DateTime?)rate.EffectiveDate, cancellationToken)
+                    : null;
+
+                if (!legacySyntheticRateDate.HasValue &&
+                    latestRateDate.HasValue &&
+                    latestRateDate.Value.Date >= expectedPublicationDate)
                 {
                     _logger.LogInformation(
                         "{SourceCode} startup sync skipped. Local rates include publication date {Date:yyyy-MM-dd}.",
@@ -107,9 +120,10 @@ namespace GieudexPol.API.Services
                     return;
                 }
 
-                var syncFrom = latestRateDate.HasValue
-                    ? latestRateDate.Value.Date.AddDays(1)
-                    : GetConfiguredStartDate();
+                var syncFrom = legacySyntheticRateDate?.Date ??
+                    (latestRateDate.HasValue
+                        ? latestRateDate.Value.Date.AddDays(1)
+                        : GetConfiguredStartDate());
 
                 var result = await syncService.SyncRatesAsync(
                     sourceCode,

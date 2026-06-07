@@ -255,7 +255,8 @@ namespace GieudexPol.Infrastructure.ExternalServices.Riksbank
                 CurrencyCode = currencyCode,
                 CurrencyName = currencyCode,
                 BuyPrice = roundedRate,
-                SellPrice = roundedRate
+                SellPrice = roundedRate,
+                ReferenceRate = roundedRate
             };
         }
     }

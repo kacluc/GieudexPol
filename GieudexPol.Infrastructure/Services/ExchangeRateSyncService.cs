@@ -1,11 +1,14 @@
 using System.Collections.Concurrent;
 using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Application.Services;
+using GieudexPol.Application.Settings;
 using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace GieudexPol.Infrastructure.Services
 {
@@ -13,19 +16,32 @@ namespace GieudexPol.Infrastructure.Services
     {
         private static readonly ConcurrentDictionary<string, SemaphoreSlim> SyncLocks =
             new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> SyntheticRateSourceCodes =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "ECB",
+                "BOE",
+                "RIKSBANK",
+                "CNB",
+                "NORGES",
+                "BNR"
+            };
 
         private readonly ApplicationDbContext _context;
         private readonly IEnumerable<IExternalExchangeRateClient> _exchangeRateClients;
         private readonly ILogger<ExchangeRateSyncService> _logger;
+        private readonly ExchangeRateSettings _settings;
 
         public ExchangeRateSyncService(
             ApplicationDbContext context,
             IEnumerable<IExternalExchangeRateClient> exchangeRateClients,
-            ILogger<ExchangeRateSyncService> logger)
+            ILogger<ExchangeRateSyncService> logger,
+            IOptions<ExchangeRateSettings> settings)
         {
             _context = context;
             _exchangeRateClients = exchangeRateClients;
             _logger = logger;
+            _settings = settings.Value;
         }
 
         public Task<NbpSyncResultDto> SyncCurrentYearRatesAsync(
@@ -136,7 +152,7 @@ namespace GieudexPol.Infrastructure.Services
                 await _context.Currencies.AddAsync(baseCurrency, cancellationToken);
             }
 
-            var existingRates = await LoadExistingRateKeysAsync(rateSource.Id, from, to, cancellationToken);
+            var existingRates = await LoadExistingRatesAsync(rateSource.Id, from, to, cancellationToken);
 
             foreach (var (rangeFrom, rangeTo) in SplitIntoRanges(from, to, exchangeRateClient.MaxRangeDays))
             {
@@ -192,23 +208,40 @@ namespace GieudexPol.Infrastructure.Services
                         }
 
                         var existingKey = new ExistingRateKey(currencyCode, effectiveDate);
-                        if (existingRates.Contains(existingKey))
+                        if (existingRates.TryGetValue(existingKey, out var existingRate))
                         {
+                            if (IsSyntheticRateSource(exchangeRateClient.SourceCode))
+                            {
+                                var (updatedBuyPrice, updatedSellPrice, updatedMidPrice) = GetStoredPrices(
+                                    exchangeRateClient.SourceCode,
+                                    rate);
+                                existingRate.BuyPrice = updatedBuyPrice;
+                                existingRate.SellPrice = updatedSellPrice;
+                                existingRate.MidPrice = updatedMidPrice;
+                                existingRate.FetchedAt = DateTime.UtcNow;
+                            }
+
                             result.Skipped++;
                             continue;
                         }
 
-                        await _context.ExchangeRates.AddAsync(new ExchangeRate
+                        var (buyPrice, sellPrice, midPrice) = GetStoredPrices(
+                            exchangeRateClient.SourceCode,
+                            rate);
+
+                        var exchangeRate = new ExchangeRate
                         {
                             Currency = currency,
                             RateSource = rateSource,
-                            BuyPrice = rate.BuyPrice,
-                            SellPrice = rate.SellPrice,
+                            BuyPrice = buyPrice,
+                            SellPrice = sellPrice,
+                            MidPrice = midPrice,
                             EffectiveDate = effectiveDate,
                             FetchedAt = DateTime.UtcNow
-                        }, cancellationToken);
+                        };
+                        await _context.ExchangeRates.AddAsync(exchangeRate, cancellationToken);
 
-                        existingRates.Add(existingKey);
+                        existingRates.Add(existingKey, exchangeRate);
                         result.Added++;
                     }
                 }
@@ -224,6 +257,43 @@ namespace GieudexPol.Infrastructure.Services
                 result.TablesFetched);
 
             return result;
+        }
+
+        private (decimal BuyPrice, decimal SellPrice, decimal MidPrice) GetStoredPrices(
+            string sourceCode,
+            ExternalExchangeRateItemDto rate)
+        {
+            if (IsSyntheticRateSource(sourceCode))
+            {
+                var referenceRate = rate.ReferenceRate ??
+                    decimal.Round((rate.BuyPrice + rate.SellPrice) / 2m, 6, MidpointRounding.AwayFromZero);
+
+                // ECB, BOE, RIKSBANK, CNB, NORGES and BNR publish reference/mid rates,
+                // not official bid/ask tables. BuyPrice and SellPrice are synthetic values
+                // calculated from the reference rate using configured spread.
+                var (buyPrice, sellPrice) =
+                    ExchangeRateSpreadCalculator.CalculateSyntheticBidAsk(
+                        referenceRate,
+                        _settings.SyntheticSpreadPercent);
+
+                return (
+                    buyPrice,
+                    sellPrice,
+                    decimal.Round(referenceRate, 4, MidpointRounding.AwayFromZero));
+            }
+
+            return (
+                rate.BuyPrice,
+                rate.SellPrice,
+                decimal.Round(
+                    (rate.BuyPrice + rate.SellPrice) / 2m,
+                    4,
+                    MidpointRounding.AwayFromZero));
+        }
+
+        private static bool IsSyntheticRateSource(string sourceCode)
+        {
+            return SyntheticRateSourceCodes.Contains(sourceCode);
         }
 
         private static bool IsUniqueConstraintViolation(DbUpdateException exception)
@@ -256,7 +326,7 @@ namespace GieudexPol.Infrastructure.Services
             return rateSource;
         }
 
-        private async Task<HashSet<ExistingRateKey>> LoadExistingRateKeysAsync(
+        private async Task<Dictionary<ExistingRateKey, ExchangeRate>> LoadExistingRatesAsync(
             int rateSourceId,
             DateTime from,
             DateTime to,
@@ -264,19 +334,19 @@ namespace GieudexPol.Infrastructure.Services
         {
             if (rateSourceId == 0)
             {
-                return new HashSet<ExistingRateKey>();
+                return new Dictionary<ExistingRateKey, ExchangeRate>();
             }
 
-            var keys = await _context.ExchangeRates
-                .AsNoTracking()
+            var rates = await _context.ExchangeRates
+                .Include(rate => rate.Currency)
                 .Where(rate =>
                     rate.RateSourceId == rateSourceId &&
                     rate.EffectiveDate >= from &&
                     rate.EffectiveDate <= to)
-                .Select(rate => new ExistingRateKey(rate.Currency.Symbol, rate.EffectiveDate.Date))
                 .ToListAsync(cancellationToken);
 
-            return keys.ToHashSet();
+            return rates.ToDictionary(
+                rate => new ExistingRateKey(rate.Currency.Symbol, rate.EffectiveDate.Date));
         }
 
         private static IEnumerable<(DateTime From, DateTime To)> SplitIntoRanges(DateTime from, DateTime to, int maxRangeDays)

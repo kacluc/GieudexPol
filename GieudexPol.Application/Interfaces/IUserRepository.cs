@@ -1,4 +1,5 @@
 using GieudexPol.Domain.Entities;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -12,5 +13,6 @@ namespace GieudexPol.Application.Interfaces
         Task UpdateAsync(User entity);
         Task DeleteAsync(User entity);
         Task<User?> GetByUsernameAsync(string username);
+        Task<User?> GetByAuthIdAsync(Guid authId);
     }
 }

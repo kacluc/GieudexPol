@@ -4,8 +4,6 @@ namespace GieudexPol.Application.DTOs
 {
     public class TransferRequest
     {
-        public int SenderId { get; set; }
-
         [Required]
         [EmailAddress]
         public string ReceiverUsername { get; set; } = string.Empty;

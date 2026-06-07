@@ -442,7 +442,8 @@ namespace GieudexPol.Infrastructure.Data
                             EffectiveDate = date.Date,
                             FetchedAt = date.Date.AddHours(16),
                             BuyPrice = buyPrice,
-                            SellPrice = sellPrice
+                            SellPrice = sellPrice,
+                            MidPrice = Math.Round(midPrice, 4)
                         });
                     }
 

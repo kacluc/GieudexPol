@@ -1,3 +1,4 @@
+using System;
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,11 @@ namespace GieudexPol.Infrastructure.Repositories
         public async Task<User?> GetByUsernameAsync(string username)
         {
             return await _dbSet.FirstOrDefaultAsync(u => u.Username == username);
+        }
+
+        public async Task<User?> GetByAuthIdAsync(Guid authId)
+        {
+            return await _dbSet.FirstOrDefaultAsync(u => u.AuthId == authId);
         }
     }
 }

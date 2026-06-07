@@ -116,7 +116,6 @@ export class AlertsComponent implements OnInit {
       } else {
         // Create new alert
         const createDto: UserAlertCreateDto = {
-          userId: this.currentUserId,
           currencyId: this.alertForm.value.currencyId,
           alertType: this.alertForm.value.alertType,
           thresholdValue: this.alertForm.value.thresholdValue,

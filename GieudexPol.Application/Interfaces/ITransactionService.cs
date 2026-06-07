@@ -13,7 +13,7 @@ namespace GieudexPol.Application.Interfaces
         Task AddAsync(Transaction entity);
         Task UpdateAsync(Transaction entity);
         Task DeleteAsync(Transaction entity);
-        Task<Transaction> CreateTransfer(TransferRequest request);
+        Task<Transaction> CreateTransfer(int senderId, TransferRequest request);
         Task<PaginatedResult<TransactionDto>> GetUserTransactions(
             int userId,
             int pageNumber,

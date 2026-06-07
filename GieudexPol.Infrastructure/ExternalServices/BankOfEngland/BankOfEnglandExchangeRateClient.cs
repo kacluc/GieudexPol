@@ -178,7 +178,8 @@ namespace GieudexPol.Infrastructure.ExternalServices.BankOfEngland
                 CurrencyCode = currencyCode,
                 CurrencyName = currencyCode,
                 BuyPrice = roundedRate,
-                SellPrice = roundedRate
+                SellPrice = roundedRate,
+                ReferenceRate = roundedRate
             };
         }
 

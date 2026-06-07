@@ -1,298 +1,287 @@
-# Specyfikacja funkcjonalnosci: pobieranie kursow walut
+# Specyfikacja obslugi kursow walut
 
-## 1. Cel funkcjonalnosci
+## 1. Cel i zakres
 
-Celem funkcjonalnosci jest pobieranie kursow walut z zewnetrznych zrodel, zapisanie ich w lokalnej bazie danych i udostepnienie frontendowi jednolitego formatu danych do wykresu oraz tabel.
+Modul kursow walut:
 
-Frontend komunikuje sie tylko z backendem. Backend najpierw sprawdza baze danych. Jezeli brakuje danych dla wybranej waluty, zrodla i zakresu dat, backend synchronizuje brakujace dane z odpowiedniego zrodla, zapisuje je w bazie i dopiero wtedy zwraca odpowiedz.
+- pobiera dane z bankow centralnych,
+- normalizuje kursy do PLN za 1 jednostke waluty,
+- zapisuje historie w SQL Server,
+- udostepnia wykres i tabele przez API,
+- synchronizuje brakujace lub nieaktualne dane,
+- zachowuje jedna konwencje `BuyPrice`, `SellPrice` i `MidPrice`.
 
-Obslugiwane zrodla:
+Frontend nie laczy sie bezposrednio z dostawcami. Cala komunikacja ze zrodlami
+zewnetrznymi przechodzi przez backend.
 
-- `NBP` - Narodowy Bank Polski, tabela C, kurs kupna i sprzedazy.
-- `ECB` - European Central Bank, oficjalny XML z kursami referencyjnymi.
-- `RIKSBANK` - Sveriges Riksbank, oficjalne REST API z kursami referencyjnymi wzgledem SEK.
-- `MOCK_BANK_A` - lokalne dane developerskie seedowane w srodowisku Development.
+## 2. Dostepne zrodla
 
-## 2. Zasady danych
+| Kod | Dostawca | Format | Charakter kursu | Maks. zakres jednego wywolania |
+| --- | --- | --- | --- | --- |
+| `NBP` | Narodowy Bank Polski, tabela C | JSON | realny bid/ask | 93 dni |
+| `ECB` | European Central Bank | XML | kurs referencyjny wzgledem EUR | 366 dni |
+| `RIKSBANK` | Sveriges Riksbank, grupa 130 | JSON REST | kurs referencyjny wzgledem SEK | 366 dni |
+| `BOE` | Bank of England Database | CSV | publikowany kurs spot wzgledem GBP | 366 dni |
+| `CNB` | Czech National Bank | JSON | kurs referencyjny wzgledem CZK | 31 dni |
+| `NORGES` | Norges Bank | SDMX-JSON | kurs referencyjny wzgledem NOK | 366 dni |
+| `BNR` | National Bank of Romania | XML | kurs referencyjny wzgledem RON | 366 dni |
+| `MOCK_BANK_A` | dane deweloperskie | baza lokalna | dane testowe | brak synchronizacji HTTP |
 
-Wszystkie kursy zapisywane w tabeli `ExchangeRates` sa kursami wzgledem PLN.
+Bazowe adresy API sa konfigurowane w `GieudexPol.API/appsettings.json`.
 
-### NBP
+## 3. Obslugiwane waluty
 
-NBP publikuje kursy kupna i sprzedazy w tabeli C:
-
-- `bid` -> `ExchangeRate.BuyPrice`,
-- `ask` -> `ExchangeRate.SellPrice`,
-- `effectiveDate` -> `ExchangeRate.EffectiveDate`.
-
-### ECB
-
-ECB publikuje kursy wzgledem EUR w pliku XML:
-
-```text
-https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml
-```
-
-Dane sa przeliczane do PLN przed zapisem:
+Panel udostepnia:
 
 ```text
-RateToPLN(currency) = EUR_PLN / EUR_CURRENCY
+AUD, CAD, CHF, CZK, DKK, EUR, GBP, HUF,
+JPY, KRW, NOK, RON, SEK, TRY, USD
 ```
 
-Przyklady:
+NBP tabela C nie publikuje w panelu `KRW`, `RON` i `TRY`. Dostepnosc waluty
+jest zatem filtrowana osobno dla wybranego zrodla.
 
-- `EUR_PLN = 4.25`,
-- `EUR_USD = 1.10`,
-- `USD_PLN = 4.25 / 1.10`.
+`PLN` moze byc pobierany technicznie przez klienta dostawcy w celu przeliczenia,
+ale nie jest zapisywany jako kurs waluty obcej do PLN.
 
-Dla `EUR`:
+## 4. Konwencja cen
+
+Backend przechowuje perspektywe banku lub kantoru:
+
+- `BuyPrice` - system kupuje walute od uzytkownika; wartosc nizsza,
+- `SellPrice` - system sprzedaje walute uzytkownikowi; wartosc wyzsza,
+- `MidPrice` - kurs referencyjny lub srodek realnego bid/ask.
+
+Warunek biznesowy:
 
 ```text
-RateToPLN(EUR) = EUR_PLN
+BuyPrice < SellPrice
 ```
 
-ECB publikuje kurs referencyjny, a nie bid/ask, dlatego:
+Frontend tlumaczy pola na perspektywe uzytkownika:
 
-- `BuyPrice = RateToPLN`,
-- `SellPrice = RateToPLN`.
+- `Sprzedajesz walute po` = `BuyPrice`,
+- `Kupujesz walute po` = `SellPrice`,
+- `Kurs referencyjny` = `MidPrice`.
 
-Nie jest tworzony sztuczny spread.
+## 5. NBP tabela C
 
-### Riksbank
-
-Riksbank publikuje kursy w oficjalnym REST API SWEA:
+NBP jest jedynym zrodlem z realnym bid/ask:
 
 ```text
-https://api.riksbank.se/swea/v1/Observations/ByGroup/130/{from}/{to}
+BuyPrice = bid
+SellPrice = ask
+MidPrice = round((bid + ask) / 2, 4)
 ```
 
-Grupa `130` zawiera waluty wzgledem korony szwedzkiej. Klient przetwarza tylko waluty uzywane przez aplikacje:
+Endpoint:
 
 ```text
-EUR, USD, CHF, GBP, HUF, CZK, DKK, SEK, NOK, RON, TRY, AUD, CAD, JPY, KRW
+GET https://api.nbp.pl/api/exchangerates/tables/C/{from}/{to}/?format=json
 ```
 
-`PLN` jest pobierany jako waluta techniczna do przeliczenia.
+NBP nie przechodzi przez kalkulator sztucznego spreadu.
 
-Riksbank zwraca wartosci jako SEK za 1 jednostke waluty obcej:
+## 6. Zrodla referencyjne
+
+ECB, RIKSBANK, BOE, CNB, NORGES i BNR nie publikuja oficjalnej tabeli
+kupna/sprzedazy zgodnej z modelem aplikacji. Klient dostawcy najpierw wyznacza
+kurs referencyjny w PLN, a synchronizator tworzy ceny syntetyczne.
+
+### 6.1 Normalizacja do PLN
+
+| Zrodlo | Normalizacja |
+| --- | --- |
+| ECB | `EUR_PLN / EUR_CURRENCY` |
+| RIKSBANK | `SEK_CURRENCY / SEK_PLN`; dla SEK: `1 / SEK_PLN` |
+| BOE | `GBP_PLN / GBP_CURRENCY`; dla GBP: `GBP_PLN` |
+| CNB | `(RATE_CZK / AMOUNT) / PLN_TO_CZK`; dla CZK: `1 / PLN_TO_CZK` |
+| NORGES | `(RATE_NOK / UNIT) / PLN_TO_NOK`; dla NOK: `1 / PLN_TO_NOK` |
+| BNR | `(RATE_RON / MULTIPLIER) / PLN_TO_RON`; dla RON: `1 / PLN_TO_RON` |
+
+Po normalizacji klient ustawia `ReferenceRate`. Pole jest przekazywane do
+`ExchangeRateSyncService`.
+
+### 6.2 Sztuczny spread
+
+Wspolna logika znajduje sie w `ExchangeRateSpreadCalculator`:
 
 ```text
-SEK_USD = 9.37
-SEK_PLN = 2.56
+halfSpread = SpreadPercent / 2
+BuyPrice = round(ReferenceRate * (1 - halfSpread), 4)
+SellPrice = round(ReferenceRate * (1 + halfSpread), 4)
+MidPrice = round(ReferenceRate, 4)
 ```
 
-Dane sa przeliczane do PLN przed zapisem:
+Domyslna konfiguracja:
+
+```json
+"ExchangeRateSettings": {
+  "SyntheticSpreadPercent": 0.02
+}
+```
+
+`0.02` oznacza calkowity spread 2%, czyli 1% ponizej i 1% powyzej kursu
+referencyjnego.
+
+Dla bardzo niskich kursow, np. KRW, zaokraglenie do 4 miejsc moze zrownac
+obie ceny. W takim przypadku kalkulator stosuje minimalny krok `0.0001`,
+aby nadal zachowac `BuyPrice < SellPrice`.
+
+## 7. Model danych
+
+Encja `ExchangeRate` zawiera:
+
+- `CurrencyId`,
+- `RateSourceId`,
+- `BuyPrice`,
+- `SellPrice`,
+- `MidPrice`,
+- `EffectiveDate`,
+- `FetchedAt`.
+
+Unikalny klucz logiczny:
 
 ```text
-RateToPLN(currency) = SEK_CURRENCY / SEK_PLN
-RateToPLN(SEK) = 1 / SEK_PLN
+CurrencyId + RateSourceId + EffectiveDate
 ```
 
-Przyklad:
+`RateSource.Code` rozroznia dostawcow. Wszystkie wartosci w `ExchangeRates`
+oznaczaja PLN za 1 jednostke waluty.
+
+## 8. Zakres dat
+
+Panel i API przyjmuja zakres:
 
 ```text
-1 USD = 9.37 SEK
-1 PLN = 2.56 SEK
-1 USD = 9.37 / 2.56 PLN
+2026-01-01 <= from <= to <= dzisiaj
 ```
 
-Riksbank publikuje kurs informacyjny/mid-market, dlatego:
-
-- `BuyPrice = RateToPLN`,
-- `SellPrice = RateToPLN`.
-
-Nie jest tworzony sztuczny spread.
-
-## 3. Zakres dat
-
-Endpointy odczytu i synchronizacji moga przyjmowac `from` oraz `to`.
-
-Jezeli `from` lub `to` nie zostana podane, backend uzywa zakresu:
+Jesli `from` lub `to` nie sa podane:
 
 ```text
 from = 1 stycznia biezacego roku
 to = DateTime.Today
 ```
 
-ECB i Riksbank nie publikuja kursow w weekendy i dni wolne. Brak punktow dla takich dni nie jest bledem i nie jest uzupelniany sztucznie.
+Frontend oferuje presety `7D`, `30D`, `90D`, `YTD` i `DEV`.
 
-## 4. Przeplyw odczytu wykresu
+W bazie i na wykresie wystepuja tylko dni opublikowane przez dostawce.
+Weekendy, swieta i inne dni bez publikacji nie sa uzupelniane sztucznie.
+Ostatni dostepny dzien moze byc wczesniejszy niz dzisiaj.
 
-1. Uzytkownik wybiera walute, zrodlo i zakres dat na `/rates`.
-2. Frontend wywoluje:
+## 9. Pobieranie i synchronizacja
 
-```http
-GET /api/ExchangeRates/chart?currency=USD&source=ECB&from=2026-01-01&to=2026-05-24
-```
+### 9.1 Odczyt wykresu
 
-3. Backend odczytuje lokalna baze danych dla:
+1. Frontend wysyla `GET /api/ExchangeRates/chart`.
+2. Backend waliduje walute, zrodlo i daty.
+3. `ExchangeRateService` odczytuje lokalne rekordy.
+4. Synchronizacja jest uruchamiana, gdy:
+   - brak punktow,
+   - brak oczekiwanej daty publikacji,
+   - zrodlo referencyjne ma stare rekordy z `BuyPrice == SellPrice`.
+5. `ExchangeRateSyncService` wybiera klienta po `SourceCode`.
+6. Zakres jest dzielony wedlug `MaxRangeDays`.
+7. Klient pobiera i normalizuje dane do PLN.
+8. Synchronizator zachowuje realne NBP albo generuje spread syntetyczny.
+9. Nowe rekordy sa dodawane, a istniejace rekordy syntetyczne odswiezane.
+10. Backend ponownie odczytuje baze i zwraca punkty wykresu.
 
-```text
-Currency.Symbol = USD
-RateSource.Code = ECB
-EffectiveDate between from and to
-```
+Synchronizacja jest blokowana osobnym `SemaphoreSlim` dla kazdego kodu zrodla.
+Konflikt unikalnego klucza po rownoleglym zapisie powoduje ponowna probe po
+wyczyszczeniu trackingu EF.
 
-4. Jezeli dane istnieja, backend zwraca `ExchangeRateChartResponseDto`.
-5. Jezeli danych brakuje, backend wywoluje:
+### 9.2 Odczyt najnowszych kursow
 
-```text
-SyncRatesAsync(source, from, to)
-```
+`GET /api/ExchangeRates/latest` zwraca najnowszy dzien osobno dla kazdej waluty
+z wybranego zrodla. Synchronizacja biezacego roku jest uruchamiana, gdy brak
+danych, dane sa sprzed biezacego roku albo wykryto stare rowne ceny syntetyczne.
 
-6. Synchronizacja pobiera dane z odpowiedniego klienta zewnetrznego:
+### 9.3 Synchronizacja przy starcie
 
-- `NBP` -> `NbpExchangeRateClient`,
-- `ECB` -> `EcbExchangeRateClient`,
-- `RIKSBANK` -> `RiksbankExchangeRateClient`.
+`ExchangeRateStartupSyncService`:
 
-7. Backend zapisuje brakujace kursy w `ExchangeRates`.
-8. Backend ponownie odczytuje baze danych.
-9. Backend zwraca dane do frontendu.
+1. czeka na SQL Server,
+2. wykonuje migracje EF Core,
+3. w Development uruchamia seeder,
+4. sprawdza kolejno `NBP`, `ECB`, `RIKSBANK`, `BOE`, `CNB`, `NORGES`, `BNR`,
+5. pobiera brakujacy zakres do dzisiaj,
+6. naprawia historyczne syntetyczne rekordy z rownymi cenami.
 
-Wykres zawsze zawiera dane tylko z jednego wybranego zrodla.
+Oczekiwana data publikacji cofa sobote i niedziele do piatku. Dostawca moze
+jednak nie opublikowac danych takze z powodu lokalnego swieta.
 
-## 5. Przeplyw latest
+## 10. Endpointy
 
-Endpoint:
-
-```http
-GET /api/ExchangeRates/latest?source=ECB&currency=USD
-```
-
-Backend:
-
-1. Odczytuje najnowszy rekord z bazy dla zrodla i opcjonalnej waluty.
-2. Jezeli brak danych albo brak danych z biezacego roku, uruchamia:
-
-```text
-SyncCurrentYearRatesAsync(source)
-```
-
-3. Po synchronizacji ponownie odczytuje baze.
-4. Zwraca najnowszy dostepny dzien publikacji.
-
-Brak rekordu z dzisiejsza data nie jest bledem, poniewaz zrodla nie publikuja kursow codziennie.
-
-## 6. Endpointy
-
-### Dane do wykresu
+### Odczyt
 
 ```http
-GET /api/ExchangeRates/chart?currency=EUR&source=NBP&from=2026-01-01&to=2026-05-24
+GET /api/ExchangeRates/chart?currency=EUR&source=NBP&from=2026-01-01&to=2026-06-07
 GET /api/ExchangeRates/chart?currency=USD&source=ECB
-GET /api/ExchangeRates/chart?currency=USD&source=RIKSBANK
+GET /api/ExchangeRates/latest?source=BNR
+GET /api/ExchangeRates/latest?source=BOE&currency=USD
 ```
 
-### Najnowsze kursy
+### Synchronizacja dedykowana
 
 ```http
-GET /api/ExchangeRates/latest?source=NBP
-GET /api/ExchangeRates/latest?source=ECB&currency=USD
-GET /api/ExchangeRates/latest?source=RIKSBANK&currency=USD
-```
-
-### Synchronizacja NBP
-
-```http
-POST /api/ExchangeRates/sync/nbp?from=2026-01-01&to=2026-05-24
-```
-
-### Synchronizacja ECB
-
-```http
+POST /api/ExchangeRates/sync/nbp?from=2026-01-01&to=2026-06-07
 POST /api/ExchangeRates/sync/ecb
-POST /api/ExchangeRates/sync/ecb?from=2026-01-01&to=2026-05-24
-```
-
-### Synchronizacja Riksbank
-
-```http
 POST /api/ExchangeRates/sync/riksbank
-POST /api/ExchangeRates/sync/riksbank?from=2026-01-01&to=2026-05-24
+POST /api/ExchangeRates/sync/boe
+POST /api/ExchangeRates/sync/cnb
+POST /api/ExchangeRates/sync/norges
+POST /api/ExchangeRates/sync/bnr
 ```
 
 ### Synchronizacja ogolna
 
 ```http
-POST /api/ExchangeRates/sync/{sourceCode}
+POST /api/ExchangeRates/sync/{sourceCode}?from=2026-01-01&to=2026-06-07
 ```
 
-## 7. Model danych
+Brak dat w endpointach synchronizacji oznacza biezacy rok do dzisiaj.
 
-Funkcjonalnosc uzywa wspolnych encji:
+## 11. Odpowiedz i prezentacja
 
-- `Currency`,
-- `RateSource`,
-- `ExchangeRate`.
+Punkt wykresu zawiera:
 
-Nie ma osobnych tabel `NbpRates` ani `EcbRates`.
-
-Kazdy rekord kursu ma:
-
-- `CurrencyId`,
-- `RateSourceId`,
-- `BuyPrice`,
-- `SellPrice`,
-- `EffectiveDate`,
-- `FetchedAt`.
-
-Unikalnosc logiczna:
-
-```text
-CurrencyId + RateSourceId + EffectiveDate
+```json
+{
+  "date": "2026-06-05",
+  "buyPrice": 4.2075,
+  "midPrice": 4.2500,
+  "sellPrice": 4.2925
+}
 ```
 
-## 8. Najwazniejsze klasy
+Panel `/rates` wyswietla:
 
-### API
+- wykres linii `BuyPrice` i `SellPrice`,
+- dymek dla wybranego dnia,
+- liczbe dni publikacji,
+- najnowsze ceny dla wybranej waluty,
+- tabele historii z `MidPrice` i spreadem,
+- tabele najnowszych kursow wszystkich dostepnych walut.
 
-- `ExchangeRatesController`
-  - `GetChartData`,
-  - `GetLatestRates`,
-  - `SyncNbpRates`,
-  - `SyncEcbRates`,
-  - `SyncRiksbankRates`,
-  - `SyncRatesBySource`.
+Wykres zawsze pokazuje jedno wybrane zrodlo. Kursy roznych dostawcow nie sa
+laczone w jedna serie.
 
-### Application
+## 12. Obsluga bledow
 
-- `IExchangeRateService`,
-- `IExchangeRateSyncService`,
-- `IExternalExchangeRateClient`,
-- `IExchangeRateRepository`.
+- `from > to`, `from < 2026-01-01` lub `to > dzisiaj` zwraca `400`.
+- Nieobslugiwany kod synchronizacji zwraca `400`.
+- Brak publikacji dla zakresu daje pusta liste lub ostrzezenie synchronizacji.
+- Brak technicznego kursu PLN potrzebnego do normalizacji powoduje czytelny
+  `InvalidOperationException` i ostrzezenie dla danego zakresu.
+- Blad jednego zrodla przy starcie nie zatrzymuje sprawdzania pozostalych.
 
-### Infrastructure
+## 13. Diagramy PlantUML
 
-- `ExchangeRateSyncService`
-  - wybiera klienta po `SourceCode`,
-  - tworzy `RateSource`,
-  - tworzy brakujace `Currency`,
-  - zapisuje brakujace `ExchangeRate`,
-  - pomija duplikaty.
-
-- `NbpExchangeRateClient`
-  - pobiera JSON z NBP tabela C,
-  - mapuje `bid` i `ask` do wspolnego DTO.
-
-- `EcbExchangeRateClient`
-  - pobiera XML ECB,
-  - parsuje `Cube time`, `currency`, `rate`,
-  - przelicza kursy z EUR-relative na PLN-relative,
-  - ustawia `BuyPrice = SellPrice`.
-
-- `RiksbankExchangeRateClient`
-  - pobiera JSON z Riksbank SWEA API,
-  - parsuje `seriesId`, `date`, `value`,
-  - przelicza kursy z SEK-relative na PLN-relative,
-  - ustawia `BuyPrice = SellPrice`.
-
-## 9. Diagramy PlantUML
-
-Diagramy tej funkcjonalnosci sa trzymane w osobnym folderze, zeby nie mieszaly sie z ogolnymi diagramami systemu:
-
-- `UML/KursyWalut/PobieranieKursowSequence.puml` - przeplyw synchronizacji i cache-miss dla NBP/ECB/RIKSBANK.
-- `UML/KursyWalut/PobieranieKursowClassDiagram.puml` - klasy funkcjonalnosci kursow.
-- `UML/KursyWalut/IntegracjaZrodelSequence.puml` - ogolny przeplyw integracji z dostawcami.
-- `UML/KursyWalut/IntegracjaZrodelClassDiagram.puml` - ogolny diagram klas integracji.
-- `UML/KursyWalut/PrzypadkiUzyciaPobieraniaKursow.puml` - przypadki uzycia dla podgladu kursow, cache-miss i synchronizacji zrodel.
+- `PobieranieKursowSequence.puml` - odczyt wykresu i automatyczny cache-miss.
+- `PobieranieKursowActivity.puml` - decyzje walidacji, synchronizacji i spreadu.
+- `PobieranieKursowClassDiagram.puml` - glowne klasy calego modulu.
+- `IntegracjaZrodelSequence.puml` - pobieranie, normalizacja i zapis dostawcy.
+- `IntegracjaZrodelClassDiagram.puml` - klienci zewnetrzni i kalkulator spreadu.
+- `PrzypadkiUzyciaPobieraniaKursow.puml` - przypadki uzycia uzytkownika i systemu.
