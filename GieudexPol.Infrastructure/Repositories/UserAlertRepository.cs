@@ -13,9 +13,20 @@ namespace GieudexPol.Infrastructure.Repositories
         {
         }
 
+        public async Task<IEnumerable<UserAlert>> GetAllActiveUserAlertsAsync()
+        {
+            return await _context.UserAlerts
+                                 .Where(a => a.IsActive)
+                                 .Include(a => a.Currency)
+                                 .ToListAsync();
+        }
+
         public async Task<IEnumerable<UserAlert>> GetUserAlertsByUserIdAsync(int userId)
         {
-            return await _dbSet.Where(ua => ua.UserId == userId).ToListAsync();
+            return await _context.UserAlerts
+                                 .Where(a => a.UserId == userId)
+                                 .Include(a => a.Currency)
+                                 .ToListAsync();
         }
     }
 }

@@ -22,8 +22,17 @@ package "Application.Interfaces" {
         + Task<IEnumerable<Transaction>> GetUserTransactionsAsync(int userId)
     }
 
+    interface INotificationService {
+        + Task<IEnumerable<Notification>> GetUserNotificationsAsync(int userId)
+        + Task MarkNotificationAsReadAsync(int notificationId)
+    }
+
     interface IUserAlertService {
         + Task<IEnumerable<UserAlert>> GetUserAlertsByUserIdAsync(int userId)
+        + Task CreateUserAlertAsync(UserAlert userAlert)
+        + Task UpdateUserAlertAsync(UserAlert userAlert)
+        + Task DeleteUserAlertAsync(int userAlertId)
+        + Task TriggerAlertAsync(int userAlertId, string message)
     }
 
     interface IUserService {
@@ -37,6 +46,7 @@ package "Application.Interfaces" {
     IService <|-- ICurrencyService
     IService <|-- IExchangeRateService
     IService <|-- ITransactionService
+    IService <|-- INotificationService
     IService <|-- IUserAlertService
     IService <|-- IUserService
     IService <|-- IWalletService
@@ -76,15 +86,32 @@ package "Application.Services" {
         + Task<IEnumerable<Transaction>> GetUserTransactionsAsync(int userId)
     }
 
+    class NotificationService {
+        - INotificationRepository _notificationRepository
+        + NotificationService(INotificationRepository notificationRepository)
+        + Task<Notification> GetByIdAsync(int id)
+        + Task<IEnumerable<Notification>> GetAllAsync()
+        + Task AddAsync(Notification entity)
+        + Task UpdateAsync(Notification entity)
+        + Task DeleteAsync(Notification entity)
+        + Task<IEnumerable<Notification>> GetUserNotificationsAsync(int userId)
+        + Task MarkNotificationAsReadAsync(int notificationId)
+    }
+
     class UserAlertService {
         - IUserAlertRepository _userAlertRepository
-        + UserAlertService(IUserAlertRepository userAlertRepository)
+        - INotificationService _notificationService
+        + UserAlertService(IUserAlertRepository userAlertRepository, INotificationService notificationService)
         + Task<UserAlert> GetByIdAsync(int id)
         + Task<IEnumerable<UserAlert>> GetAllAsync()
         + Task AddAsync(UserAlert entity)
         + Task UpdateAsync(UserAlert entity)
         + Task DeleteAsync(UserAlert entity)
         + Task<IEnumerable<UserAlert>> GetUserAlertsByUserIdAsync(int userId)
+        + Task CreateUserAlertAsync(UserAlert userAlert)
+        + Task UpdateUserAlertAsync(UserAlert userAlert)
+        + Task DeleteUserAlertAsync(int userAlertId)
+        + Task TriggerAlertAsync(int userAlertId, string message)
     }
 
     class UserService {
@@ -112,6 +139,7 @@ package "Application.Services" {
     ICurrencyService <|.. CurrencyService
     IExchangeRateService <|.. ExchangeRateService
     ITransactionService <|.. TransactionService
+    INotificationService <|.. NotificationService
     IUserAlertService <|.. UserAlertService
     IUserService <|.. UserService
     IWalletService <|.. WalletService
@@ -119,7 +147,9 @@ package "Application.Services" {
     CurrencyService .right.> ICurrencyRepository : uses
     ExchangeRateService .right.> IExchangeRateRepository : uses
     TransactionService .right.> ITransactionRepository : uses
+    NotificationService .right.> INotificationRepository : uses
     UserAlertService .right.> IUserAlertRepository : uses
+    UserAlertService .right.> INotificationService : uses
     UserService .right.> IUserRepository : uses
     WalletService .right.> IWalletRepository : uses
 }
@@ -129,6 +159,7 @@ package "Domain.Entities" {
     class ExchangeRate
     class Transaction
     class UserAlert
+    class Notification
     class User
     class Wallet
 }
@@ -137,6 +168,7 @@ package "Infrastructure.Repositories" {
     interface IRepository<T>
     interface ICurrencyRepository
     interface IExchangeRateRepository
+    interface INotificationRepository
     interface ITransactionRepository
     interface IUserAlertRepository
     interface IUserRepository
@@ -144,6 +176,7 @@ package "Infrastructure.Repositories" {
 
     IRepository <|-- ICurrencyRepository
     IRepository <|-- IExchangeRateRepository
+    IRepository <|-- INotificationRepository
     IRepository <|-- ITransactionRepository
     IRepository <|-- IUserAlertRepository
     IRepository <|-- IUserRepository

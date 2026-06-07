@@ -1,0 +1,90 @@
+@startuml
+actor User as U
+participant "Frontend (Angular)" as F
+participant "API Gateway (ASP.NET Core)" as A
+participant "Application Services (BLL)" as B
+participant "Infrastructure Repositories (DAL)" as I
+participant "Database (SQL Server)" as D
+
+== Tworzenie alertu ==
+U -> F : Wybiera opcję "Utwórz alert"
+F -> F : Wyświetla formularz tworzenia alertu
+U -> F : Wypełnia formularz (typ, waluta, próg/procent, czas, itd.)
+F -> A : POST /api/user-alerts (UserAlertCreateDto)
+A -> B : CreateUserAlertAsync(userAlert)
+B -> I : AddAsync(userAlertEntity)
+I -> D : INSERT INTO UserAlerts
+D --> I : Zwraca zapisany alert
+I --> B : Zwraca zapisany alert
+B --> A : Zwraca potwierdzenie
+A --> F : Zwraca status 201 Created
+F -> F : Wyświetla komunikat o sukcesie
+
+== Wyświetlanie alertów użytkownika ==
+U -> F : Odświeża listę alertów
+F -> A : GET /api/user-alerts/user/{userId}
+A -> B : GetUserAlertsByUserIdAsync(userId)
+B -> I : GetByUserIdAsync(userId)
+I -> D : SELECT * FROM UserAlerts WHERE UserId = @userId
+D --> I : Zwraca listę alertów
+I --> B : Zwraca listę alertów
+B --> A : Zwraca listę UserAlertDto
+A --> F : Zwraca listę alertów
+F -> F : Wyświetla listę alertów
+
+== Aktualizacja alertu ==
+U -> F : Wybiera alert do edycji
+F -> F : Wyświetla formularz edycji z pre-wypełnionymi danymi
+U -> F : Modyfikuje dane alertu
+F -> A : PUT /api/user-alerts/{alertId} (UserAlertUpdateDto)
+A -> B : UpdateUserAlertAsync(userAlert)
+B -> I : UpdateAsync(userAlertEntity)
+I -> D : UPDATE UserAlerts SET ... WHERE Id = @alertId
+D --> I : Zwraca zaktualizowany alert
+I --> B : Zwraca zaktualizowany alert
+B --> A : Zwraca potwierdzenie
+A --> F : Zwraca status 200 OK
+F -> F : Wyświetla komunikat o sukcesie
+
+== Usuwanie alertu ==
+U -> F : Wybiera alert do usunięcia
+F -> F : Prosi o potwierdzenie
+U -> F : Potwierdza usunięcie
+F -> A : DELETE /api/user-alerts/{alertId}
+A -> B : DeleteUserAlertAsync(alertId)
+B -> I : DeleteAsync(alertId)
+I -> D : DELETE FROM UserAlerts WHERE Id = @alertId
+D --> I : Zwraca potwierdzenie
+I --> B : Zwraca potwierdzenie
+B --> A : Zwraca potwierdzenie
+A --> F : Zwraca status 204 No Content
+F -> F : Usuwa alert z widoku
+
+== Wyzwalanie alertu (Automatyczny proces w tle) ==
+participant "Background Service" as S
+
+S -> B : Sprawdź aktywne alerty
+B -> I : GetAllActiveUserAlertsAsync()
+I -> D : SELECT * FROM UserAlerts WHERE IsActive = TRUE
+D --> I : Zwraca listę aktywnych alertów
+I --> B : Zwraca listę aktywnych alertów
+loop Dla każdego aktywnego alertu
+    B -> B : Pobierz aktualne kursy walut dla alertu
+    B -> B : Porównaj kursy z warunkami alertu
+    alt Jeśli warunki alertu spełnione
+        B -> B : Ustaw IsActive = FALSE dla alertu
+        B -> I : UpdateAsync(userAlertEntity)
+        I -> D : UPDATE UserAlerts SET IsActive = FALSE WHERE Id = @alertId
+        D --> I : Potwierdzenie aktualizacji
+        I --> B : Potwierdzenie aktualizacji
+        B -> B : Utwórz powiadomienie
+        B -> I : AddAsync(notificationEntity)
+        I -> D : INSERT INTO Notifications
+        D --> I : Potwierdzenie zapisu powiadomienia
+        I --> B : Potwierdzenie zapisu powiadomienia
+        B -> B : Wyślij powiadomienie do użytkownika (np. poprzez SignalR)
+        S --> B : Kontynuuj sprawdzanie
+    end
+end
+
+@enduml

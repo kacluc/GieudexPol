@@ -22,7 +22,8 @@
     *   **Documentation:** PlantUML (For architectural diagrams).
 
 ### 📂 Directory Structure:
-*   `GieudexPol.Domain`: Core entities (`Currency`, `Rate`, `Alert`) and business rules.
+*   `GieudexPol.Domain`: Core entities (`Currency`, `Rate`, `UserAlert`, `Notification`) and business rules.
+
 *   `GieudexPol.Application`: Business services (BLL), calculation logic, and notification interfaces.
 *   `GieudexPol.Infrastructure`: Data Access Layer (DAL) implementation using Entity Framework Core; handles external API integration (e.g., bank APIs).
 *   `GieudexPol.API`: REST Controllers and Middleware (JWT, CORS) serving as the primary entry point for the Angular frontend.
@@ -128,7 +129,27 @@ src/app/
 4.  **Orderbook:** Real-time display of active user bids and asks.
 5.  **Interactive Charts:** Visualization tools for price trend analysis.
 6.  **Transaction History:** Comprehensive, auditable log of all operations (deposits, trades).
-7.  **Price Alerts:** System to notify users when an asset reaches a specified target price.
+7.  **Price Alerts:** System do powiadamiania użytkowników o znaczących zmianach cenowych lub osiągnięciu określonych progów dla wybranych walut.
+    *   **Cel:** Umożliwienie użytkownikom monitorowania rynku i otrzymywania automatycznych powiadomień o interesujących ich zmianach kursów walut, co pozwoli im na szybkie reagowanie na zmieniające się warunki rynkowe.
+    *   **Typy alertów (przykłady decyzyjności):
+        *   **Alert spadku ceny:** Powiadomienie, gdy cena ulubionej waluty spadnie o określony procent (np. 2%) w stosunku do średniej z ostatnich 24 godzin lub ostatniej zarejestrowanej ceny.
+        *   **Alert wzrostu ceny:** Powiadomienie, gdy cena ulubionej waluty wzrośnie o określony procent (np. 2%) w stosunku do średniej z ostatnich 24 godzin lub ostatniej zarejestrowanej ceny.
+        *   **Alert osiągnięcia progu:** Powiadomienie, gdy cena waluty osiągnie lub przekroczy zdefiniowany przez użytkownika poziom (np. "kup, gdy EUR/PLN spadnie poniżej 4.50").
+        *   **Alert wolumenowy:** Powiadomienie o znaczącym wzroście wolumenu obrotu daną walutą, co może sygnalizować zwiększone zainteresowanie rynkowe.
+    *   **Zarządzanie alertami:** Użytkownicy będą mogli tworzyć, edytować i usuwać alerty za pośrednictwem intuicyjnego interfejsu w aplikacji.
+    *   **Kanały powiadomień:** Początkowo powiadomienia będą wyświetlane w aplikacji (np. dzwonek, toast notification). W przyszłości możliwe rozszerzenie o e-mail lub powiadomienia push.
+    *   **Endpoint API (POST):** `/api/user-alerts`
+        *   **Opis:** Tworzy nowy alert dla użytkownika.
+        *   **Payload (`UserAlertCreateDto`):** Wymaga następujących pól: `UserId`, `CurrencyId`, `AlertType` (np. `PriceDrop`, `PriceIncrease`, `Threshold`), `ThresholdValue` (dla alertów progowych), `PercentageChange` (dla alertów procentowych), `TimeFrameHours` (dla alertów procentowych, np. 24), `IsActive`.
+    *   **Endpoint API (GET):** `/api/user-alerts/user/{userId}`
+        *   **Opis:** Pobiera wszystkie aktywne alerty dla danego użytkownika.
+    *   **Endpoint API (PUT):** `/api/user-alerts/{alertId}`
+        *   **Opis:** Aktualizuje istniejący alert użytkownika.
+    *   **Endpoint API (DELETE):** `/api/user-alerts/{alertId}`
+        *   **Opis:** Usuwa alert użytkownika.
+
+
+
 8.  **Wallet Management (Portfel):** Centralizowany moduł do kompleksowego zarządzania środkami użytkownika, obejmujący wymianę walut, wpłaty i wypłaty.
     *   **Cel:** Umożliwienie użytkownikowi bezpiecznego zarządzania środkami, wymiany walut oraz dokonywania wpłat i wypłat w ramach ekosystemu GieudexPol.
     *   **Interfejs użytkownika:** Kompaktowy układ z zakładkami (tabs) umożliwiający łatwe przełączanie między funkcjonalnościami bez konieczności scrollowania.

@@ -1,0 +1,73 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package "Domain.Entities" {
+    enum AlertType {
+        PriceDrop
+        PriceIncrease
+        Threshold
+        Volume
+    }
+
+    class UserAlert {
+        + int Id
+        + int UserId
+        + int CurrencyId
+        + AlertType AlertType
+        + decimal? ThresholdValue
+        + decimal? PercentageChange
+        + int? TimeFrameHours
+        + bool IsActive
+        + DateTime CreatedDate
+        + DateTime? TriggeredDate
+        + User User
+        + Currency Currency
+    }
+
+    class Notification {
+        + int Id
+        + int UserId
+        + string Message
+        + DateTime CreatedDate
+        + bool IsRead
+        + User User
+    }
+
+    User "1" -- "*" UserAlert : has
+    Currency "1" -- "*" UserAlert : has
+    User "1" -- "*" Notification : sends
+}
+
+package "Application.DTOs" {
+    class UserAlertCreateDto {
+        + int UserId
+        + int CurrencyId
+        + AlertType AlertType
+        + decimal? ThresholdValue
+        + decimal? PercentageChange
+        + int? TimeFrameHours
+    }
+
+    class UserAlertDto {
+        + int Id
+        + int UserId
+        + string CurrencySymbol
+        + AlertType AlertType
+        + decimal? ThresholdValue
+        + decimal? PercentageChange
+        + int? TimeFrameHours
+        + bool IsActive
+        + DateTime CreatedDate
+        + DateTime? TriggeredDate
+    }
+
+    class NotificationDto {
+        + int Id
+        + int UserId
+        + string Message
+        + DateTime CreatedDate
+        + bool IsRead
+    }
+}
+
+@enduml

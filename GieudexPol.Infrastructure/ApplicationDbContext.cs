@@ -16,6 +16,7 @@ namespace GieudexPol.Infrastructure
         public DbSet<RateSource> RateSources { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<UserAlert> UserAlerts { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
         public DbSet<FavoriteCurrency> FavoriteCurrencies { get; set; }
         public DbSet<WhaleRanking> WhaleRankings { get; set; }
 
@@ -51,6 +52,11 @@ namespace GieudexPol.Infrastructure
                 .HasMany(u => u.UserAlerts)
                 .WithOne(a => a.User)
                 .HasForeignKey(a => a.UserId);
+
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Notifications)
+                .WithOne(n => n.User)
+                .HasForeignKey(n => n.UserId);
 
             modelBuilder.Entity<Wallet>()
                 .HasOne(w => w.Currency)
