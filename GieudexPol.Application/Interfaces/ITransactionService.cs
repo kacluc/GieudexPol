@@ -2,6 +2,7 @@ using GieudexPol.Application.DTOs;
 using GieudexPol.Domain.Entities;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System;
 
 namespace GieudexPol.Application.Interfaces
 {
@@ -13,6 +14,13 @@ namespace GieudexPol.Application.Interfaces
         Task UpdateAsync(Transaction entity);
         Task DeleteAsync(Transaction entity);
         Task<Transaction> CreateTransfer(TransferRequest request);
-        Task<IEnumerable<Transaction>> GetUserTransactions(int userId);
+        Task<PaginatedResult<TransactionDto>> GetUserTransactions(
+            int userId,
+            int pageNumber,
+            int pageSize,
+            string? transactionType,
+            int? currencyId,
+            DateTime? startDate,
+            DateTime? endDate);
     }
 }

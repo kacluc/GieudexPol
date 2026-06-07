@@ -1,77 +1,153 @@
 .transaction-transfer-container {
-    max-width: 500px;
-    margin: 50px auto;
-    padding: 20px;
-    border: 1px solid #ddd;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: var(--color-background-soft);
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    background-color: #fff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    color: var(--color-text);
 }
 
 h2 {
+    color: var(--color-heading);
     text-align: center;
-    color: #333;
-    margin-bottom: 20px;
+    margin-bottom: 1.5rem;
 }
 
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 1rem;
 }
 
 label {
     display: block;
-    margin-bottom: 5px;
-    color: #555;
+    margin-bottom: 0.5rem;
     font-weight: bold;
+    color: var(--color-text);
 }
 
 input[type="email"],
 input[type="number"],
+input[type="date"],
 select {
     width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
+    padding: 0.8rem;
+    border: 1px solid var(--color-border);
     border-radius: 4px;
+    background-color: var(--color-background-mute);
+    color: var(--color-text);
+    font-size: 1rem;
     box-sizing: border-box;
-    font-size: 16px;
 }
 
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+input[type="email"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+select:focus {
+    border-color: var(--color-accent);
+    outline: none;
 }
 
 button {
+    display: block;
     width: 100%;
-    padding: 10px 15px;
-    background-color: #007bff;
-    color: white;
+    padding: 0.8rem;
+    background-color: var(--color-accent);
+    color: var(--color-background);
     border: none;
     border-radius: 4px;
-    font-size: 16px;
+    font-size: 1.1rem;
+    font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.3s ease;
+    margin-top: 1.5rem;
 }
 
 button:disabled {
-    background-color: #cccccc;
+    background-color: var(--color-border);
     cursor: not-allowed;
 }
 
 button:hover:not(:disabled) {
-    background-color: #0056b3;
+    background-color: var(--color-accent-dark);
 }
 
 .error-message {
-    color: #dc3545;
-    font-size: 14px;
-    margin-top: 5px;
+    color: #ff4d4d;
+    margin-top: 0.5rem;
+    font-size: 0.9em;
 }
 
 .success-message {
-    color: #28a745;
-    font-size: 16px;
-    margin-top: 15px;
+    color: #4CAF50;
+    margin-top: 1rem;
+    font-size: 1em;
     text-align: center;
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: var(--color-border);
+    margin: 2rem 0;
+}
+
+.filter-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.transaction-list {
+    margin-top: 1.5rem;
+    overflow-x: auto;
+}
+
+.transaction-list table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.transaction-list th,
+.transaction-list td {
+    padding: 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.transaction-list th {
+    background-color: var(--color-background-soft);
+    color: var(--color-heading);
+    font-weight: bold;
+}
+
+.transaction-list tbody tr:hover {
+    background-color: var(--color-background-hover);
+}
+
+.no-transactions {
+    text-align: center;
+    margin-top: 2rem;
+    font-style: italic;
+    color: var(--color-text-light);
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 1.5rem;
+    gap: 1rem;
+}
+
+.pagination button {
+    width: auto;
+    padding: 0.6rem 1.2rem;
+    margin: 0;
+}
+
+.pagination span {
+    color: var(--color-text);
+    font-weight: bold;
 }

@@ -36,4 +36,85 @@
 
     <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
     <div *ngIf="successMessage" class="success-message">{{ successMessage }}</div>
+
+    <hr>
+
+    <h2>Transaction History</h2>
+
+    <form [formGroup]="transactionHistoryForm">
+        <div class="filter-group">
+            <div class="form-group">
+                <label for="transactionType">Transaction Type:</label>
+                <select id="transactionType" formControlName="transactionType">
+                    <option [ngValue]="null">All</option>
+                    <option *ngFor="let type of transactionTypes" [ngValue]="type">{{ type }}</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="currencyFilter">Currency:</label>
+                <select id="currencyFilter" formControlName="currencyId">
+                    <option [ngValue]="null">All</option>
+                    <option *ngFor="let currency of currencies" [ngValue]="currency.id">
+                        {{ currency.symbol }}
+                    </option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="startDate">Start Date:</label>
+                <input id="startDate" type="date" formControlName="startDate">
+            </div>
+
+            <div class="form-group">
+                <label for="endDate">End Date:</label>
+                <input id="endDate" type="date" formControlName="endDate">
+            </div>
+        </div>
+    </form>
+
+    <div *ngIf="transactions.length > 0" class="transaction-list">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Sender</th>
+                    <th>Receiver</th>
+                    <th>Amount</th>
+                    <th>Currency</th>
+                    <th>Fee</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let transaction of transactions">
+                    <td>{{ transaction.timestamp | date:
+            'short' }}</td>
+                    <td>{{ transaction.transactionType }}</td>
+                    <td>{{ transaction.senderUsername }}</td>
+                    <td>{{ transaction.receiverUsername }}</td>
+                    <td>{{ transaction.amount | number: '1.2-4' }}</td>
+                    <td>{{ transaction.currencySymbol }}</td>
+                    <td>{{ transaction.appliedFee | number: '1.2-4' }}</td>
+                    <td>{{ transaction.status }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="pagination">
+            <button [disabled]="paginatedResult.pageNumber <= 1" (click)="onPageChange(paginatedResult.pageNumber - 1)">
+                Previous
+            </button>
+            <span>Page {{ paginatedResult.pageNumber }} of {{ (paginatedResult.totalCount / paginatedResult.pageSize) | ceil
+                }}</span>
+            <button [disabled]="paginatedResult.pageNumber * paginatedResult.pageSize >= paginatedResult.totalCount"
+                (click)="onPageChange(paginatedResult.pageNumber + 1)">
+                Next
+            </button>
+        </div>
+    </div>
+    <div *ngIf="transactions.length === 0 && !errorMessage" class="no-transactions">
+        No transactions found.
+    </div>
 </div>

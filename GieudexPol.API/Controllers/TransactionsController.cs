@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace GieudexPol.API.Controllers
 {
@@ -47,7 +50,7 @@ namespace GieudexPol.API.Controllers
 
                 request.SenderId = sender.Id;
                 var transaction = await _transactionService.CreateTransfer(request);
-                return Ok(MapToDto(transaction));
+                return Ok(MapToResponseDto(transaction));
             }
             catch (ArgumentException ex)
             {
@@ -60,13 +63,28 @@ namespace GieudexPol.API.Controllers
         }
 
         [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetUserTransactions(int userId)
+        public async Task<IActionResult> GetUserTransactions(
+            int userId,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? transactionType = null,
+            [FromQuery] int? currencyId = null,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
         {
-            var transactions = await _transactionService.GetUserTransactions(userId);
-            return Ok(transactions.Select(MapToDto));
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (currentUserId == null || int.Parse(currentUserId) != userId)
+            {
+                return Unauthorized();
+            }
+
+            var paginatedResult = await _transactionService.GetUserTransactions(
+                userId, pageNumber, pageSize, transactionType, currencyId, startDate, endDate);
+            
+            return Ok(paginatedResult);
         }
 
-        private static TransactionResponseDto MapToDto(GieudexPol.Domain.Entities.Transaction transaction)
+        private static TransactionResponseDto MapToResponseDto(Domain.Entities.Transaction transaction)
         {
             return new TransactionResponseDto
             {
@@ -82,5 +100,19 @@ namespace GieudexPol.API.Controllers
                 Timestamp = transaction.Timestamp
             };
         }
+    }
+
+    public class TransactionResponseDto
+    {
+        public int Id { get; set; }
+        public int SenderId { get; set; }
+        public int ReceiverId { get; set; }
+        public decimal Amount { get; set; }
+        public int CurrencyId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string TransactionType { get; set; } = string.Empty;
+        public decimal AppliedFee { get; set; }
+        public Guid? TransactionFeeId { get; set; }
+        public DateTime Timestamp { get; set; }
     }
 }

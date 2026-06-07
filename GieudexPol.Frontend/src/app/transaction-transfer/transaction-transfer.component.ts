@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, Pipe, PipeTransform } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TransactionService } from '../services/transaction.service';
@@ -10,21 +10,34 @@ import { Wallet } from '../models/wallet.model';
 import { WalletDto } from '../models/wallet.dto';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
+import { Transaction } from '../models/transaction.model';
+import { PaginatedResult } from '../models/paginated-result.model';
+
+@Pipe({ name: 'ceil', standalone: true })
+export class CeilPipe implements PipeTransform {
+  transform(value: number): number {
+    return Math.ceil(value);
+  }
+}
 
 @Component({
   selector: 'app-transaction-transfer',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, CeilPipe],
   templateUrl: './transaction-transfer.component.html',
   styleUrls: ['./transaction-transfer.component.css']
 })
 export class TransactionTransferComponent implements OnInit {
   transferForm: FormGroup;
+  transactionHistoryForm: FormGroup;
   currencies: Currency[] = [];
   userWallets: WalletDto[] = [];
   errorMessage: string = '';
   successMessage: string = '';
   currentUserId: number | null = null;
+  transactions: Transaction[] = [];
+  paginatedResult: PaginatedResult<Transaction> = { items: [], totalCount: 0, pageNumber: 1, pageSize: 10 };
+  transactionTypes: string[] = ['Transfer', 'Deposit', 'Withdrawal', 'Buy', 'Sell'];
 
   get transferableCurrencies(): Currency[] {
     const walletCurrencyIds = new Set(this.userWallets.map(wallet => wallet.currencyId));
@@ -45,6 +58,13 @@ export class TransactionTransferComponent implements OnInit {
       amount: ['', [Validators.required, Validators.min(0.01)]],
       currencyId: ['', Validators.required]
     });
+
+    this.transactionHistoryForm = this.fb.group({
+      transactionType: [null],
+      currencyId: [null],
+      startDate: [null],
+      endDate: [null]
+    });
   }
 
   ngOnInit(): void {
@@ -52,9 +72,14 @@ export class TransactionTransferComponent implements OnInit {
       if (user && user.id) {
         this.currentUserId = user.id;
         this.loadUserWallets(this.currentUserId);
+        this.loadUserTransactions();
       }
     });
     this.loadCurrencies();
+
+    this.transactionHistoryForm.valueChanges.subscribe(() => {
+      this.loadUserTransactions();
+    });
   }
 
   loadUserWallets(userId: number): void {
@@ -85,6 +110,36 @@ export class TransactionTransferComponent implements OnInit {
     );
   }
 
+  loadUserTransactions(pageNumber: number = this.paginatedResult.pageNumber, pageSize: number = this.paginatedResult.pageSize): void {
+    if (this.currentUserId) {
+      const filters = this.transactionHistoryForm.value;
+      this.transactionService.getUserTransactions(
+        this.currentUserId,
+        pageNumber,
+        pageSize,
+        filters.transactionType,
+        filters.currencyId,
+        filters.startDate,
+        filters.endDate
+      ).subscribe(
+        (result) => {
+          this.paginatedResult = result;
+          this.transactions = result.items;
+          this.changeDetector.detectChanges();
+        },
+        (error) => {
+          console.error('Error loading transactions:', error);
+          this.errorMessage = 'Failed to load transaction history.';
+          this.changeDetector.detectChanges();
+        }
+      );
+    }
+  }
+
+  onPageChange(pageNumber: number): void {
+    this.loadUserTransactions(pageNumber, this.paginatedResult.pageSize);
+  }
+
   onSubmit(): void {
     if (this.transferForm.valid && this.currentUserId) {
       this.errorMessage = '';
@@ -101,9 +156,9 @@ export class TransactionTransferComponent implements OnInit {
         (response) => {
           this.successMessage = 'Transfer zakończony pomyślnie.';
           this.transferForm.reset();
-          // Optionally, refresh wallets or navigate
           if (this.currentUserId) {
             this.loadUserWallets(this.currentUserId);
+            this.loadUserTransactions(); // Refresh transaction history after successful transfer
           }
           this.changeDetector.detectChanges();
         },

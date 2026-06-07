@@ -128,7 +128,17 @@ src/app/
 3.  **Order Placement:** Intuitive form for market buy/sell orders at prevailing rates.
 4.  **Orderbook:** Real-time display of active user bids and asks.
 5.  **Interactive Charts:** Visualization tools for price trend analysis.
-6.  **Transaction History:** Comprehensive, auditable log of all operations (deposits, trades).
+6.  **Transaction History:** Comprehensive, auditable log of all operations (deposits, trades, transfers).
+    *   **Cel:** Umożliwienie użytkownikom wglądu w pełną historię swoich transakcji finansowych w aplikacji, co pozwoli na monitorowanie przepływów środków, weryfikację operacji i analizę wydatków. Historia transakcji powinna być łatwo dostępna i czytelna, z możliwością filtrowania i wyszukiwania.
+    *   **Szczegóły funkcjonalności:**
+        *   **Wyświetlanie Transakcji:** Lista wszystkich transakcji użytkownika, obejmująca datę, typ transakcji (np. wpłata, wypłata, kupno, sprzedaż, transfer), walutę, kwotę oraz status transakcji.
+        *   **Informacje o Transferach:** Dla transakcji typu transfer, historia powinna zawierać informacje o nadawcy i odbiorcy oraz kwocie transferu.
+        *   **Filtrowanie i Sortowanie:** Możliwość filtrowania transakcji według typu, daty, waluty oraz sortowania wyników.
+        *   **Paginacja:** Obsługa paginacji dla dużych zestawów danych transakcji w celu poprawy wydajności i czytelności.
+    *   **Endpoint API (GET):** `/api/transactions/user/{userId}`
+        *   **Opis:** Pobiera historię transakcji dla danego użytkownika.
+        *   **Parametry Zapytania:** `pageNumber`, `pageSize`, `transactionType` (opcjonalnie), `currencyId` (opcjonalnie), `startDate`, `endDate`.
+        *   **Odpowiedź:** Lista obiektów `TransactionDto` zawierająca szczegóły transakcji.
 7.  **Price Alerts:** System do powiadamiania użytkowników o znaczących zmianach cenowych lub osiągnięciu określonych progów dla wybranych walut.
     *   **Cel:** Umożliwienie użytkownikom monitorowania rynku i otrzymywania automatycznych powiadomień o interesujących ich zmianach kursów walut, co pozwoli im na szybkie reagowanie na zmieniające się warunki rynkowe.
     *   **Typy alertów (przykłady decyzyjności):

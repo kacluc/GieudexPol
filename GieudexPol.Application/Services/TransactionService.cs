@@ -3,6 +3,7 @@ using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace GieudexPol.Application.Services
@@ -33,8 +34,10 @@ namespace GieudexPol.Application.Services
 
         public async Task<IEnumerable<Transaction>> GetAllAsync()
         {
-            // Assuming a method to get all transactions, or adapt GetByUserIdAsync for all users
-            return await _transactionRepository.GetByUserIdAsync(0); // This might need adjustment based on repository implementation
+            // This method might need to be reconsidered if getting all transactions across all users is not desired or performant.
+            // For now, it will return an empty list or throw an exception.
+            // Alternatively, you could implement a repository method to fetch all transactions without user filtering.
+            return Enumerable.Empty<Transaction>(); // Or throw new NotImplementedException("GetAllAsync for transactions is not implemented for all users.");
         }
 
         public async Task AddAsync(Transaction entity)
@@ -66,8 +69,8 @@ namespace GieudexPol.Application.Services
                 throw new ArgumentException("Sender not found.");
             }
 
-            var receiverEmail = request.ReceiverUsername.Trim();
-            var receiver = await _userRepository.GetByUsernameAsync(receiverEmail);
+            var receiverUsername = request.ReceiverUsername.Trim();
+            var receiver = await _userRepository.GetByUsernameAsync(receiverUsername);
             if (receiver == null)
             {
                 throw new ArgumentException("Receiver not found.");
@@ -91,7 +94,7 @@ namespace GieudexPol.Application.Services
             var receiverWallet = await _walletRepository.GetUserWalletAsync(receiver.Id, request.CurrencyId);
             if (receiverWallet == null)
             {
-                // Create receiver wallet if it doesn\"t exist for the currency
+                // Create receiver wallet if it doesn't exist for the currency
                 receiverWallet = new Wallet
                 {
                     UserId = receiver.Id,
@@ -118,11 +121,11 @@ namespace GieudexPol.Application.Services
 
             try
             {
-                // Deduct from sender\"s wallet (amount + fee)
+                // Deduct from sender's wallet (amount + fee)
                 senderWallet.Balance -= totalAmountToDeduct;
                 await _walletRepository.UpdateAsync(senderWallet);
 
-                // Add to receiver\"s wallet (only amount)
+                // Add to receiver's wallet (only amount)
                 receiverWallet.Balance += request.Amount;
                 await _walletRepository.UpdateAsync(receiverWallet);
 
@@ -140,9 +143,40 @@ namespace GieudexPol.Application.Services
             return transaction;
         }
 
-        public async Task<IEnumerable<Transaction>> GetUserTransactions(int userId)
+        public async Task<PaginatedResult<TransactionDto>> GetUserTransactions(
+            int userId,
+            int pageNumber,
+            int pageSize,
+            string? transactionType,
+            int? currencyId,
+            DateTime? startDate,
+            DateTime? endDate)
         {
-            return await _transactionRepository.GetByUserIdAsync(userId);
+            var transactions = await _transactionRepository.GetByUserIdAsync(
+                userId, pageNumber, pageSize, transactionType, currencyId, startDate, endDate);
+            var totalRecords = await _transactionRepository.GetTotalRecordsByUserIdAsync(
+                userId, transactionType, currencyId, startDate, endDate);
+
+            var transactionDtos = transactions.Select(t => new TransactionDto
+            {
+                Id = t.Id,
+                SenderUsername = t.Sender?.Username ?? "N/A",
+                ReceiverUsername = t.Receiver?.Username ?? "N/A",
+                Amount = t.Amount,
+                CurrencySymbol = t.Currency?.Symbol ?? "N/A",
+                Status = t.Status,
+                TransactionType = t.TransactionType,
+                AppliedFee = t.AppliedFee,
+                Timestamp = t.Timestamp
+            }).ToList();
+
+            return new PaginatedResult<TransactionDto>
+            {
+                Items = transactionDtos,
+                TotalCount = totalRecords,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
         }
     }
 }

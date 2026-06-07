@@ -13,6 +13,10 @@ package "GieudexPol.Domain.Entities" {
         + AppliedFee: decimal
         + TransactionFeeId: Guid?
         + Timestamp: DateTime
+        + Sender: User
+        + Receiver: User
+        + Currency: Currency
+        + TransactionFee: TransactionFee
     }
 
     class User {
@@ -56,7 +60,8 @@ package "GieudexPol.Application.Interfaces" {
     }
 
     interface ITransactionRepository {
-        + GetByUserIdAsync(userId: int): Task<IEnumerable<Transaction>>
+        + GetByUserIdAsync(userId: int, pageNumber: int, pageSize: int, transactionType: string?, currencyId: int?, startDate: DateTime?, endDate: DateTime?): Task<IEnumerable<Transaction>>
+        + GetTotalRecordsByUserIdAsync(userId: int, transactionType: string?, currencyId: int?, startDate: DateTime?, endDate: DateTime?): Task<int>
     }
 
     interface IUserRepository {
@@ -79,7 +84,7 @@ package "GieudexPol.Application.Interfaces" {
         + UpdateAsync(entity: Transaction): Task
         + DeleteAsync(entity: Transaction): Task
         + CreateTransfer(request: TransferRequest): Task<Transaction>
-        + GetUserTransactions(userId: int): Task<IEnumerable<Transaction>>
+        + GetUserTransactions(userId: int, pageNumber: int, pageSize: int, transactionType: string?, currencyId: int?, startDate: DateTime?, endDate: DateTime?): Task<PaginatedResult<TransactionDto>>
     }
 }
 
@@ -97,7 +102,7 @@ package "GieudexPol.Application.Services" {
         + UpdateAsync(entity: Transaction): Task
         + DeleteAsync(entity: Transaction): Task
         + CreateTransfer(request: TransferRequest): Task<Transaction>
-        + GetUserTransactions(userId: int): Task<IEnumerable<Transaction>>
+        + GetUserTransactions(userId: int, pageNumber: int, pageSize: int, transactionType: string?, currencyId: int?, startDate: DateTime?, endDate: DateTime?): Task<PaginatedResult<TransactionDto>>
     }
 }
 
@@ -107,6 +112,25 @@ package "GieudexPol.Application.DTOs" {
         + ReceiverUsername: string
         + Amount: decimal
         + CurrencyId: int
+    }
+
+    class TransactionDto {
+        + Id: int
+        + SenderUsername: string
+        + ReceiverUsername: string
+        + Amount: decimal
+        + CurrencySymbol: string
+        + Status: string
+        + TransactionType: string
+        + AppliedFee: decimal
+        + Timestamp: DateTime
+    }
+
+    class PaginatedResult<T> {
+        + Items: IEnumerable<T>
+        + TotalCount: int
+        + PageNumber: int
+        + PageSize: int
     }
 }
 
@@ -128,5 +152,9 @@ package "GieudexPol.Application.DTOs" {
 'TransactionService' ..> 'IWalletRepository'
 'TransactionService' ..> 'ITransactionFeeRepository'
 'TransactionService' ..> 'TransferRequest'
+'ITransactionService' ..> 'TransactionDto'
+'ITransactionService' ..> 'PaginatedResult'
+'TransactionService' ..> 'TransactionDto'
+'TransactionService' ..> 'PaginatedResult'
 
 @enduml

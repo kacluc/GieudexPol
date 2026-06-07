@@ -25,15 +25,81 @@ namespace GieudexPol.Infrastructure.Repositories
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
-        public async Task<IEnumerable<Transaction>> GetByUserIdAsync(int userId)
+        public async Task<IEnumerable<Transaction>> GetByUserIdAsync(
+            int userId,
+            int pageNumber,
+            int pageSize,
+            string? transactionType,
+            int? currencyId,
+            DateTime? startDate,
+            DateTime? endDate)
         {
-            return await _context.Transactions
+            var query = _context.Transactions
                 .Where(t => t.SenderId == userId || t.ReceiverId == userId)
                 .Include(t => t.Sender)
                 .Include(t => t.Receiver)
                 .Include(t => t.Currency)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(transactionType))
+            {
+                query = query.Where(t => t.TransactionType == transactionType);
+            }
+
+            if (currencyId.HasValue)
+            {
+                query = query.Where(t => t.CurrencyId == currencyId.Value);
+            }
+
+            if (startDate.HasValue)
+            {
+                query = query.Where(t => t.Timestamp >= startDate.Value);
+            }
+
+            if (endDate.HasValue)
+            {
+                query = query.Where(t => t.Timestamp <= endDate.Value);
+            }
+
+            return await query
                 .OrderByDescending(t => t.Timestamp)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
+        }
+
+        public async Task<int> GetTotalRecordsByUserIdAsync(
+            int userId,
+            string? transactionType,
+            int? currencyId,
+            DateTime? startDate,
+            DateTime? endDate)
+        {
+            var query = _context.Transactions
+                .Where(t => t.SenderId == userId || t.ReceiverId == userId)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(transactionType))
+            {
+                query = query.Where(t => t.TransactionType == transactionType);
+            }
+
+            if (currencyId.HasValue)
+            {
+                query = query.Where(t => t.CurrencyId == currencyId.Value);
+            }
+
+            if (startDate.HasValue)
+            {
+                query = query.Where(t => t.Timestamp >= startDate.Value);
+            }
+
+            if (endDate.HasValue)
+            {
+                query = query.Where(t => t.Timestamp <= endDate.Value);
+            }
+
+            return await query.CountAsync();
         }
 
         public async Task AddAsync(Transaction transaction)
@@ -58,4 +124,4 @@ namespace GieudexPol.Infrastructure.Repositories
             }
         }
     }
-}
+} 
