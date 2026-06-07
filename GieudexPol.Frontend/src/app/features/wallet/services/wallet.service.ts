@@ -1,39 +1,62 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { TradeRequest, TradeResponse } from '../models/wallet-models';
+import { firstValueFrom } from 'rxjs';
+import { TradeRequest, TradeResponse, WalletCurrency, WalletDto, DepositRequest, WithdrawRequest } from '../models/wallet-models';
+
 @Injectable({
   providedIn: 'root'
 })
 export class WalletService {
-  // Zakładany endpoint API dla transakcji wymiany walut. 
-  // Musi być chroniony i wymagać tokena JWT.
-  private apiUrl = 'https://localhost:7082/api/wallet';
+  private apiUrl = '/api/Wallets';
+
   constructor(private http: HttpClient) {}
-  /**
-   * Wykonuje symulowaną transakcję wymiany walut między użytkownikami.
-   * @param request Obiekt zawierający waluty i kwotę do wymiany.
-   * @returns Observable<TradeResponse> z wynikiem operacji.
-   */
-  executeTrade(request: TradeRequest): Observable<TradeResponse> {
-    // W prawdziwej aplikacji, tutaj musimy dodać nagłówek Authorization: Bearer <token>
+
+  getUserWallets(userId: number): Observable<WalletDto[]> {
+    return this.http.get<WalletDto[]>(`${this.apiUrl}/user/${userId}`);
+  }
+
+  getAvailableCurrencies(userId: number): Observable<WalletCurrency[]> {
+    return this.http.get<WalletCurrency[]>(`${this.apiUrl}/available-currencies?userId=${userId}`);
+  }
+
+  addCurrencyWallet(userId: number, currencyId: number): Observable<WalletDto> {
+    return this.http.post<WalletDto>(`${this.apiUrl}/user/${userId}/currencies/${currencyId}`, {});
+  }
+
+  async getBalance(userId: number): Promise<{ [key: string]: number }> {
+    const wallets = await firstValueFrom(this.getUserWallets(userId));
+    return wallets.reduce((balanceByCurrency, wallet) => {
+      const symbol = wallet.currency?.symbol;
+      if (symbol) {
+        balanceByCurrency[symbol] = wallet.balance;
+      }
+
+      return balanceByCurrency;
+    }, {} as { [key: string]: number });
+  }
+
+  executeTrade(userId: number, request: TradeRequest): Observable<TradeResponse> {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
-      // Tutaj powinien być dodany token JWT pobrany z AuthService
     });
 
-    console.log('Wykonanie transakcji dla:', request);
-
-    return this.http.post<TradeResponse>(`${this.apiUrl}/trade`, request, { headers });
+    return this.http.post<TradeResponse>(`${this.apiUrl}/trade?userId=${userId}`, request, { headers });
   }
-  /**
-   * Pobiera aktualne saldo portfela użytkownika.
-   * @returns Promise<{ [key: string]: number }> obiecuje obiekt z walutami i ich wartościami.
-   */
-  async getBalance(): Promise<{ [key: string]: number }> {
-    // Symulacja pobrania danych salda z API. 
-    // W prawdziwej aplikacji, tutaj wywołamy GET /api/wallet/balance z tokenem JWT.
-    await new Promise(resolve => setTimeout(resolve, 300)); // Symulowany delay API
-    return { PLN: Math.floor(Math.random() * 5000) + 1000, EUR: Math.floor(Math.random() * 4000) + 500 };
+
+  deposit(userId: number, request: DepositRequest): Observable<TradeResponse> {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+    });
+
+    return this.http.post<TradeResponse>(`${this.apiUrl}/deposit?userId=${userId}`, request, { headers });
+  }
+
+  withdraw(userId: number, request: WithdrawRequest): Observable<TradeResponse> {
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+    });
+
+    return this.http.post<TradeResponse>(`${this.apiUrl}/withdraw?userId=${userId}`, request, { headers });
   }
 }

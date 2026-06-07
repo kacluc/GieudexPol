@@ -1,0 +1,39 @@
+<div class="transaction-transfer-container">
+    <h2>Transfer Money</h2>
+
+    <form [formGroup]="transferForm" (ngSubmit)="onSubmit()">
+        <div class="form-group">
+            <label for="receiverUsername">E-mail odbiorcy:</label>
+            <input id="receiverUsername" type="email" formControlName="receiverUsername" placeholder="zenek.martyniuk@gieudexpol.local">
+        <div *ngIf="transferForm.get('receiverUsername')?.invalid && (transferForm.get('receiverUsername')?.dirty || transferForm.get('receiverUsername')?.touched)" class="error-message">
+                E-mail odbiorcy jest wymagany.
+        </div>
+        </div>
+
+        <div class="form-group">
+            <label for="amount">Amount:</label>
+            <input id="amount" type="number" formControlName="amount">
+            <div *ngIf="transferForm.get('amount')?.invalid && (transferForm.get('amount')?.dirty || transferForm.get('amount')?.touched)" class="error-message">
+                Amount is required and must be greater than 0.
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="currency">Currency:</label>
+            <select id="currency" formControlName="currencyId">
+                <option [ngValue]="null" disabled>Select Currency</option>
+                <option *ngFor="let currency of transferableCurrencies" [ngValue]="currency.id">
+                    {{ currency.symbol }} - {{ currency.name }}
+                </option>
+            </select>
+            <div *ngIf="transferForm.get('currencyId')?.invalid && (transferForm.get('currencyId')?.dirty || transferForm.get('currencyId')?.touched)" class="error-message">
+                Currency is required.
+            </div>
+        </div>
+
+        <button type="submit" [disabled]="transferForm.invalid">Transfer</button>
+    </form>
+
+    <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+    <div *ngIf="successMessage" class="success-message">{{ successMessage }}</div>
+</div>

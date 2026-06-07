@@ -9,11 +9,24 @@ component "Frontend UI" as UI {
 }
 
 component "Service Layer" as Service {
-    class WalletService {}
+    class WalletService {
+        + getUserWallets(userId): WalletDto[]
+        + getWalletById(walletId): WalletDto
+        + createWallet(wallet: WalletDto): WalletDto
+        + updateWallet(walletId, wallet: WalletDto): void
+        + deleteWallet(walletId): void
+        + deposit(userId, request: DepositRequest): void
+        + withdraw(userId, request: WithdrawRequest): void
+    }
 }
 
 database "Backend API" as Backend {
-    class BackendController {}
+    class BackendController {
+        + GET /api/wallets/user/{userId}
+        + POST /api/wallets/trade
+        + POST /api/wallets/deposit
+        + POST /api/wallets/withdraw
+    }
 }
 
 package Model_Domainowy {
@@ -48,6 +61,17 @@ package Model_Domainowy {
         + amount: Double
         + currency: String
         + timestamp: Date
+        + transactionType: String
+    }
+
+    class DepositRequest {
+        + currencyId: int
+        + amount: decimal
+    }
+
+    class WithdrawRequest {
+        + currencyId: int
+        + amount: decimal
     }
 }
 

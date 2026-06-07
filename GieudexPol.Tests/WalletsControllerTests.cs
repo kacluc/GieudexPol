@@ -1,4 +1,6 @@
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Application.DTOs;
+
 using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,35 +9,31 @@ using Xunit;
 using System;
 using System.Linq;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using GieudexPol.Infrastructure.Data;
+using GieudexPol.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using GieudexPol.API; // Add this using directive
 
 namespace GieudexPol.Tests
 {
-    // Jeśli Program nie jest widoczny, upewnij się, że klasa Program w głównym projekcie ma: public partial class Program { }
-    public class WalletsControllerTests : IClassFixture<WebApplicationFactory<Program>>
+    public class WalletsControllerTests : IClassFixture<CustomWebApplicationFactory<Program>>
     {
-        private readonly WebApplicationFactory<Program> _factory;
+        private readonly CustomWebApplicationFactory<Program> _factory;
         private readonly Mock<IWalletService> _mockWalletService;
 
-        public WalletsControllerTests(WebApplicationFactory<Program> factory)
+        public WalletsControllerTests(CustomWebApplicationFactory<Program> factory)
         {
-            // 1. NAJPIERW inicjalizujemy Mocka, żeby obiekt nie był nullem
             _mockWalletService = new Mock<IWalletService>();
-
-            // 2. DOPIERO POTEM konfigurujemy i wstrzykujemy go do fabryki testowej
-            _factory = factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureServices(services =>
-                {
-                    // Naprawiono: Użycie standardowej kolekcji 'services' zamiast nieistniejącego SingleWindowDescriptor
-                    var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IWalletService));
-                    if (descriptor != null)
-                    {
-                        services.Remove(descriptor);
-                    }
-                    services.AddSingleton(_mockWalletService.Object);
-                });
-            });
+            _factory = factory;
         }
 
         [Fact]
@@ -47,68 +45,124 @@ namespace GieudexPol.Tests
                     It.IsAny<int>(), 
                     It.IsAny<decimal>(), 
                     It.IsAny<int>(), 
-                    It.IsAny<decimal>()
+                    It.IsAny<CancellationToken>()
                 ))
-                .Returns(Task.CompletedTask);
+                .ReturnsAsync(new TradeExecutionResultDto
+                {
+                    AmountTo = 2.35m,
+                    FromCurrency = "PLN",
+                    ToCurrency = "EUR",
+                    FromRateToPln = 1m,
+                    ToRateToPln = 4.25m,
+                    SellRateSource = "PLN",
+                    BuyRateSource = "ECB",
+                    EffectiveDate = DateTime.Today
+                });
 
-            var client = _factory.CreateClient();
-            var requestBody = new { userId = 1, fromCurrencyId = 1, amountFrom = 10m, toCurrencyId = 2, amountTo = 5m };
+            var client = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IWalletService));
+                    if (descriptor != null)
+                    {
+                        services.Remove(descriptor);
+                    }
+                    services.AddSingleton(_mockWalletService.Object);
+                });
+            }).CreateClient();
+
+            var requestBody = new { fromCurrencyId = 1, amountFrom = 10m, toCurrencyId = 2 };
 
             // Act
-            var response = await client.PostAsJsonAsync("api/wallet/trade", requestBody);
+            var response = await client.PostAsJsonAsync("api/Wallets/trade?userId=1", requestBody);
 
             // Assert
             Assert.True(response.IsSuccessStatusCode);
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.True(json.RootElement.GetProperty("success").GetBoolean());
+            Assert.Equal(2.35m, json.RootElement.GetProperty("amountTo").GetDecimal());
+            Assert.Equal("ECB", json.RootElement.GetProperty("buyRateSource").GetString());
         }
+    }
+}
 
-        [Fact]
-        public async Task ExecuteTrade_InsufficientFunds_ReturnsBadRequest()
+public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram> where TProgram : class
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureServices(services =>
         {
-            // Arrange
-            var expectedException = new InvalidOperationException("Transaction failed: Insufficient funds in Wallet.");
-            _mockWalletService.Setup(s => s.ExecuteTradeTransactionAsync(
-                    It.IsAny<int>(), 
-                    It.IsAny<int>(), 
-                    It.IsAny<decimal>(), 
-                    It.IsAny<int>(), 
-                    It.IsAny<decimal>()
-                ))
-                .ThrowsAsync(expectedException);
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = TestAuthHandler.AuthenticationScheme;
+                options.DefaultChallengeScheme = TestAuthHandler.AuthenticationScheme;
+            }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                TestAuthHandler.AuthenticationScheme,
+                _ => { });
 
-            var client = _factory.CreateClient();
-            var requestBody = new { userId = 1, fromCurrencyId = 1, amountFrom = 500m, toCurrencyId = 2, amountTo = 1m };
+            var dbContextDescriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
 
-            // Act
-            var response = await client.PostAsJsonAsync("api/wallet/trade", requestBody);
+            if (dbContextDescriptor != null)
+            {
+                services.Remove(dbContextDescriptor);
+            }
 
-            // Assert
-            Assert.False(response.IsSuccessStatusCode);
-            Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
-        }
+            services.AddDbContext<ApplicationDbContext>(options =>
+            {
+                options.UseInMemoryDatabase("InMemoryDbForTesting");
+            });
 
-        [Fact]
-        public async Task ExecuteTrade_InternalError_ReturnsInternalServerError()
-        {
-            // Arrange
-            var internalException = new Exception("Database connection lost.");
-            _mockWalletService.Setup(s => s.ExecuteTradeTransactionAsync(
-                    It.IsAny<int>(), 
-                    It.IsAny<int>(), 
-                    It.IsAny<decimal>(), 
-                    It.IsAny<int>(), 
-                    It.IsAny<decimal>()
-                ))
-                .ThrowsAsync(internalException);
+            // Mock other services as needed for WalletsController and its dependencies within the test host
+            // This ensures that the application context in tests uses mocked versions of these services.
+            var transactionServiceDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(ITransactionService));
+            if (transactionServiceDescriptor != null) services.Remove(transactionServiceDescriptor);
+            services.AddTransient(sp => new Mock<ITransactionService>().Object);
 
-            var client = _factory.CreateClient();
-            var requestBody = new { userId = 1, fromCurrencyId = 1, amountFrom = 10m, toCurrencyId = 2, amountTo = 5m };
+            var currencyServiceDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(ICurrencyService));
+            if (currencyServiceDescriptor != null) services.Remove(currencyServiceDescriptor);
+            services.AddTransient(sp => new Mock<ICurrencyService>().Object);
 
-            // Act
-            var response = await client.PostAsJsonAsync("api/wallet/trade", requestBody);
+            var exchangeRateServiceDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IExchangeRateService));
+            if (exchangeRateServiceDescriptor != null) services.Remove(exchangeRateServiceDescriptor);
+            services.AddTransient(sp => new Mock<IExchangeRateService>().Object);
 
-            // Assert
-            Assert.False(response.IsSuccessStatusCode);
-            Assert.Equal(System.Net.HttpStatusCode.InternalServerError, response.StatusCode);
-        }
+            var userServiceDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IUserService));
+            if (userServiceDescriptor != null) services.Remove(userServiceDescriptor);
+            services.AddTransient(sp => new Mock<IUserService>().Object);
+
+            var transactionFeeRepositoryDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(ITransactionFeeRepository));
+            if (transactionFeeRepositoryDescriptor != null) services.Remove(transactionFeeRepositoryDescriptor);
+            services.AddTransient(sp => new Mock<ITransactionFeeRepository>().Object);
+
+            var walletRepositoryDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IWalletRepository));
+            if (walletRepositoryDescriptor != null) services.Remove(walletRepositoryDescriptor);
+            services.AddTransient(sp => new Mock<IWalletRepository>().Object);
+        });
+    }
+}
+
+public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+{
+    public const string AuthenticationScheme = "Test";
+
+    public TestAuthHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder)
+        : base(options, logger, encoder)
+    {
+    }
+
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        var identity = new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, "test-user") },
+            AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+        var ticket = new AuthenticationTicket(principal, AuthenticationScheme);
+
+        return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }

@@ -1,5 +1,6 @@
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ namespace GieudexPol.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CurrenciesController : ControllerBase
     {
         private readonly ICurrencyService _currencyService;
@@ -65,4 +67,4 @@ namespace GieudexPol.API.Controllers
             return NoContent();
         }
     }
-} 
+}

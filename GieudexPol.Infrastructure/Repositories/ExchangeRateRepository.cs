@@ -5,21 +5,17 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace GieudexPol.Infrastructure.Repositories
 {
     public class ExchangeRateRepository : GenericRepository<ExchangeRate>, IExchangeRateRepository
     {
-        public ExchangeRateRepository(ApplicationDbContext context, INbpExchangeRateClient nbpExchangeRateClient) : base(context)
+        public ExchangeRateRepository(ApplicationDbContext context) : base(context)
         {
-            _nbpExchangeRateClient = nbpExchangeRateClient;
         }
 
-        private readonly INbpExchangeRateClient _nbpExchangeRateClient;
-
-        public async Task<ExchangeRate> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
+        public async Task<ExchangeRate?> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
         {
             if (targetCurrencySymbol != "PLN")
             {
@@ -67,11 +63,18 @@ namespace GieudexPol.Infrastructure.Repositories
             return await GetChartDataAsync(currencySymbol, sourceCode, from, to);
         }
 
-        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode)
+        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode, string? currencyCode = null)
         {
-            var latestRatesQuery = _dbSet
+            var ratesForSource = _dbSet
                 .AsNoTracking()
-                .Where(er => er.RateSource.Code == sourceCode)
+                .Where(er => er.RateSource.Code == sourceCode);
+
+            if (!string.IsNullOrWhiteSpace(currencyCode))
+            {
+                ratesForSource = ratesForSource.Where(er => er.Currency.Symbol == currencyCode);
+            }
+
+            var latestRatesQuery = ratesForSource
                 .GroupBy(er => er.CurrencyId)
                 .Select(group => new
                 {
@@ -79,14 +82,12 @@ namespace GieudexPol.Infrastructure.Repositories
                     EffectiveDate = group.Max(er => er.EffectiveDate)
                 });
 
-            return await _dbSet
-                .AsNoTracking()
+            return await ratesForSource
                 .Join(
                     latestRatesQuery,
                     rate => new { rate.CurrencyId, rate.EffectiveDate },
                     latest => new { latest.CurrencyId, latest.EffectiveDate },
                     (rate, latest) => rate)
-                .Where(er => er.RateSource.Code == sourceCode)
                 .OrderBy(er => er.Currency.Symbol)
                 .Select(er => new ExchangeRateTableRowDto
                 {
@@ -101,30 +102,42 @@ namespace GieudexPol.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesFromNbpAsync(CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<ExchangeRate>> GetTradingRateCandidatesAsync(
+            IReadOnlyCollection<int> currencyIds,
+            DateTime oldestAcceptedDate,
+            DateTime notAfter)
         {
-            var nbpRates = await _nbpExchangeRateClient.GetLatestExchangeRatesAsync(cancellationToken);
-
-            var latestRates = new List<ExchangeRateTableRowDto>();
-
-            foreach (var table in nbpRates)
+            var requestedCurrencyIds = currencyIds.Distinct().ToList();
+            if (requestedCurrencyIds.Count == 0)
             {
-                foreach (var rate in table.Rates)
-                {
-                    latestRates.Add(new ExchangeRateTableRowDto
-                    {
-                        CurrencyCode = rate.Currency,
-                        CurrencyName = rate.Currency,
-                        SourceCode = table.Table,
-                        SourceName = table.Table,
-                        EffectiveDate = table.EffectiveDate,
-                        BuyPrice = rate.Bid,
-                        SellPrice = rate.Ask
-                    });
-                }
+                return Array.Empty<ExchangeRate>();
             }
 
-            return latestRates;
+            var applicableDate = await _dbSet
+                .AsNoTracking()
+                .Where(rate =>
+                    requestedCurrencyIds.Contains(rate.CurrencyId) &&
+                    rate.EffectiveDate >= oldestAcceptedDate.Date &&
+                    rate.EffectiveDate <= notAfter.Date)
+                .GroupBy(rate => rate.EffectiveDate)
+                .Where(group => group.Select(rate => rate.CurrencyId).Distinct().Count() == requestedCurrencyIds.Count)
+                .Select(group => (DateTime?)group.Key)
+                .OrderByDescending(date => date)
+                .FirstOrDefaultAsync();
+
+            if (!applicableDate.HasValue)
+            {
+                return Array.Empty<ExchangeRate>();
+            }
+
+            return await _dbSet
+                .AsNoTracking()
+                .Include(rate => rate.Currency)
+                .Include(rate => rate.RateSource)
+                .Where(rate =>
+                    requestedCurrencyIds.Contains(rate.CurrencyId) &&
+                    rate.EffectiveDate == applicableDate.Value)
+                .ToListAsync();
         }
 
         public async Task<bool> ExistsAsync(int currencyId, int rateSourceId, DateTime effectiveDate)

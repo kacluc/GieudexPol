@@ -1,0 +1,164 @@
+:host {
+  display: block;
+}
+
+.dashboard-container {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 34px 0 48px;
+}
+
+.dashboard-header {
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: #2357b7;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0 0 9px;
+  color: #172033;
+  font-size: clamp(1.9rem, 4vw, 2.7rem);
+}
+
+.intro {
+  margin: 0;
+  color: #5b6b84;
+}
+
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.section-card,
+.balance-panel {
+  border: 1px solid #d9e0ea;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(23, 32, 51, 0.05);
+}
+
+.section-card {
+  display: grid;
+  gap: 16px;
+  min-height: 154px;
+  padding: 18px;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.section-card:hover {
+  border-color: #2357b7;
+  transform: translateY(-2px);
+}
+
+.card-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card-heading h2,
+.panel-heading h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 1.08rem;
+}
+
+.card-heading span {
+  border-radius: 999px;
+  background: #e9f7ef;
+  color: #1c7046;
+  padding: 4px 8px;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+.card-heading span.planned {
+  background: #fff4df;
+  color: #945b00;
+}
+
+.section-card p {
+  margin: 0;
+  color: #5b6b84;
+  font-size: 0.92rem;
+}
+
+.section-card strong {
+  align-self: end;
+  color: #2357b7;
+  font-size: 0.9rem;
+}
+
+.balance-panel {
+  padding: 22px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.panel-heading a {
+  color: #2357b7;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 12px;
+}
+
+.balance {
+  display: grid;
+  gap: 6px;
+  border-radius: 8px;
+  background: #f4f7fc;
+  padding: 14px;
+}
+
+.balance span {
+  color: #5b6b84;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.status,
+.error-message {
+  margin: 0;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.status {
+  background: #f4f7fc;
+  color: #5b6b84;
+}
+
+.error-message {
+  background: #fff1f1;
+  color: #9a2626;
+}
+
+@media (max-width: 860px) {
+  .section-grid {
+    grid-template-columns: 1fr;
+  }
+}

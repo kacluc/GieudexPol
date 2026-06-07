@@ -7,23 +7,22 @@
   </section>
 
   <section class="toolbar" aria-label="Filtry kursow walut">
-    <div class="control-group currency-control">
+    <label class="currency-control">
       <span>Waluta</span>
-      <div class="segmented-control" role="group" aria-label="Waluta">
-        @for (item of currencies; track item) {
-          <button
-            type="button"
-            class="segment-button"
-            [class.is-active]="currency === item"
-            (click)="selectCurrency(item)"
+      <select name="currency" [(ngModel)]="currency" (ngModelChange)="selectCurrency($event)">
+        @for (item of currencies; track item.code) {
+          <option
+            [value]="item.code"
+            [disabled]="!isCurrencyAvailableForSource(item.code)"
+            [class.is-unavailable]="!isCurrencyAvailableForSource(item.code)"
           >
-            {{ item }}
-          </button>
+            {{ currencyOptionLabel(item) }}
+          </option>
         } @empty {
           <!-- Brak walut -->
         }
-      </div>
-    </div>
+      </select>
+    </label>
 
     <label>
       <span>Źródło</span>
@@ -38,12 +37,26 @@
 
     <label>
       <span>Od</span>
-      <input name="from" type="date" [(ngModel)]="from" />
+      <input
+        name="from"
+        type="date"
+        [(ngModel)]="from"
+        (ngModelChange)="onDateRangeChange()"
+        [min]="minimumRateDate"
+        [max]="maximumRateDate"
+      />
     </label>
 
     <label>
       <span>Do</span>
-      <input name="to" type="date" [(ngModel)]="to" />
+      <input
+        name="to"
+        type="date"
+        [(ngModel)]="to"
+        (ngModelChange)="onDateRangeChange()"
+        [min]="minimumRateDate"
+        [max]="maximumRateDate"
+      />
     </label>
 
     <button type="button" (click)="fetchData()" [disabled]="loading || syncingNbp">
@@ -71,7 +84,7 @@
     </div>
     <div class="fallback-note">
       <strong>Fallback dev:</strong>
-      <span>MOCK_BANK_A zostaje lokalnie, NBP pobiera sie automatycznie przy braku danych.</span>
+      <span>MOCK_BANK_A zostaje lokalnie, a zrodla zewnetrzne pobieraja sie przez backend przy braku danych.</span>
     </div>
   </section>
 

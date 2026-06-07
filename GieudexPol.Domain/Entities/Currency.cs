@@ -5,8 +5,8 @@ namespace GieudexPol.Domain.Entities
     public class Currency
     {
         public int Id { get; set; }
-        public string Symbol { get; set; }
-        public string Name { get; set; }
+        public string Symbol { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();
         public ICollection<ExchangeRate> ExchangeRates { get; set; } = new List<ExchangeRate>();

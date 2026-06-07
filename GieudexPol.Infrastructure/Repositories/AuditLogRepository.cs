@@ -14,7 +14,7 @@ namespace GieudexPol.Infrastructure.Repositories
         // For now, we'll use a simple in-memory collection.
         private readonly List<AuditLog> _auditLogs = new List<AuditLog>();
 
-        public async Task<AuditLog> GetByIdAsync(Guid id)
+        public async Task<AuditLog?> GetByIdAsync(Guid id)
         {
             return await Task.FromResult(_auditLogs.FirstOrDefault(al => al.Id == id));
         }

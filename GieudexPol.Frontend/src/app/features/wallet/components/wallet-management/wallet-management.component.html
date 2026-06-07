@@ -1,63 +1,181 @@
-<div class="card">
-  <h2 class="mb-4">💰 Zarządzanie Portfelem</h2>
+<div class="max-w-4xl mx-auto p-4">
+  <h2 class="text-2xl font-bold mb-4 text-center">Zarządzanie portfelem</h2>
 
-  <!-- Komunikat o wyniku transakcji -->
   @if (tradeMessage) {
-    <div [class]="'p-3 mb-4 rounded ' + (tradeMessage.startsWith('✅') ? 'bg-success text-white' : 'bg-danger text-white')">
+    <div [class]="'p-3 mb-4 rounded ' + (tradeMessage.startsWith('Sukces') ? 'bg-green-500 text-white' : 'bg-red-500 text-white')">
       {{ tradeMessage }}
     </div>
   }
 
-  <div class="balance-summary mb-5">
-    <h3 class="mb-3">Aktualne Saldo</h3>
-    <ul class="list-group">
+  <!-- Sekcja salda - zawsze widoczna -->
+  <div class="bg-white shadow-md rounded-lg p-4 mb-6">
+    <h3 class="text-xl font-semibold mb-3">Aktualne saldo</h3>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
       @for (currency of availableCurrencies; track currency) {
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <strong>{{ currency }}</strong>: {{ currentBalance[currency]?.toFixed(2) || '0.00' }} PLN
-        </li>
+        <div class="bg-gray-100 p-3 rounded-lg text-center">
+          <div class="font-medium">{{ currency }}</div>
+          <div class="text-lg font-bold">{{ currentBalance[currency]?.toFixed(2) || '0.00' }} {{ currency }}</div>
+        </div>
       } @empty {
-        <li class="list-group-item text-muted">Brak danych o saldzie portfela.</li>
+        <div class="text-gray-500">Brak danych o saldzie portfela.</div>
       }
-    </ul>
+    </div>
+
+    @if (addableCurrencies.length > 0) {
+      <div class="mt-4 pt-4 border-t border-gray-200">
+        <label for="newCurrency" class="block text-sm font-medium text-gray-700 mb-1">
+          Dodaj walute dostepna w kursach walut:
+        </label>
+        <div class="flex gap-2">
+          <select id="newCurrency" [(ngModel)]="newCurrencyId" name="newCurrency"
+                  class="flex-1 p-2 border border-gray-300 rounded-md">
+            @for (currency of addableCurrencies; track currency.id) {
+              <option [ngValue]="currency.id">{{ currency.symbol }} - {{ currency.name }}</option>
+            }
+          </select>
+          <button type="button" (click)="addCurrencyWallet()" [disabled]="isLoading || newCurrencyId === null"
+                  class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-blue-300">
+            Dodaj do salda
+          </button>
+        </div>
+      </div>
+    }
   </div>
 
-  <!-- Formularz transakcji wymiany -->
-  <div class="trade-form p-4 border rounded">
-    <h3 class="mb-4">Wymiana Walut</h3>
-    <form (ngSubmit)="executeTrade(fromCurrency.value, toCurrency.value, amount)">
-      <!-- Kontrola waluty źródłowej -->
-      <div class="input-group mb-3">
-        <label for="fromCurrency" class="form-label">Waluta źródłowa:</label>
-        <select id="fromCurrency" [(ngModel)]="fromCurrency.value" name="fromCurrency" required class="form-select">
-          @for (currency of availableCurrencies; track currency) {
-            <option [value]="currency">{{ currency }}</option>
-          } @empty {
-            <option disabled selected value="">Brak walut dostępnych</option>
-          }
-        </select>
-      </div>
-
-      <!-- Kontrola waluty docelowej -->
-      <div class="input-group mb-3">
-        <label for="toCurrency" class="form-label">Waluta docelowa:</label>
-        <select id="toCurrency" [(ngModel)]="toCurrency.value" name="toCurrency" required class="form-select">
-          @for (currency of availableCurrencies; track currency) {
-            <option [value]="currency">{{ currency }}</option>
-          } @empty {
-            <option disabled selected value="">Brak walut dostępnych</option>
-          }
-        </select>
-      </div>
-
-      <!-- Kontrola kwoty -->
-      <div class="input-group mb-4">
-        <label for="amount" class="form-label">Kwota do wymiany:</label>
-        <input type="number" id="amount" [(ngModel)]="amount" name="amount" required min="0.01" step="any" class="form-control">
-      </div>
-
-      <button type="submit" [disabled]="isLoading || fromCurrency.value === toCurrency.value" class="btn btn-primary">
-        {{ isLoading ? 'Ładowanie...' : 'Wykonaj Wymianę' }}
+  <!-- Zakładki -->
+  <div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <!-- Nagłówki zakładek -->
+    <div class="flex border-b border-gray-200">
+      <button
+        (click)="setActiveTab('exchange')"
+        [class]="'flex-1 py-3 px-4 text-center font-medium transition-colors ' + (activeTab === 'exchange' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">
+        Wymiana walut
       </button>
-    </form>
+      <button
+        (click)="setActiveTab('deposit')"
+        [class]="'flex-1 py-3 px-4 text-center font-medium transition-colors ' + (activeTab === 'deposit' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">
+        Wpłata środków
+      </button>
+      <button
+        (click)="setActiveTab('withdraw')"
+        [class]="'flex-1 py-3 px-4 text-center font-medium transition-colors ' + (activeTab === 'withdraw' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">
+        Wypłata środków
+      </button>
+    </div>
+
+    <!-- Panele zakładek -->
+    <div class="p-4">
+      <!-- Panel wymiany walut -->
+      @if (activeTab === 'exchange') {
+        <div class="space-y-4">
+          <form (ngSubmit)="executeTrade(fromCurrency, toCurrency, amount)" class="space-y-4">
+            <div>
+              <label for="fromCurrency" class="block text-sm font-medium text-gray-700 mb-1">Waluta źródłowa:</label>
+              <select id="fromCurrency" [(ngModel)]="fromCurrency" name="fromCurrency" required
+                      class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                @for (currency of availableCurrencies; track currency) {
+                  <option [value]="currency">{{ currency }}</option>
+                } @empty {
+                  <option disabled selected value="">Brak walut dostępnych</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label for="toCurrency" class="block text-sm font-medium text-gray-700 mb-1">Waluta docelowa:</label>
+              <select id="toCurrency" [(ngModel)]="toCurrency" name="toCurrency" required
+                      class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                @for (currency of availableCurrencies; track currency) {
+                  <option [value]="currency">{{ currency }}</option>
+                } @empty {
+                  <option disabled selected value="">Brak walut dostępnych</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Kwota do wymiany:</label>
+              <input type="number" id="amount" [(ngModel)]="amount" name="amount" required min="0.01" step="any"
+                     class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <button type="submit" [disabled]="isLoading || fromCurrency === toCurrency"
+                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:bg-blue-300">
+              {{ isLoading ? 'Przetwarzanie...' : 'Wykonaj wymianę' }}
+            </button>
+          </form>
+        </div>
+      }
+
+      <!-- Panel wpłaty -->
+      @if (activeTab === 'deposit') {
+        <div class="space-y-4">
+          <form (ngSubmit)="executeDeposit()" class="space-y-4">
+            <div>
+              <label for="depositCurrency" class="block text-sm font-medium text-gray-700 mb-1">Waluta:</label>
+              <select id="depositCurrency" [(ngModel)]="depositCurrency" name="depositCurrency" required
+                      class="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500">
+                @for (currency of availableCurrencies; track currency) {
+                  <option [value]="currency">{{ currency }}</option>
+                } @empty {
+                  <option disabled selected value="">Brak walut dostępnych</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label for="depositAmount" class="block text-sm font-medium text-gray-700 mb-1">Kwota do wpłaty:</label>
+              <input type="number" id="depositAmount" [(ngModel)]="depositAmount" name="depositAmount" required min="0.01" step="any"
+                     class="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500">
+            </div>
+
+            <button type="submit" [disabled]="isLoading"
+                    class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors disabled:bg-green-300">
+              {{ isLoading ? 'Przetwarzanie...' : 'Wpłać środki' }}
+            </button>
+          </form>
+        </div>
+      }
+
+      <!-- Panel wypłaty -->
+      @if (activeTab === 'withdraw') {
+        <div class="space-y-4">
+          <form (ngSubmit)="executeWithdraw()" class="space-y-4">
+            <div>
+              <label for="withdrawCurrency" class="block text-sm font-medium text-gray-700 mb-1">Waluta:</label>
+              <select id="withdrawCurrency" [(ngModel)]="withdrawCurrency" name="withdrawCurrency" required
+                      class="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500">
+                @for (currency of availableCurrencies; track currency) {
+                  <option [value]="currency">{{ currency }}</option>
+                } @empty {
+                  <option disabled selected value="">Brak walut dostępnych</option>
+                }
+              </select>
+            </div>
+
+            <div>
+              <label for="withdrawAmount" class="block text-sm font-medium text-gray-700 mb-1">Kwota do wypłaty:</label>
+              <input type="number" id="withdrawAmount" [(ngModel)]="withdrawAmount" name="withdrawAmount" required min="0.01" step="any"
+                     class="w-full p-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500">
+              <p class="text-sm text-gray-500 mt-1">
+                Dostępne saldo: {{ currentBalance[withdrawCurrency]?.toFixed(2) || '0.00' }} {{ withdrawCurrency }}
+              </p>
+            </div>
+
+            <button type="submit" [disabled]="isLoading"
+                    class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors disabled:bg-red-300">
+              {{ isLoading ? 'Przetwarzanie...' : 'Wypłać środki' }}
+            </button>
+          </form>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Przycisk przekierowania - zawsze widoczny -->
+  <div class="mt-4 text-center">
+    <button (click)="navigateToTransfer()" class="text-blue-600 hover:text-blue-800 underline transition-colors">
+      Przejdź do transferów między użytkownikami
+    </button>
   </div>
 </div>

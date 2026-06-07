@@ -1,13 +1,135 @@
 using GieudexPol.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AuthUser = GieudexPol.Domain.Auth.User;
 
 namespace GieudexPol.Infrastructure.Data
 {
     public static class DevelopmentDataSeeder
     {
         private const string DevelopmentSourceCode = "MOCK_BANK_A";
+        public const string DevelopmentUserEmail = "dev@gieudexpol.local";
+        public const string DevelopmentUserPassword = "DevPassword123!";
+        public const string DemoUserPassword = "DemoPassword123!";
+        private static readonly Guid DevelopmentUserAuthId = new("11111111-1111-1111-1111-111111111111");
+        private static readonly Guid DevelopmentTransferFeeId = new("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        private static readonly UserSeed[] SeedUsers =
+        [
+            new(
+                DevelopmentUserAuthId,
+                DevelopmentUserEmail,
+                "Development User",
+                DevelopmentUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 10_000m,
+                    ["EUR"] = 1_000m,
+                    ["USD"] = 1_000m,
+                    ["CHF"] = 500m,
+                    ["GBP"] = 500m
+                }),
+            new(
+                new Guid("22222222-2222-2222-2222-222222222222"),
+                "zbigniew.stonoga@gieudexpol.local",
+                "Zbigniew Stonoga",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 420_000m,
+                    ["EUR"] = 18_000m,
+                    ["USD"] = 12_500m
+                }),
+            new(
+                new Guid("33333333-3333-3333-3333-333333333333"),
+                "adam.malysz@gieudexpol.local",
+                "Adam Małysz",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 615_000m,
+                    ["EUR"] = 32_000m,
+                    ["CHF"] = 21_000m
+                }),
+            new(
+                new Guid("44444444-4444-4444-4444-444444444444"),
+                "robert.kubica@gieudexpol.local",
+                "Robert Kubica",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 940_000m,
+                    ["EUR"] = 75_000m,
+                    ["USD"] = 56_000m
+                }),
+            new(
+                new Guid("55555555-5555-5555-5555-555555555555"),
+                "robert.lewandowski@gieudexpol.local",
+                "Robert Lewandowski",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 1_800_000m,
+                    ["EUR"] = 180_000m,
+                    ["GBP"] = 90_000m
+                }),
+            new(
+                new Guid("66666666-6666-6666-6666-666666666666"),
+                "lukasz.stanislawowski@gieudexpol.local",
+                "Łukasz Stanisławowski",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 280_000m,
+                    ["USD"] = 6_666_666_666m,
+                    ["CHF"] = 7_000m
+                }),
+            new(
+                new Guid("77777777-7777-7777-7777-777777777777"),
+                "zenek.martyniuk@gieudexpol.local",
+                "Zenek Martyniuk",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 760_000m,
+                    ["EUR"] = 45_000m,
+                    ["GBP"] = 22_000m
+                }),
+            new(
+                new Guid("88888888-8888-8888-8888-888888888888"),
+                "maryla.rodowicz@gieudexpol.local",
+                "Maryla Rodowicz",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 880_000m,
+                    ["EUR"] = 62_000m,
+                    ["USD"] = 35_000m
+                }),
+            new(
+                new Guid("99999999-9999-9999-9999-999999999999"),
+                "teddy.kaczynski@gieudexpol.local",
+                "Teddy Kaczynski",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 350_000m,
+                    ["USD"] = 40_000m,
+                    ["CHF"] = 12_000m
+                }),
+            new(
+                new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                "janusz.kowalski@gieudexpol.local",
+                "Janusz Kowalski",
+                DemoUserPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 225_000m,
+                    ["EUR"] = 9_000m,
+                    ["USD"] = 8_000m
+                })
+        ];
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
@@ -23,23 +145,80 @@ namespace GieudexPol.Infrastructure.Data
             }
 
             var addedCurrencies = await SeedCurrenciesAsync(context);
+            var addedUsers = await SeedUsersAsync(context);
+            var addedWallets = await SeedWalletsAsync(context);
+            var addedTransactionFees = await SeedTransactionFeesAsync(context);
             var rateSource = await SeedRateSourceAsync(context);
             var addedRates = await SeedExchangeRatesAsync(context, rateSource);
 
             logger.LogInformation(
-                "Development seed completed. Added {CurrencyCount} currencies and {RateCount} exchange rates.",
+                "Development seed completed. Added {CurrencyCount} currencies, {UserCount} users, {WalletCount} wallets, {TransactionFeeCount} transaction fees and {RateCount} exchange rates.",
                 addedCurrencies,
+                addedUsers,
+                addedWallets,
+                addedTransactionFees,
                 addedRates);
+        }
+
+        private static async Task<int> SeedUsersAsync(ApplicationDbContext context)
+        {
+            var seedEmails = SeedUsers.Select(seed => seed.Email).ToList();
+            var existingUsers = await context.Users
+                .Where(user => seedEmails.Contains(user.Username))
+                .ToListAsync();
+            var existingUsersByEmail = existingUsers.ToDictionary(user => user.Username);
+            var passwordHasher = new PasswordHasher<AuthUser>();
+            var usersToAdd = new List<User>();
+
+            foreach (var seed in SeedUsers)
+            {
+                if (existingUsersByEmail.TryGetValue(seed.Email, out var existingUser))
+                {
+                    existingUser.DisplayName = seed.DisplayName;
+                    continue;
+                }
+
+                var authUser = new AuthUser(seed.AuthId, seed.Email, seed.Password);
+                usersToAdd.Add(new User
+                {
+                    AuthId = seed.AuthId,
+                    Username = seed.Email,
+                    DisplayName = seed.DisplayName,
+                    PasswordHash = passwordHasher.HashPassword(authUser, seed.Password),
+                    Role = "User"
+                });
+            }
+
+            if (usersToAdd.Count > 0)
+            {
+                await context.Users.AddRangeAsync(usersToAdd);
+            }
+
+            await context.SaveChangesAsync();
+            return usersToAdd.Count;
         }
 
         private static async Task<int> SeedCurrenciesAsync(ApplicationDbContext context)
         {
             var seedCurrencies = new[]
             {
+                new Currency { Symbol = "PLN", Name = "Polish Zloty", IsActive = true },
                 new Currency { Symbol = "EUR", Name = "Euro", IsActive = true },
                 new Currency { Symbol = "USD", Name = "US Dollar", IsActive = true },
                 new Currency { Symbol = "CHF", Name = "Swiss Franc", IsActive = true },
-                new Currency { Symbol = "GBP", Name = "British Pound", IsActive = true }
+                new Currency { Symbol = "GBP", Name = "British Pound", IsActive = true },
+                new Currency { Symbol = "HUF", Name = "Hungarian Forint", IsActive = true },
+                new Currency { Symbol = "CZK", Name = "Czech Koruna", IsActive = true },
+                new Currency { Symbol = "DKK", Name = "Danish Krone", IsActive = true },
+                new Currency { Symbol = "SEK", Name = "Swedish Krona", IsActive = true },
+                new Currency { Symbol = "NOK", Name = "Norwegian Krone", IsActive = true },
+                new Currency { Symbol = "RON", Name = "Romanian Leu", IsActive = true },
+                new Currency { Symbol = "TRY", Name = "Turkish Lira", IsActive = true },
+                new Currency { Symbol = "UAH", Name = "Ukrainian Hryvnia", IsActive = true },
+                new Currency { Symbol = "AUD", Name = "Australian Dollar", IsActive = true },
+                new Currency { Symbol = "CAD", Name = "Canadian Dollar", IsActive = true },
+                new Currency { Symbol = "JPY", Name = "Japanese Yen", IsActive = true },
+                new Currency { Symbol = "KRW", Name = "South Korean Won", IsActive = true }
             };
 
             var existingSymbols = await context.Currencies
@@ -60,6 +239,75 @@ namespace GieudexPol.Infrastructure.Data
             await context.SaveChangesAsync();
 
             return currenciesToAdd.Count;
+        }
+
+        private static async Task<int> SeedWalletsAsync(ApplicationDbContext context)
+        {
+            var seedEmails = SeedUsers.Select(seed => seed.Email).ToList();
+            var users = await context.Users
+                .Where(user => seedEmails.Contains(user.Username))
+                .ToDictionaryAsync(user => user.Username);
+            var symbols = SeedUsers
+                .SelectMany(seed => seed.Balances.Keys)
+                .Distinct()
+                .ToList();
+            var currencies = await context.Currencies
+                .Where(currency => symbols.Contains(currency.Symbol))
+                .ToDictionaryAsync(currency => currency.Symbol);
+            var userIds = users.Values.Select(user => user.Id).ToList();
+            var existingWallets = await context.Wallets
+                .Where(wallet => userIds.Contains(wallet.UserId))
+                .ToListAsync();
+            var existingWalletsByKey = existingWallets
+                .ToDictionary(wallet => (wallet.UserId, wallet.CurrencyId));
+            var walletsToAdd = new List<Wallet>();
+            var updatedWallets = 0;
+
+            foreach (var seed in SeedUsers)
+            {
+                if (!users.TryGetValue(seed.Email, out var user))
+                {
+                    continue;
+                }
+
+                foreach (var (symbol, balance) in seed.Balances)
+                {
+                    if (!currencies.TryGetValue(symbol, out var currency))
+                    {
+                        continue;
+                    }
+
+                    if (existingWalletsByKey.TryGetValue((user.Id, currency.Id), out var existingWallet))
+                    {
+                        if (seed.Email == "lukasz.stanislawowski@gieudexpol.local" &&
+                            symbol == "USD" &&
+                            existingWallet.Balance == 15_500m)
+                        {
+                            existingWallet.Balance = balance;
+                            updatedWallets++;
+                        }
+
+                        continue;
+                    }
+
+                    walletsToAdd.Add(new Wallet
+                    {
+                        UserId = user.Id,
+                        CurrencyId = currency.Id,
+                        Balance = balance
+                    });
+                }
+            }
+
+            if (walletsToAdd.Count == 0 && updatedWallets == 0)
+            {
+                return 0;
+            }
+
+            await context.Wallets.AddRangeAsync(walletsToAdd);
+            await context.SaveChangesAsync();
+
+            return walletsToAdd.Count + updatedWallets;
         }
 
         private static async Task<RateSource> SeedRateSourceAsync(ApplicationDbContext context)
@@ -85,6 +333,32 @@ namespace GieudexPol.Infrastructure.Data
             return rateSource;
         }
 
+        private static async Task<int> SeedTransactionFeesAsync(ApplicationDbContext context)
+        {
+            var transferFee = await context.Set<TransactionFee>()
+                .FirstOrDefaultAsync(fee => fee.Type == "Transfer");
+
+            if (transferFee != null)
+            {
+                transferFee.FeePercentage = 0.25m;
+                transferFee.FlatFee = 0m;
+                transferFee.IsActive = true;
+                await context.SaveChangesAsync();
+                return 0;
+            }
+
+            await context.Set<TransactionFee>().AddAsync(new TransactionFee
+            {
+                Id = DevelopmentTransferFeeId,
+                Type = "Transfer",
+                FeePercentage = 0.25m,
+                FlatFee = 0m,
+                IsActive = true
+            });
+            await context.SaveChangesAsync();
+            return 1;
+        }
+
         private static async Task<int> SeedExchangeRatesAsync(ApplicationDbContext context, RateSource rateSource)
         {
             var startDate = new DateTime(2026, 1, 1);
@@ -100,7 +374,19 @@ namespace GieudexPol.Infrastructure.Data
                 new CurrencyRateSeed("EUR", 4.30m, 0.00035m, 0.045m),
                 new CurrencyRateSeed("USD", 3.95m, -0.00015m, 0.040m),
                 new CurrencyRateSeed("CHF", 4.55m, 0.00025m, 0.055m),
-                new CurrencyRateSeed("GBP", 5.05m, 0.00020m, 0.065m)
+                new CurrencyRateSeed("GBP", 5.05m, 0.00020m, 0.065m),
+                new CurrencyRateSeed("HUF", 1.08m, 0.00010m, 0.020m),
+                new CurrencyRateSeed("CZK", 0.17m, 0.00002m, 0.006m),
+                new CurrencyRateSeed("DKK", 0.58m, 0.00004m, 0.012m),
+                new CurrencyRateSeed("SEK", 0.39m, -0.00002m, 0.010m),
+                new CurrencyRateSeed("NOK", 0.37m, 0.00001m, 0.010m),
+                new CurrencyRateSeed("RON", 0.86m, 0.00003m, 0.018m),
+                new CurrencyRateSeed("TRY", 0.12m, -0.00004m, 0.008m),
+                new CurrencyRateSeed("UAH", 0.095m, -0.00001m, 0.007m),
+                new CurrencyRateSeed("AUD", 2.55m, 0.00012m, 0.035m),
+                new CurrencyRateSeed("CAD", 2.90m, 0.00010m, 0.035m),
+                new CurrencyRateSeed("JPY", 2.65m, -0.00008m, 0.030m),
+                new CurrencyRateSeed("KRW", 0.28m, 0.00001m, 0.009m)
             };
 
             var symbols = currencyModels.Select(model => model.Symbol).ToList();
@@ -191,5 +477,12 @@ namespace GieudexPol.Infrastructure.Data
             decimal StartMidPrice,
             decimal DailyTrend,
             decimal BaseSpread);
+
+        private sealed record UserSeed(
+            Guid AuthId,
+            string Email,
+            string DisplayName,
+            string Password,
+            IReadOnlyDictionary<string, decimal> Balances);
     }
 }

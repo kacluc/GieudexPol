@@ -1,5 +1,7 @@
+using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -8,20 +10,31 @@ namespace GieudexPol.Application.Services
     public class TransactionService : ITransactionService
     {
         private readonly ITransactionRepository _transactionRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IWalletRepository _walletRepository;
+        private readonly ITransactionFeeRepository _transactionFeeRepository;
 
-        public TransactionService(ITransactionRepository transactionRepository)
+        public TransactionService(
+            ITransactionRepository transactionRepository,
+            IUserRepository userRepository,
+            IWalletRepository walletRepository,
+            ITransactionFeeRepository transactionFeeRepository)
         {
             _transactionRepository = transactionRepository;
+            _userRepository = userRepository;
+            _walletRepository = walletRepository;
+            _transactionFeeRepository = transactionFeeRepository;
         }
 
-        public async Task<Transaction> GetByIdAsync(int id)
+        public async Task<Transaction?> GetByIdAsync(int id)
         {
             return await _transactionRepository.GetByIdAsync(id);
         }
 
         public async Task<IEnumerable<Transaction>> GetAllAsync()
         {
-            return await _transactionRepository.GetAllAsync();
+            // Assuming a method to get all transactions, or adapt GetByUserIdAsync for all users
+            return await _transactionRepository.GetByUserIdAsync(0); // This might need adjustment based on repository implementation
         }
 
         public async Task AddAsync(Transaction entity)
@@ -36,12 +49,100 @@ namespace GieudexPol.Application.Services
 
         public async Task DeleteAsync(Transaction entity)
         {
-            await _transactionRepository.DeleteAsync(entity);
+            await _transactionRepository.DeleteAsync(entity.Id);
         }
 
-        public async Task<IEnumerable<Transaction>> GetUserTransactionsAsync(int userId)
+        public async Task<Transaction> CreateTransfer(TransferRequest request)
         {
-            return await _transactionRepository.GetUserTransactionsAsync(userId);
+            var transactionFee = await _transactionFeeRepository.GetActiveTransactionFeeByTypeAsync("Transfer");
+            if (transactionFee == null)
+            {
+                throw new InvalidOperationException("No active transaction fee found for transfers.");
+            }
+
+            var sender = await _userRepository.GetByIdAsync(request.SenderId);
+            if (sender == null)
+            {
+                throw new ArgumentException("Sender not found.");
+            }
+
+            var receiverEmail = request.ReceiverUsername.Trim();
+            var receiver = await _userRepository.GetByUsernameAsync(receiverEmail);
+            if (receiver == null)
+            {
+                throw new ArgumentException("Receiver not found.");
+            }
+
+            if (sender.Id == receiver.Id)
+            {
+                throw new ArgumentException("Cannot transfer money to yourself.");
+            }
+
+            // Calculate the fee
+            decimal calculatedFee = request.Amount * (transactionFee.FeePercentage / 100) + transactionFee.FlatFee;
+            decimal totalAmountToDeduct = request.Amount + calculatedFee;
+
+            var senderWallet = await _walletRepository.GetUserWalletAsync(request.SenderId, request.CurrencyId);
+            if (senderWallet == null || senderWallet.Balance < totalAmountToDeduct)
+            {
+                throw new InvalidOperationException("Insufficient funds or wallet not found for sender.");
+            }
+
+            var receiverWallet = await _walletRepository.GetUserWalletAsync(receiver.Id, request.CurrencyId);
+            if (receiverWallet == null)
+            {
+                // Create receiver wallet if it doesn\"t exist for the currency
+                receiverWallet = new Wallet
+                {
+                    UserId = receiver.Id,
+                    CurrencyId = request.CurrencyId,
+                    Balance = 0m // Initialize with 0
+                };
+                await _walletRepository.AddAsync(receiverWallet);
+            }
+
+            var transaction = new Transaction
+            {
+                SenderId = request.SenderId,
+                ReceiverId = receiver.Id,
+                Amount = request.Amount,
+                CurrencyId = request.CurrencyId,
+                Timestamp = DateTime.UtcNow,
+                Status = "Pending",
+                TransactionType = "Transfer",
+                AppliedFee = calculatedFee,
+                TransactionFeeId = transactionFee.Id
+            };
+
+            await _transactionRepository.AddAsync(transaction);
+
+            try
+            {
+                // Deduct from sender\"s wallet (amount + fee)
+                senderWallet.Balance -= totalAmountToDeduct;
+                await _walletRepository.UpdateAsync(senderWallet);
+
+                // Add to receiver\"s wallet (only amount)
+                receiverWallet.Balance += request.Amount;
+                await _walletRepository.UpdateAsync(receiverWallet);
+
+                transaction.Status = "Completed";
+                await _transactionRepository.UpdateAsync(transaction);
+            }
+            catch (Exception ex)
+            {
+                transaction.Status = "Failed";
+                await _transactionRepository.UpdateAsync(transaction);
+                // Log the exception
+                throw new InvalidOperationException("Transaction failed due to an error.", ex);
+            }
+
+            return transaction;
+        }
+
+        public async Task<IEnumerable<Transaction>> GetUserTransactions(int userId)
+        {
+            return await _transactionRepository.GetByUserIdAsync(userId);
         }
     }
 }

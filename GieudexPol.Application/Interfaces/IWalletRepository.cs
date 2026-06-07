@@ -9,9 +9,17 @@ namespace GieudexPol.Application.Interfaces
         Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId);
         Task DebitWalletBalanceAsync(int walletId, decimal amount);
         Task CreditWalletBalanceAsync(int walletId, decimal amount);
+        Task<Wallet?> GetUserWalletAsync(int userId, int currencyId);
+        Task ExecuteTradeAsync(
+            Wallet fromWallet,
+            decimal amountFrom,
+            Wallet toWallet,
+            decimal amountTo,
+            Transaction sellTransaction,
+            Transaction buyTransaction);
         
         // Dodane metody CRUD do kontraktu repozytorium
-        Task<Wallet> GetByIdAsync(int id);
+        Task<Wallet?> GetByIdAsync(int id);
         Task AddAsync(Wallet entity);
         Task UpdateAsync(Wallet entity);
         Task<IEnumerable<Wallet>> GetAllAsync();

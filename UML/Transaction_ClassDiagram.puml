@@ -1,0 +1,132 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package "GieudexPol.Domain.Entities" {
+    class Transaction {
+        + Id: int
+        + SenderId: int
+        + ReceiverId: int
+        + Amount: decimal
+        + CurrencyId: int
+        + Status: string
+        + TransactionType: string
+        + AppliedFee: decimal
+        + TransactionFeeId: Guid?
+        + Timestamp: DateTime
+    }
+
+    class User {
+        + Id: int
+        + Username: string
+    }
+
+    class Wallet {
+        + Id: int
+        + UserId: int
+        + CurrencyId: int
+        + Balance: decimal
+        --
+        + Debit(amount: decimal): void
+        + Credit(amount: decimal): void
+    }
+
+    class Currency {
+        + Id: int
+        + Symbol: string
+        + Name: string
+        + IsActive: bool
+    }
+
+    class TransactionFee {
+        + Id: Guid
+        + Type: string
+        + FeePercentage: decimal
+        + FlatFee: decimal
+        + IsActive: bool
+    }
+}
+
+package "GieudexPol.Application.Interfaces" {
+    interface IRepository<T> {
+        + GetByIdAsync(id: int): Task<T>
+        + GetAllAsync(): Task<IEnumerable<T>>
+        + AddAsync(entity: T): Task
+        + UpdateAsync(entity: T): Task
+        + DeleteAsync(entity: T): Task
+    }
+
+    interface ITransactionRepository {
+        + GetByUserIdAsync(userId: int): Task<IEnumerable<Transaction>>
+    }
+
+    interface IUserRepository {
+        + GetByIdAsync(id: int): Task<User>
+        + GetByUsernameAsync(username: string): Task<User>
+    }
+
+    interface IWalletRepository {
+        + GetUserWalletAsync(userId: int, currencyId: int): Task<Wallet>
+    }
+
+    interface ITransactionFeeRepository {
+        + GetActiveTransactionFeeByTypeAsync(type: string): Task<TransactionFee>
+    }
+
+    interface ITransactionService {
+        + GetByIdAsync(id: int): Task<Transaction>
+        + GetAllAsync(): Task<IEnumerable<Transaction>>
+        + AddAsync(entity: Transaction): Task
+        + UpdateAsync(entity: Transaction): Task
+        + DeleteAsync(entity: Transaction): Task
+        + CreateTransfer(request: TransferRequest): Task<Transaction>
+        + GetUserTransactions(userId: int): Task<IEnumerable<Transaction>>
+    }
+}
+
+package "GieudexPol.Application.Services" {
+    class TransactionService {
+        - _transactionRepository: ITransactionRepository
+        - _userRepository: IUserRepository
+        - _walletRepository: IWalletRepository
+        - _transactionFeeRepository: ITransactionFeeRepository
+        --
+        + TransactionService(transactionRepository: ITransactionRepository, userRepository: IUserRepository, walletRepository: IWalletRepository, transactionFeeRepository: ITransactionFeeRepository)
+        + GetByIdAsync(id: int): Task<Transaction>
+        + GetAllAsync(): Task<IEnumerable<Transaction>>
+        + AddAsync(entity: Transaction): Task
+        + UpdateAsync(entity: Transaction): Task
+        + DeleteAsync(entity: Transaction): Task
+        + CreateTransfer(request: TransferRequest): Task<Transaction>
+        + GetUserTransactions(userId: int): Task<IEnumerable<Transaction>>
+    }
+}
+
+package "GieudexPol.Application.DTOs" {
+    class TransferRequest {
+        + SenderId: int
+        + ReceiverUsername: string
+        + Amount: decimal
+        + CurrencyId: int
+    }
+}
+
+'Transaction' --> 'User' : "Sender"
+'Transaction' --> 'User' : "Receiver"
+'Transaction' --> 'Currency'
+'Transaction' --> 'TransactionFee'
+'Wallet' --> 'User'
+'Wallet' --> 'Currency'
+
+'ITransactionService' <|-- 'TransactionService'
+'ITransactionRepository' <|-- 'IRepository'
+'IUserRepository' <|-- 'IRepository'
+'IWalletRepository' <|-- 'IRepository'
+'ITransactionFeeRepository' <|-- 'IRepository'
+
+'TransactionService' ..> 'ITransactionRepository'
+'TransactionService' ..> 'IUserRepository'
+'TransactionService' ..> 'IWalletRepository'
+'TransactionService' ..> 'ITransactionFeeRepository'
+'TransactionService' ..> 'TransferRequest'
+
+@enduml

@@ -1,0 +1,33 @@
+<section class="alerts-page">
+  <header>
+    <p class="eyebrow">Monitorowanie</p>
+    <h1>Alerty cenowe</h1>
+    <p>Progi kursowe zdefiniowane dla Twoich walut.</p>
+  </header>
+
+  @if (isLoading) {
+    <div class="state">Ladowanie alertow...</div>
+  } @else if (errorMessage) {
+    <div class="state error">{{ errorMessage }}</div>
+  } @else if (alerts.length === 0) {
+    <div class="state">
+      Brak zapisanych alertow. Dane kursowe mozesz przegladac w module
+      <a routerLink="/rates">Kursy walut</a>.
+    </div>
+  } @else {
+    <div class="alert-list">
+      @for (alert of alerts; track alert.id) {
+        <article>
+          <div>
+            <strong>Waluta #{{ alert.currencyId }}</strong>
+            <span>Utworzono: {{ alert.createdAt | date:'dd.MM.yyyy' }}</span>
+          </div>
+          <div class="threshold">{{ alert.targetPrice | number:'1.2-4' }} PLN</div>
+          <span class="badge" [class.inactive]="!alert.isActive">
+            {{ alert.isActive ? 'Aktywny' : 'Nieaktywny' }}
+          </span>
+        </article>
+      }
+    </div>
+  }
+</section>

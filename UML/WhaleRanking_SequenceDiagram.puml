@@ -1,0 +1,150 @@
+@startuml
+actor User as user
+participant "WhaleRankingListComponent" as frontend
+participant "WhaleRankingService (Angular)" as frontendService
+participant "WhaleRankingController" as backendController
+participant "WhaleRankingService (Application)" as appService
+participant "IWhaleRankingRepository" as whaleRankingRepo
+participant "IUserRepository" as userRepo
+participant "IWalletRepository" as walletRepo
+participant "ICurrencyRepository" as currencyRepo
+participant "IExchangeRateRepository" as exchangeRateRepo
+database "ApplicationDbContext" as db
+
+== Pobieranie rankingu ==
+user -> frontend: Otwarcie strony rankingu
+activate frontend
+
+frontend -> frontendService: getAllWhaleRankings()
+activate frontendService
+
+frontendService -> backendController: GET /api/whale-ranking
+activate backendController
+
+backendController -> appService: GetAllAsync()
+activate appService
+
+appService -> whaleRankingRepo: GetAllAsync()
+activate whaleRankingRepo
+whaleRankingRepo -> db: SELECT * FROM WhaleRankings
+db --> whaleRankingRepo: Lista WhaleRanking
+whaleRankingRepo --> appService: Lista WhaleRanking
+deactivate whaleRankingRepo
+
+appService --> backendController: Lista WhaleRanking
+deactivate appService
+
+backendController --> frontendService: 200 OK {Lista WhaleRanking}
+deactivate backendController
+
+frontendService --> frontend: Lista WhaleRanking
+deactivate frontendService
+
+frontend -> frontend: Wyświetlenie rankingu
+deactivate frontend
+
+== Odświeżanie rankingu ==
+user -> frontend: Kliknięcie "Odśwież Ranking"
+activate frontend
+
+frontend -> frontendService: refreshRanking()
+activate frontendService
+
+frontendService -> backendController: POST /api/whale-ranking/refresh
+activate backendController
+
+backendController -> appService: RefreshRankingAsync()
+activate appService
+
+appService -> whaleRankingRepo: RefreshRankingAsync()
+activate whaleRankingRepo
+
+whaleRankingRepo -> userRepo: GetAllAsync()
+activate userRepo
+userRepo -> db: SELECT * FROM Users
+db --> userRepo: Lista User
+userRepo --> whaleRankingRepo: Lista User
+deactivate userRepo
+
+whaleRankingRepo -> whaleRankingRepo: Inicjalizacja listy WhaleRanking
+
+loop Dla każdego użytkownika
+    whaleRankingRepo -> walletRepo: GetUserWalletsAsync(userId)
+    activate walletRepo
+    walletRepo -> db: SELECT * FROM Wallets WHERE UserId = @userId
+    db --> walletRepo: Lista Wallet
+    walletRepo --> whaleRankingRepo: Lista Wallet
+    deactivate walletRepo
+
+    whaleRankingRepo -> whaleRankingRepo: Inicjalizacja TotalPortfolioValue = 0
+
+    loop Dla każdego portfela
+        whaleRankingRepo -> exchangeRateRepo: GetLatestExchangeRate(currencyId)
+        activate exchangeRateRepo
+        exchangeRateRepo -> db: SELECT TOP 1 * FROM ExchangeRates WHERE CurrencyId = @currencyId ORDER BY EffectiveDate DESC
+        db --> exchangeRateRepo: ExchangeRate
+        exchangeRateRepo --> whaleRankingRepo: ExchangeRate
+        deactivate exchangeRateRepo
+
+        whaleRankingRepo -> whaleRankingRepo: Oblicz wartość portfela (Balance * ExchangeRate.BuyPrice)
+    end
+
+    whaleRankingRepo -> whaleRankingRepo: Dodaj WhaleRanking do listy
+end
+
+whaleRankingRepo -> whaleRankingRepo: Sortowanie listy według TotalPortfolioValue
+whaleRankingRepo -> whaleRankingRepo: Przypisanie rang
+
+whaleRankingRepo -> db: DELETE FROM WhaleRankings
+db --> whaleRankingRepo: Usunięto
+
+whaleRankingRepo -> db: INSERT INTO WhaleRankings (UserId, TotalPortfolioValue, Rank, LastUpdated) VALUES (...)
+db --> whaleRankingRepo: Dodano
+
+whaleRankingRepo --> appService: Sukces
+deactivate whaleRankingRepo
+
+appService --> backendController: Sukces
+deactivate appService
+
+backendController --> frontendService: 200 OK
+deactivate backendController
+
+frontendService --> frontend: Sukces
+deactivate frontendService
+
+frontend -> frontend: Odświeżenie rankingu
+deactivate frontend
+
+== Pobieranie top N użytkowników ==
+user -> frontend: Wybór top N użytkowników
+activate frontend
+
+frontend -> frontendService: getTopWhales(topN)
+activate frontendService
+
+frontendService -> backendController: GET /api/whale-ranking/top/{topN}
+activate backendController
+
+backendController -> appService: GetTopWhalesAsync(topN)
+activate appService
+
+appService -> whaleRankingRepo: GetTopWhalesAsync(topN)
+activate whaleRankingRepo
+whaleRankingRepo -> db: SELECT TOP @topN * FROM WhaleRankings ORDER BY TotalPortfolioValue DESC
+db --> whaleRankingRepo: Lista WhaleRanking
+whaleRankingRepo --> appService: Lista WhaleRanking
+deactivate whaleRankingRepo
+
+appService --> backendController: Lista WhaleRanking
+deactivate appService
+
+backendController --> frontendService: 200 OK {Lista WhaleRanking}
+deactivate backendController
+
+frontendService --> frontend: Lista WhaleRanking
+deactivate frontendService
+
+frontend -> frontend: Wyświetlenie top N użytkowników
+deactivate frontend
+@enduml

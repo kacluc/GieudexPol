@@ -13,14 +13,16 @@ namespace GieudexPol.Tests.Domain.Tests.Auth
             var id = Guid.NewGuid();
             var email = "test@example.com";
             var hashedPassword = "hashedpassword123";
+            var applicationUserId = 7;
 
             // Act
-            var user = new User(id, email, hashedPassword);
+            var user = new User(id, email, hashedPassword, applicationUserId);
 
             // Assert
             Assert.Equal(id, user.Id);
             Assert.Equal(email, user.Email);
             Assert.Equal(hashedPassword, user.HashedPassword);
+            Assert.Equal(applicationUserId, user.ApplicationUserId);
         }
 
         [Fact]

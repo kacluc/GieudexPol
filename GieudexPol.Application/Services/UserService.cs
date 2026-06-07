@@ -14,7 +14,7 @@ namespace GieudexPol.Application.Services
             _userRepository = userRepository;
         }
 
-        public async Task<User> GetByIdAsync(int id)
+        public async Task<User?> GetByIdAsync(int id)
         {
             return await _userRepository.GetByIdAsync(id);
         }
@@ -39,7 +39,7 @@ namespace GieudexPol.Application.Services
             await _userRepository.DeleteAsync(entity);
         }
 
-        public async Task<User> GetByUsernameAsync(string username)
+        public async Task<User?> GetByUsernameAsync(string username)
         {
             return await _userRepository.GetByUsernameAsync(username);
         }

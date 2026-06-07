@@ -4,6 +4,7 @@ namespace GieudexPol.Application.Interfaces
 {
     public interface ICurrencyRepository : IRepository<Currency>
     {
-        Task<Currency> GetBySymbolAsync(string symbol);
+        Task<Currency?> GetBySymbolAsync(string symbol);
+        Task<IReadOnlyList<Currency>> GetTradableCurrenciesAsync();
     }
 }

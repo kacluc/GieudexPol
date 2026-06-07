@@ -1,0 +1,92 @@
+@startuml
+!theme amiga
+
+title Diagram Sekwencji - Operacja Wypłaty Środków (Withdrawal)
+
+actor Użytkownik as User
+participant "WalletManagementComponent" as Frontend
+participant "WalletService (Angular)" as FrontendService
+participant "WalletsController" as BackendController
+participant "WalletService (Application)" as AppService
+participant "IWalletRepository" as WalletRepo
+participant "ITransactionRepository" as TransactionRepo
+database "ApplicationDbContext" as Db
+
+User -> Frontend: Wybiera zakładkę "Wypłata środków"
+activate Frontend
+
+User -> Frontend: Wprowadza dane (waluta, kwota)
+Frontend -> Frontend: Walidacja danych (klient)
+
+Frontend -> FrontendService: executeWithdraw(withdrawCurrency, withdrawAmount)
+activate FrontendService
+
+FrontendService -> BackendController: POST /api/wallets/withdraw?userId={userId} {currencyId, amount}
+activate BackendController
+
+BackendController -> AppService: WithdrawAsync(userId, currencyId, amount)
+activate AppService
+
+AppService -> AppService: Walidacja kwoty (amount > 0)
+alt Kwota niepoprawna
+    AppService --> BackendController: ArgumentException("Kwota musi być większa od zera")
+    BackendController --> FrontendService: 400 Bad Request
+    FrontendService --> Frontend: Wyświetl błąd
+    Frontend -> User: Pokaz komunikat o błędzie
+else Kwota poprawna
+    AppService -> WalletRepo: GetUserWalletsAsync(userId)
+    activate WalletRepo
+    WalletRepo -> Db: SELECT * FROM Wallets WHERE UserId = @userId
+    Db --> WalletRepo: Lista portfeli użytkownika
+    WalletRepo --> AppService: WalletDto[]
+    deactivate WalletRepo
+
+    AppService -> AppService: Znajdź portfel dla danej waluty
+    alt Portfel nie istnieje
+        AppService --> BackendController: InvalidOperationException("Brak portfela dla waluty")
+        BackendController --> FrontendService: 400 Bad Request
+        FrontendService --> Frontend: Wyświetl błąd
+        Frontend -> User: Pokaz komunikat o błędzie
+    else Portfel istnieje
+        AppService -> AppService: Sprawdź dostępne środki (Balance >= amount)
+        alt Niewystarczające środki
+            AppService --> BackendController: InvalidOperationException("Niewystarczające środki na koncie")
+            BackendController --> FrontendService: 400 Bad Request
+            FrontendService --> Frontend: Wyświetl błąd
+            Frontend -> User: Pokaz komunikat o błędzie
+        else Wystarczające środki
+            AppService -> WalletRepo: DebitWalletBalanceAsync(walletId, amount)
+            activate WalletRepo
+            WalletRepo -> Db: UPDATE Wallets SET Balance = Balance - @amount WHERE Id = @walletId
+            Db --> WalletRepo: Zaktualizowane
+            WalletRepo --> AppService: Sukces
+            deactivate WalletRepo
+
+            AppService -> TransactionRepo: AddAsync(Transaction)
+            activate TransactionRepo
+            TransactionRepo -> Db: INSERT INTO Transactions (UserId, CurrencyId, Amount, TransactionType, ...)
+            Db --> TransactionRepo: Utworzone
+            TransactionRepo --> AppService: Transaction
+            deactivate TransactionRepo
+
+            AppService --> BackendController: Sukces
+            deactivate AppService
+
+            BackendController --> FrontendService: 200 OK
+            deactivate BackendController
+
+            FrontendService --> Frontend: Sukces
+            deactivate FrontendService
+
+            Frontend -> Frontend: Odśwież salda
+            Frontend -> User: Pokaz komunikat o sukcesie
+        end
+    end
+end
+
+deactivate Frontend
+
+note over AppService: Transakcja typu "Withdrawal" jest rejestrowana
+note over WalletRepo: Operacja jest transakcyjna (ACID)
+note over AppService: Walidacja środków chroni przed ujemnym saldem
+@enduml

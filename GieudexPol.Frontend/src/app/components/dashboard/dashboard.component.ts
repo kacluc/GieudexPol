@@ -1,40 +1,103 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common'; // Potrzebne dla *ngIf i *ngFor
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { WalletService } from '../../features/wallet/services/wallet.service';
-import { AuthService } from '../../features/auth/services/auth.service';
+
 @Component({
   selector: 'app-dashboard',
-  standalone: true, 
-  imports: [CommonModule], // CommonModule jest wystarczający dla *ngIf itp.
-  templateUrl: './dashboard.component.html'
+  standalone: true,
+  imports: [CommonModule, RouterLink],
+  templateUrl: './dashboard.component.html',
+  styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit {
-  // Saldo i dane użytkownika
-  userEmail: string = '';
+  userEmail = '';
   currentBalance: { [key: string]: number } = {};
-  availableCurrencies: string[] = []; // Nowa tablica do przechowywania kluczy walut
-  isLoading: boolean = true;
-  constructor(private walletService: WalletService, private authService: AuthService) {} 
+  availableCurrencies: string[] = [];
+  isLoading = true;
+  errorMessage: string | null = null;
+
+  readonly sections = [
+    {
+      title: 'Kursy walut',
+      description: 'Wykres i dane kursowe z dostepnych zrodel.',
+      route: '/rates',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Portfel',
+      description: 'Saldo, wymiana walut, wplaty i wyplaty.',
+      route: '/wallet',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Ulubione waluty',
+      description: 'Symulator wymiany i lista wybranych walut.',
+      route: '/converter',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Transfer',
+      description: 'Transfer srodkow pomiedzy uzytkownikami.',
+      route: '/transfer',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Historia transakcji',
+      description: 'Rejestr operacji zapisanych dla uzytkownika.',
+      route: '/history',
+      status: 'Dostepne',
+    },
+    {
+      title: 'Order book',
+      description: 'Planowany podglad ofert kupna i sprzedazy.',
+      route: '/orderbook',
+      status: 'W przygotowaniu',
+    },
+     {
+       title: 'Alerty cenowe',
+       description: 'Progi cenowe zapisane dla walut.',
+       route: '/alerts',
+       status: 'Dostepne',
+     },
+     {
+       title: 'Ranking Waleni',
+       description: 'Ranking najbogatszych uzytkownikow.',
+       route: '/whale-ranking',
+       status: 'Dostepne',
+     },
+  ];
+
+  constructor(
+    private readonly walletService: WalletService,
+    private readonly changeDetector: ChangeDetectorRef,
+  ) {}
+
   ngOnInit(): void {
-    this.loadDashboardData();
+    void this.loadDashboardData();
   }
+
   async loadDashboardData(): Promise<void> {
-    // Pobieranie danych użytkownika z pamięci lokalnej (z AuthService)
-    this.userEmail = localStorage.getItem('userEmail') || 'Niewiadoma'; 
-    console.log('Ładowanie danych Dashboardu...');
-    await new Promise(resolve => setTimeout(resolve, 500)); // Symulowany delay API
-    // Wywołanie usługi do pobrania aktualnego salda portfela
-    // Zakładamy, że WalletService ma metodę getBalance() zwracającą { [key: string]: number }
-    this.currentBalance = await this.walletService.getBalance(); 
-    
-    if (this.currentBalance) {
-        this.availableCurrencies = Object.keys(this.currentBalance); // Uzupełniamy listę walut
-    } else {
-        this.availableCurrencies = [];
+    this.userEmail = localStorage.getItem('userEmail') || 'Niewiadoma';
+    this.isLoading = true;
+    this.errorMessage = null;
+
+    try {
+      const userId = Number(localStorage.getItem('userId'));
+      if (!Number.isInteger(userId) || userId <= 0) {
+        throw new Error('Brak identyfikatora zalogowanego uzytkownika.');
+      }
+
+      this.currentBalance = await this.walletService.getBalance(userId);
+      this.availableCurrencies = Object.keys(this.currentBalance ?? {});
+    } catch (error) {
+      console.error('Nie udalo sie zaladowac danych dashboardu:', error);
+      this.currentBalance = {};
+      this.availableCurrencies = [];
+      this.errorMessage = 'Nie mozna zaladowac danych dashboardu. Sprawdz, czy API dziala na http://localhost:5265.';
+    } finally {
+      this.isLoading = false;
+      this.changeDetector.detectChanges();
     }
-    this.isLoading = false;
-  }
-  logout(): void {
-    this.authService.logout();
   }
 }

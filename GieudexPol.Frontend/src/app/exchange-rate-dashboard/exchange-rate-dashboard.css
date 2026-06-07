@@ -74,11 +74,6 @@ label span,
   font-weight: 700;
 }
 
-.control-group {
-  display: grid;
-  gap: 7px;
-}
-
 select,
 input,
 button {
@@ -96,6 +91,12 @@ input {
   padding: 0 12px;
 }
 
+option:disabled,
+.is-unavailable {
+  color: #9aa5b4;
+  background: #f2f5f8;
+}
+
 button {
   border: 0;
   background: #2357b7;
@@ -109,14 +110,6 @@ button:disabled {
   opacity: 0.65;
 }
 
-.segmented-control {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  min-height: 42px;
-}
-
-.segment-button,
 .quick-button {
   min-height: 42px;
   border: 1px solid #c8d2df;
@@ -124,11 +117,6 @@ button:disabled {
   color: #24324a;
 }
 
-.segment-button {
-  padding: 0 8px;
-}
-
-.segment-button.is-active,
 .quick-button:hover:not(:disabled) {
   border-color: #2357b7;
   background: #2357b7;

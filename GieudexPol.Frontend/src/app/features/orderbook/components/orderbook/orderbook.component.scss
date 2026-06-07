@@ -1,0 +1,76 @@
+.orderbook-page {
+  width: min(860px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 34px 0 48px;
+}
+
+header {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: #2357b7;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0 0 8px;
+  color: #172033;
+}
+
+header p:last-child {
+  margin: 0;
+  color: #5b6b84;
+}
+
+.status-panel {
+  border: 1px solid #d9e0ea;
+  border-radius: 10px;
+  background: #fff;
+  padding: 28px;
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  background: #fff4df;
+  color: #945b00;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+h2 {
+  margin: 18px 0 10px;
+  color: #172033;
+}
+
+.status-panel p {
+  color: #5b6b84;
+  line-height: 1.55;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.actions a {
+  border-radius: 7px;
+  background: #2357b7;
+  color: #fff;
+  padding: 11px 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.actions a.secondary {
+  background: #eff3f9;
+  color: #2357b7;
+}

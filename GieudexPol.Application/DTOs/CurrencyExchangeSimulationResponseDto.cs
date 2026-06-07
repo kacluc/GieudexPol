@@ -6,9 +6,9 @@ public class CurrencyExchangeSimulationResponseDto
 
     public decimal ExchangedAmount { get; set; }
 
-    public string SourceCurrency { get; set; }
+    public string SourceCurrency { get; set; } = string.Empty;
 
-    public string TargetCurrency { get; set; }
+    public string TargetCurrency { get; set; } = string.Empty;
 
     public decimal ExchangeRate { get; set; }
 

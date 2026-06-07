@@ -1,0 +1,63 @@
+@startuml
+title Pobieranie kursow walut - przeplyw cache miss i normalizacji PLN
+
+start
+:Uzytkownik wybiera walute, zrodlo i zakres dat;
+:Frontend ogranicza daty do\n2026-01-01 .. dzisiaj;
+:GET /api/ExchangeRates/chart\ncurrency, source, from, to;
+
+if (from/to podane?) then (nie)
+  :Ustaw from = 1 stycznia biezacego roku\ni to = dzisiaj;
+endif
+
+if (Zakres poprawny?) then (nie)
+  :Zwroc 400 Bad Request;
+  stop
+endif
+
+:Odczytaj punkty z ExchangeRates\nwybranego currency + source;
+if (Dane istnieja w bazie?) then (tak)
+  :Zwroc punkty wykresu tylko\nz wybranego zrodla;
+  stop
+endif
+
+if (SourceCode obslugiwany?) then (nie)
+  :Zwroc pusty wynik lokalnego odczytu;
+  stop
+endif
+
+:SyncRatesAsync(source, from, to);
+:Wybierz IExternalExchangeRateClient\npo SourceCode;
+:Przejmij blokade per SourceCode;
+
+switch (source)
+case (NBP)
+  :Pobierz JSON Table C;\nkursy sa juz PLN-relative;
+case (ECB)
+  :Pobierz XML;\nEUR-relative -> PLN;
+case (RIKSBANK)
+  :Pobierz JSON;\nSEK-relative -> PLN;
+case (BOE)
+  :Pobierz CSV daily spot;\nGBP-relative -> PLN;
+case (CNB)
+  :Pobierz JSON daily;\nCZK-relative -> PLN z amount;
+case (NORGES)
+  :Pobierz SDMX-JSON daily;\nNOK-relative -> PLN z jednostka;
+case (BNR)
+  :Pobierz XML dzienny z pliku rocznego;\nRON-relative -> PLN z multiplier;
+endswitch
+
+:Ustaw BuyPrice = SellPrice\ndla zrodel referencyjnych / spot;
+:Znajdz lub utworz RateSource;
+:Dodaj tylko brakujace ExchangeRates\nunikalne po CurrencyId + RateSourceId + EffectiveDate;
+
+if (Konflikt unikalnosci przy zapisie?) then (tak)
+  :Wyczysc tracking i powtorz odczyt/zapis\npo rownoleglej synchronizacji;
+endif
+
+:Zwolnij blokade SourceCode;
+:Ponownie odczytaj dane z bazy;
+:Zwroc PLN-relative punkty wykresu\nwybranego zrodla;
+stop
+
+@enduml

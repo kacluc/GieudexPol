@@ -1,7 +1,7 @@
 @startuml
 !theme amiga
 
-title Diagram Sekwencji - Proces Tworzenia Portfela (Wallet Creation)
+title Diagram Sekwencji - Proces Tworzenia Portfela (Wallet Creation) - Zastąpiony przez bardziej szczegółowe diagramy
 
 actor Użytkownik as User
 participant Component as ClientComponent
@@ -10,6 +10,8 @@ database API_Backend as Backend
 entity WalletModel as Model
 
 User -> ClientComponent : Żąda utworzenia portfela
+activate ClientComponent
+
 ClientComponent -> Service : createWallet(walletData)
 activate Service
 
@@ -29,4 +31,5 @@ ClientComponent -> User : Wyświetla potwierdzenie utworzenia portfela
 deactivate ClientComponent
 
 note over Service: Operacja musi być transakcyjna (ACID)
+note bottom: Zobacz także:\n- WalletDepositSequence.puml (wpłata)\n- WalletWithdrawSequence.puml (wypłata)
 @enduml

@@ -1,0 +1,361 @@
+@startuml
+title External exchange rate integration - PLN-normalized provider clients class diagram
+
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "Frontend Angular" {
+    class ExchangeRateDashboard <<component>> {
+        - currency: string
+        - source: string
+        - from: string
+        - to: string
+        + minimumRateDate: string = "2026-01-01"
+        + maximumRateDate: string = today
+        - chartPoints: ExchangeRateChartPoint[]
+        - latestRates: ExchangeRateTableRow[]
+        + fetchData(): Promise<void>
+        + onSourceChange(source: string): void
+        + selectCurrency(currency: string): void
+        + isCurrencyAvailableForSource(currencyCode: string, sourceCode: string): boolean
+        + onDateRangeChange(): void
+        - loadDataFromBackend(): Promise<void>
+    }
+
+    class ExchangeRateApiService <<service>> {
+        - apiUrl: string
+        + getChartData(currency: string, source: string, from: string, to: string)
+        + getLatestRates(source: string)
+        + syncNbpRates(from: string, to: string)
+    }
+}
+
+package "API" {
+    class ExchangeRatesController <<controller>> {
+        - _exchangeRateService: IExchangeRateService
+        - _exchangeRateSyncService: IExchangeRateSyncService
+        - MinimumSyncDate: DateTime = 2026-01-01
+        - SyncableSources: HashSet<string>
+        + GetChartData(currency: string, source: string, from: DateTime?, to: DateTime?)
+        + GetLatestRates(source: string, currency: string?)
+        + SyncNbpRates(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncEcbRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncRiksbankRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncBankOfEnglandRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncCzechNationalBankRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncNorgesBankRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncNationalBankOfRomaniaRates(from: DateTime?, to: DateTime?, cancellationToken: CancellationToken)
+        + SyncRatesBySource(sourceCode: string, from: DateTime?, to: DateTime?)
+    }
+
+    class NbpExchangeRateStartupSyncService <<hosted service>> {
+        + StartAsync(cancellationToken: CancellationToken)
+        + StopAsync(cancellationToken: CancellationToken)
+        - GetNextMissingDateAsync(context: ApplicationDbContext, cancellationToken: CancellationToken)
+        - WaitForDatabaseServerAsync(context: ApplicationDbContext, cancellationToken: CancellationToken)
+    }
+}
+
+package "Application.Interfaces" {
+    interface IExchangeRateService {
+        + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
+    }
+
+    interface IExchangeRateSyncService {
+        + SyncRatesAsync(sourceCode: string, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncCurrentYearRatesAsync(sourceCode: string, cancellationToken: CancellationToken)
+        + SyncNbpRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+    }
+
+    interface IExternalExchangeRateClient {
+        + SourceCode: string
+        + SourceName: string
+        + MaxRangeDays: int
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+    }
+
+    interface IExchangeRateRepository {
+        + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
+        + ExistsAsync(currencyId: int, rateSourceId: int, effectiveDate: DateTime)
+    }
+}
+
+package "Application.Services" {
+    class ExchangeRateService <<service>> {
+        - _exchangeRateRepository: IExchangeRateRepository
+        + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
+    }
+}
+
+package "Application.DTOs" {
+    class ExternalExchangeRateTableDto {
+        + Table: string
+        + Number: string
+        + EffectiveDate: DateTime
+        + Rates: List<ExternalExchangeRateItemDto>
+    }
+
+    class ExternalExchangeRateItemDto {
+        + CurrencyName: string
+        + CurrencyCode: string
+        + BuyPrice: decimal
+        + SellPrice: decimal
+    }
+
+    class NbpSyncResultDto {
+        + From: DateTime
+        + To: DateTime
+        + Added: int
+        + Skipped: int
+        + TablesFetched: int
+        + ProcessedRanges: List<string>
+        + Warnings: List<string>
+    }
+
+    class ExchangeRateChartResponseDto {
+        + CurrencyCode: string
+        + SourceCode: string
+        + From: DateTime
+        + To: DateTime
+        + Points: List<ExchangeRateChartPointDto>
+    }
+
+    class ExchangeRateChartPointDto {
+        + Date: DateTime
+        + BuyPrice: decimal
+        + SellPrice: decimal
+    }
+
+    class ExchangeRateTableRowDto {
+        + CurrencyCode: string
+        + CurrencyName: string
+        + SourceCode: string
+        + SourceName: string
+        + EffectiveDate: DateTime
+        + BuyPrice: decimal
+        + SellPrice: decimal
+    }
+}
+
+package "Infrastructure.Services" {
+    class ExchangeRateSyncService <<service>> {
+        - _context: ApplicationDbContext
+        - _exchangeRateClients: IEnumerable<IExternalExchangeRateClient>
+        - SyncLocks: ConcurrentDictionary<string, SemaphoreSlim>
+        + SyncRatesAsync(sourceCode: string, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + SyncCurrentYearRatesAsync(sourceCode: string, cancellationToken: CancellationToken)
+        + SyncNbpRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        - GetOrCreateRateSourceAsync(client: IExternalExchangeRateClient, cancellationToken: CancellationToken)
+        - LoadExistingRateKeysAsync(rateSourceId: int, from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        - SplitIntoRanges(from: DateTime, to: DateTime, maxRangeDays: int)
+    }
+}
+
+package "Infrastructure.ExternalServices" {
+    class NbpExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "NBP"
+        + SourceName: string = "Narodowy Bank Polski"
+        + MaxRangeDays: int = 93
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+    }
+
+    class EcbExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "ECB"
+        + SourceName: string = "European Central Bank"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParseHistoricalRates(document: XDocument, from: DateTime, to: DateTime)
+    }
+
+    class RiksbankExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "RIKSBANK"
+        + SourceName: string = "Sveriges Riksbank"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ConvertObservationsToPlnRates(observations: IEnumerable<RiksbankObservation>, from: DateTime, to: DateTime)
+        + ParseGroupObservations(root: JsonElement)
+    }
+
+    class BankOfEnglandExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "BOE"
+        + SourceName: string = "Bank of England"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParsePublishedSpotRates(csv: string, from: DateTime, to: DateTime)
+    }
+
+    class CnbExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "CNB"
+        + SourceName: string = "Czech National Bank"
+        + MaxRangeDays: int = 31
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParseDailyRates(root: JsonElement)
+        + ConvertDailyRatesToPlnRates(rates: IEnumerable<CnbPublishedRate>, from: DateTime, to: DateTime)
+    }
+
+    class NorgesExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "NORGES"
+        + SourceName: string = "Norges Bank"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParseDailyObservations(root: JsonElement)
+        + ConvertObservationsToPlnRates(observations: IEnumerable<NorgesObservation>, from: DateTime, to: DateTime)
+    }
+
+    class BnrExchangeRateClient <<external provider client>> {
+        + SourceCode: string = "BNR"
+        + SourceName: string = "National Bank of Romania"
+        + MaxRangeDays: int = 366
+        + GetBuySellRatesAsync(from: DateTime, to: DateTime, cancellationToken: CancellationToken)
+        + ParsePublishedRates(document: XDocument, from: DateTime, to: DateTime)
+    }
+}
+
+package "Infrastructure.Persistence" {
+    class ApplicationDbContext <<DbContext>> {
+        + Currencies: DbSet<Currency>
+        + RateSources: DbSet<RateSource>
+        + ExchangeRates: DbSet<ExchangeRate>
+        # OnModelCreating(modelBuilder: ModelBuilder): void
+    }
+
+    class ExchangeRateRepository <<repository>> {
+        + GetChartDataAsync(currencyCode: string, sourceCode: string, from: DateTime, to: DateTime)
+        + GetLatestRatesAsync(sourceCode: string, currencyCode: string?)
+        + ExistsAsync(currencyId: int, rateSourceId: int, effectiveDate: DateTime)
+    }
+}
+
+package "Domain.Entities" {
+    class Currency {
+        + Id: int
+        + Symbol: string
+        + Name: string
+        + IsActive: bool
+        + ExchangeRates: ICollection<ExchangeRate>
+    }
+
+    class RateSource {
+        + Id: int
+        + Code: string
+        + Name: string
+        + IsActive: bool
+        + ExchangeRates: ICollection<ExchangeRate>
+    }
+
+    class ExchangeRate {
+        + Id: int
+        + CurrencyId: int
+        + RateSourceId: int
+        + BuyPrice: decimal
+        + SellPrice: decimal
+        + EffectiveDate: DateTime
+        + FetchedAt: DateTime
+    }
+}
+
+ExchangeRateDashboard --> ExchangeRateApiService : uses
+ExchangeRateApiService --> ExchangeRatesController : HTTP
+
+ExchangeRatesController --> IExchangeRateService : read DB first
+ExchangeRatesController --> IExchangeRateSyncService : cache-miss/manual sync
+NbpExchangeRateStartupSyncService --> IExchangeRateSyncService : startup NBP sync
+
+IExchangeRateService <|.. ExchangeRateService
+IExchangeRateSyncService <|.. ExchangeRateSyncService
+IExternalExchangeRateClient <|.. NbpExchangeRateClient
+IExternalExchangeRateClient <|.. EcbExchangeRateClient
+IExternalExchangeRateClient <|.. RiksbankExchangeRateClient
+IExternalExchangeRateClient <|.. BankOfEnglandExchangeRateClient
+IExternalExchangeRateClient <|.. CnbExchangeRateClient
+IExternalExchangeRateClient <|.. NorgesExchangeRateClient
+IExternalExchangeRateClient <|.. BnrExchangeRateClient
+IExchangeRateRepository <|.. ExchangeRateRepository
+
+ExchangeRateService --> IExchangeRateRepository
+ExchangeRateSyncService --> ApplicationDbContext
+ExchangeRateSyncService --> IExternalExchangeRateClient : SourceCode lookup
+NbpExchangeRateClient --> ExternalExchangeRateTableDto : JSON table C bid/ask
+EcbExchangeRateClient --> ExternalExchangeRateTableDto : XML mid -> PLN
+RiksbankExchangeRateClient --> ExternalExchangeRateTableDto : JSON mid -> PLN
+BankOfEnglandExchangeRateClient --> ExternalExchangeRateTableDto : CSV spot -> PLN
+CnbExchangeRateClient --> ExternalExchangeRateTableDto : JSON reference -> PLN
+NorgesExchangeRateClient --> ExternalExchangeRateTableDto : SDMX-JSON spot -> PLN
+BnrExchangeRateClient --> ExternalExchangeRateTableDto : XML reference -> PLN
+ExternalExchangeRateTableDto "1" *-- "many" ExternalExchangeRateItemDto
+
+ApplicationDbContext --> Currency
+ApplicationDbContext --> RateSource
+ApplicationDbContext --> ExchangeRate
+ExchangeRateRepository --> ApplicationDbContext
+
+Currency "1" -- "many" ExchangeRate
+RateSource "1" -- "many" ExchangeRate
+
+ExchangeRateSyncService --> NbpSyncResultDto
+ExchangeRateService --> ExchangeRateChartResponseDto
+ExchangeRateService --> ExchangeRateTableRowDto
+ExchangeRateChartResponseDto "1" *-- "many" ExchangeRateChartPointDto
+
+note right of ExchangeRate
+Unique database key:
+CurrencyId + RateSourceId + EffectiveDate
+end note
+
+note bottom of ExchangeRateDashboard
+User date selection is limited to:
+2026-01-01 <= date <= today.
+end note
+
+note right of ExchangeRateSyncService
+Synchronizations are selected by SourceCode.
+Per-source lock and unique-key retry avoid
+duplicate RateSource rows during concurrent sync.
+end note
+
+note bottom of EcbExchangeRateClient
+ECB data is EUR-relative.
+Application stores PLN-relative rates:
+RateToPLN = EUR_PLN / EUR_CURRENCY.
+BuyPrice = SellPrice for ECB.
+end note
+
+note bottom of RiksbankExchangeRateClient
+Riksbank data is SEK-relative.
+Application stores PLN-relative rates:
+RateToPLN = SEK_CURRENCY / SEK_PLN.
+BuyPrice = SellPrice for Riksbank.
+end note
+
+note bottom of BankOfEnglandExchangeRateClient
+BoE published database spot data is GBP-relative.
+Application stores PLN-relative rates:
+RateToPLN = GBP_PLN / GBP_CURRENCY.
+BuyPrice = SellPrice for BOE.
+end note
+
+note bottom of CnbExchangeRateClient
+CNB publishes amount currency = rate CZK.
+Application stores PLN-relative rates:
+RateToPLN = CurrencyToCZK / PLNToCZK.
+BuyPrice = SellPrice for CNB.
+end note
+
+note bottom of NorgesExchangeRateClient
+Norges Bank data is NOK-relative.
+Application stores PLN-relative rates:
+RateToPLN = CurrencyToNOK / PLNToNOK.
+BuyPrice = SellPrice for NORGES.
+end note
+
+note bottom of BnrExchangeRateClient
+BNR publishes multiplier currency = rate RON.
+Application stores PLN-relative rates:
+RateToPLN = CurrencyToRON / PLNToRON.
+BuyPrice = SellPrice for BNR.
+end note
+
+@enduml

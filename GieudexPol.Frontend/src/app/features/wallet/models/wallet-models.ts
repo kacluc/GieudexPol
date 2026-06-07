@@ -1,20 +1,49 @@
-/**
- * Definicje typów dla modułu zarządzania portfelem.
- */
-
 export interface WalletBalance {
-  currencyCode: string; // np. PLN, EUR
+  currencyCode: string;
+  balance: number;
+}
+
+export interface WalletCurrency {
+  id: number;
+  symbol: string;
+  name: string;
+  isActive: boolean;
+}
+
+export interface WalletDto {
+  id: number;
+  userId: number;
+  currencyId: number;
+  currency?: WalletCurrency;
   balance: number;
 }
 
 export interface TradeRequest {
-  fromCurrency: string;
-  toCurrency: string;
-  amount: number;
+  fromCurrencyId: number;
+  amountFrom: number;
+  toCurrencyId: number;
 }
 
 export interface TradeResponse {
   success: boolean;
   message: string;
-  newBalance?: WalletBalance; // Opcjonalne, jeśli transakcja powiodła się i zaktualizowano saldo.
+  amountTo?: number;
+  fromCurrency?: string;
+  toCurrency?: string;
+  fromRateToPln?: number;
+  toRateToPln?: number;
+  sellRateSource?: string;
+  buyRateSource?: string;
+  effectiveDate?: string;
+  newBalance?: WalletBalance;
+}
+
+export interface DepositRequest {
+  currencyId: number;
+  amount: number;
+}
+
+export interface WithdrawRequest {
+  currencyId: number;
+  amount: number;
 }

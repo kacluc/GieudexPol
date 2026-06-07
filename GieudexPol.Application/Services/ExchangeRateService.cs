@@ -11,15 +11,13 @@ namespace GieudexPol.Application.Services
     public class ExchangeRateService : IExchangeRateService
     {
         private readonly IExchangeRateRepository _exchangeRateRepository;
-        private readonly INbpExchangeRateClient _nbpExchangeRateClient;
 
-        public ExchangeRateService(IExchangeRateRepository exchangeRateRepository, INbpExchangeRateClient nbpExchangeRateClient)
+        public ExchangeRateService(IExchangeRateRepository exchangeRateRepository)
         {
             _exchangeRateRepository = exchangeRateRepository;
-            _nbpExchangeRateClient = nbpExchangeRateClient;
         }
 
-        public async Task<ExchangeRate> GetByIdAsync(int id)
+        public async Task<ExchangeRate?> GetByIdAsync(int id)
         {
             return await _exchangeRateRepository.GetByIdAsync(id);
         }
@@ -44,7 +42,7 @@ namespace GieudexPol.Application.Services
             await _exchangeRateRepository.DeleteAsync(entity);
         }
 
-        public async Task<ExchangeRate> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
+        public async Task<ExchangeRate?> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
         {
             return await _exchangeRateRepository.GetByCurrencyPairAsync(baseCurrencySymbol, targetCurrencySymbol);
         }
@@ -76,13 +74,20 @@ namespace GieudexPol.Application.Services
             };
         }
 
-        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode)
+        public async Task<IEnumerable<ExchangeRateTableRowDto>> GetLatestRatesAsync(string sourceCode, string? currencyCode = null)
         {
-            if (sourceCode == "NBP")
-            {
-                return await _exchangeRateRepository.GetLatestRatesFromNbpAsync();
-            }
-            return await _exchangeRateRepository.GetLatestRatesAsync(sourceCode);
+            return await _exchangeRateRepository.GetLatestRatesAsync(sourceCode, currencyCode);
+        }
+
+        public async Task<IReadOnlyList<ExchangeRate>> GetTradingRateCandidatesAsync(
+            IReadOnlyCollection<int> currencyIds,
+            DateTime oldestAcceptedDate,
+            DateTime notAfter)
+        {
+            return await _exchangeRateRepository.GetTradingRateCandidatesAsync(
+                currencyIds,
+                oldestAcceptedDate,
+                notAfter);
         }
     }
 }

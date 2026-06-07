@@ -16,10 +16,32 @@ namespace GieudexPol.Infrastructure
         public DbSet<RateSource> RateSources { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<UserAlert> UserAlerts { get; set; }
+        public DbSet<FavoriteCurrency> FavoriteCurrencies { get; set; }
+        public DbSet<WhaleRanking> WhaleRankings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Configure entity relationships and constraints
+            modelBuilder.Entity<User>()
+                .Property(u => u.Username)
+                .HasMaxLength(256);
+
+            modelBuilder.Entity<User>()
+                .Property(u => u.DisplayName)
+                .HasMaxLength(256);
+
+            modelBuilder.Entity<User>()
+                .Property(u => u.AuthId)
+                .HasDefaultValueSql("NEWID()");
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.AuthId)
+                .IsUnique();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Username)
+                .IsUnique();
+
             modelBuilder.Entity<User>()
                 .HasMany(u => u.Wallets)
                 .WithOne(w => w.User)
@@ -36,9 +58,16 @@ namespace GieudexPol.Infrastructure
                 .HasForeignKey(w => w.CurrencyId);
 
             modelBuilder.Entity<Transaction>()
-                .HasOne(t => t.User)
-                .WithMany()
-                .HasForeignKey(t => t.UserId);
+                .HasOne(t => t.Sender)
+                .WithMany(u => u.SentTransactions)
+                .HasForeignKey(t => t.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Transaction>()
+                .HasOne(t => t.Receiver)
+                .WithMany(u => u.ReceivedTransactions)
+                .HasForeignKey(t => t.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Transaction>()
                 .HasOne(t => t.Currency)
@@ -49,6 +78,22 @@ namespace GieudexPol.Infrastructure
                 .HasOne(t => t.TransactionFee)
                 .WithMany()
                 .HasForeignKey(t => t.TransactionFeeId);
+
+            modelBuilder.Entity<Transaction>()
+               .Property(t => t.Amount)
+               .HasPrecision(18, 4);
+
+            modelBuilder.Entity<Transaction>()
+               .Property(t => t.AppliedFee)
+               .HasPrecision(18, 4);
+
+            modelBuilder.Entity<TransactionFee>()
+                .Property(fee => fee.FeePercentage)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<TransactionFee>()
+                .Property(fee => fee.FlatFee)
+                .HasPrecision(18, 4);
 
             modelBuilder.Entity<UserAlert>()
                 .HasOne(a => a.Currency)
@@ -80,6 +125,19 @@ namespace GieudexPol.Infrastructure
             modelBuilder.Entity<RateSource>()
                 .HasIndex(rs => rs.Code)
                 .IsUnique();
+
+            modelBuilder.Entity<FavoriteCurrency>()
+                .HasIndex(fc => fc.CurrencyCode)
+                .IsUnique();
+
+            modelBuilder.Entity<WhaleRanking>()
+                .HasOne(wr => wr.User)
+                .WithMany()
+                .HasForeignKey(wr => wr.UserId);
+
+            modelBuilder.Entity<WhaleRanking>()
+                .Property(wr => wr.TotalPortfolioValue)
+                .HasPrecision(18, 4);
         }
     }
 }

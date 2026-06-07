@@ -1,0 +1,79 @@
+.history-page {
+  width: min(1080px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 34px 0 48px;
+}
+
+header {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: #2357b7;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0 0 8px;
+  color: #172033;
+}
+
+header p:last-child {
+  margin: 0;
+  color: #5b6b84;
+}
+
+.state,
+.table-panel {
+  border: 1px solid #d9e0ea;
+  border-radius: 10px;
+  background: #fff;
+  padding: 20px;
+}
+
+.state {
+  color: #5b6b84;
+}
+
+.state a {
+  color: #2357b7;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.state.error {
+  border-color: #e2a7a7;
+  background: #fff1f1;
+  color: #9a2626;
+}
+
+.table-panel {
+  overflow-x: auto;
+  padding: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid #edf1f6;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+th {
+  color: #5b6b84;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+td {
+  color: #172033;
+}

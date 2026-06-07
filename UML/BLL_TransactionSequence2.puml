@@ -1,0 +1,62 @@
+@startuml
+actor User as U
+participant "Frontend (Angular)" as FE
+participant "API (TransactionsController)" as API
+participant "Application (TransactionService)" as App
+participant "Infrastructure (TransactionRepository)" as Infra
+participant "Infrastructure (UserRepository)" as UserRepo
+participant "Infrastructure (WalletRepository)" as WalletRepo
+participant "Infrastructure (TransactionFeeRepository)" as FeeRepo
+participant "Domain (Transaction, User, Wallet, TransactionFee)" as Domain
+participant "Database (SQL Server)" as DB
+
+U -> FE: Initiates money transfer (Receiver Username, Amount, Currency)
+FE -> API: POST /api/transactions/transfer (TransferRequest)
+API -> App: CreateTransfer(TransferRequest)
+
+App -> FeeRepo: GetActiveTransactionFeeByTypeAsync("Transfer")
+FeeRepo -> DB: SELECT * FROM TransactionFees WHERE Type = "Transfer" AND IsActive = TRUE
+DB --> FeeRepo: TransactionFee Data
+FeeRepo --> App: TransactionFee
+
+App -> App: Calculate total amount to deduct (Amount + Fee)
+
+App -> UserRepo: GetUserByUsername(ReceiverUsername)
+UserRepo -> DB: SELECT * FROM Users WHERE Username = @ReceiverUsername
+DB --> UserRepo: Receiver User Data
+UserRepo --> App: Receiver User
+
+App -> WalletRepo: GetUserWallet(SenderId, CurrencyId)
+WalletRepo -> DB: SELECT * FROM Wallets WHERE UserId = @SenderId AND CurrencyId = @CurrencyId
+DB --> WalletRepo: Sender Wallet Data
+WalletRepo --> App: Sender Wallet
+
+alt Insufficient Balance or Invalid Receiver
+    App --> API: Throws exception / Returns error
+    API --> FE: 400 Bad Request / Error message
+    FE --> U: Displays error
+else Successful Validation
+    App -> Domain: Create new Transaction object (Pending status, AppliedFee, TransactionFeeId)
+    App -> Infra: AddTransaction(Transaction)
+    Infra -> DB: INSERT INTO Transactions (...)
+    DB --> Infra: Transaction saved (Id)
+    Infra --> App: Transaction object with Id
+
+    App -> WalletRepo: UpdateWalletBalance(SenderId, CurrencyId, -(Amount + AppliedFee))
+    WalletRepo -> DB: UPDATE Wallets SET Balance = Balance - (@Amount + @AppliedFee) WHERE UserId = @SenderId AND CurrencyId = @CurrencyId
+    DB --> WalletRepo: Sender Wallet updated
+
+    App -> WalletRepo: UpdateWalletBalance(ReceiverId, CurrencyId, +Amount)
+    WalletRepo -> DB: UPDATE Wallets SET Balance = Balance + @Amount WHERE UserId = @ReceiverId AND CurrencyId = @CurrencyId
+    DB --> WalletRepo: Receiver Wallet updated
+
+    App -> Infra: UpdateTransactionStatus(TransactionId, "Completed")
+    Infra -> DB: UPDATE Transactions SET Status = "Completed" WHERE Id = @TransactionId
+    DB --> Infra: Transaction status updated
+
+    App --> API: Return successful Transaction details
+    API --> FE: 200 OK / Transaction details
+    FE --> U: Displays success message and updated balances
+end
+
+@enduml

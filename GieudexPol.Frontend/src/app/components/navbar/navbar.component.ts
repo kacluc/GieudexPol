@@ -1,21 +1,31 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common'; // Potrzebne dla *ngIf i *ngFor
-import { RouterLinkActive, RouterLink } from '@angular/router'; // Dodano RouterLink do importów
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../features/auth/services/auth.service';
 
 @Component({
   selector: 'app-navbar',
-  standalone: true, 
-  imports: [CommonModule, RouterLinkActive, RouterLink], 
+  standalone: true,
+  imports: [RouterLink, RouterLinkActive],
   templateUrl: './navbar.component.html',
-  styleUrls: ['./navbar.component.scss']
+  styleUrl: './navbar.component.scss',
 })
 export class NavbarComponent {
-  // Lista linków do kluczowych sekcji aplikacji
-  public navItems = [
-    { label: 'Dashboard', path: '' }, // Link do głównego widoku
-    { label: 'Portfel', path: 'wallet' }, // Nowy moduł Portfela
-    { label: 'Historia Transakcji', path: '/history' } // Założona trasa dla historii
+  readonly userEmail = localStorage.getItem('userEmail') ?? '';
+   readonly navItems = [
+    { label: 'Dashboard', path: '/' },
+    { label: 'Kursy walut', path: '/rates' },
+    { label: 'Ulubione', path: '/converter' },
+    { label: 'Portfel', path: '/wallet' },
+    { label: 'Transfer', path: '/transfer' },
+    { label: 'Historia', path: '/history' },
+    { label: 'Order book', path: '/orderbook' },
+    { label: 'Alerty', path: '/alerts' },
+    { label: 'Top Walenie', path: '/whale-ranking' },
   ];
 
-  constructor() { }
+  constructor(private readonly authService: AuthService) {}
+
+  logout(): void {
+    this.authService.logout();
+  }
 }

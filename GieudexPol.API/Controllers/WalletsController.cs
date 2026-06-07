@@ -1,14 +1,13 @@
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace GieudexPol.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class WalletsController : ControllerBase
     {
         private readonly IWalletService _walletService;
@@ -22,29 +21,46 @@ namespace GieudexPol.API.Controllers
         public async Task<IActionResult> GetUserWallets(int userId)
         {
             var wallets = await _walletService.GetUserWalletsAsync(userId);
-            if (wallets == null)
-            {
-                return NotFound();
-            }
-            return Ok(wallets);
+            return Ok(wallets.Select(WalletResponse.FromWallet));
+        }
+
+        [HttpGet("available-currencies")]
+        public async Task<IActionResult> GetAvailableCurrencies(
+            [FromQuery] int userId,
+            CancellationToken cancellationToken)
+        {
+            var currencies = await _walletService.GetAvailableWalletCurrenciesAsync(userId, cancellationToken);
+            return Ok(currencies.Select(WalletCurrencyResponse.FromCurrency));
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetWalletById(int id)
         {
             var wallet = await _walletService.GetByIdAsync(id);
-            if (wallet == null)
+            return wallet == null ? NotFound() : Ok(WalletResponse.FromWallet(wallet));
+        }
+
+        [HttpPost("user/{userId}/currencies/{currencyId}")]
+        public async Task<IActionResult> AddCurrencyWallet(
+            int userId,
+            int currencyId,
+            CancellationToken cancellationToken)
+        {
+            try
             {
-                return NotFound();
+                var wallet = await _walletService.AddCurrencyWalletAsync(userId, currencyId, cancellationToken);
+                return CreatedAtAction(nameof(GetWalletById), new { id = wallet.Id }, WalletResponse.FromWallet(wallet));
             }
-            return Ok(wallet);
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = "Wallet creation failed", message = ex.Message });
+            }
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateWallet([FromBody] Wallet wallet)
+        public async Task<IActionResult> CreateWallet([FromBody] Wallet wallet, CancellationToken cancellationToken)
         {
-            await _walletService.AddAsync(wallet);
-            return CreatedAtAction(nameof(GetWalletById), new { id = wallet.Id }, wallet);
+            return await AddCurrencyWallet(wallet.UserId, wallet.CurrencyId, cancellationToken);
         }
 
         [HttpPut("{id}")]
@@ -54,28 +70,42 @@ namespace GieudexPol.API.Controllers
             {
                 return BadRequest();
             }
+
             await _walletService.UpdateAsync(wallet);
             return NoContent();
         }
 
-        /// <summary>
-        /// Executes a trade transaction by debiting the source wallet and crediting the destination wallet.
-        /// </summary>
         [HttpPost("trade")]
         public async Task<IActionResult> ExecuteTrade([FromQuery] int userId, [FromBody] TradeRequest request)
         {
             try
             {
-                await _walletService.ExecuteTradeTransactionAsync(
-                    userId, 
-                    request.FromCurrencyId, 
-                    request.AmountFrom, 
-                    request.ToCurrencyId, 
-                    request.AmountTo
-                );
-                return Ok("Trade executed successfully.");
+                var result = await _walletService.ExecuteTradeTransactionAsync(
+                    userId,
+                    request.FromCurrencyId,
+                    request.AmountFrom,
+                    request.ToCurrencyId,
+                    HttpContext.RequestAborted);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Trade executed successfully.",
+                    result.AmountTo,
+                    result.FromCurrency,
+                    result.ToCurrency,
+                    result.FromRateToPln,
+                    result.ToRateToPln,
+                    result.SellRateSource,
+                    result.BuyRateSource,
+                    result.EffectiveDate
+                });
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("Niewystarczające środki"))
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = "Invalid amount", message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
             {
                 return BadRequest(new { error = "Transaction failed", message = ex.Message });
             }
@@ -84,14 +114,108 @@ namespace GieudexPol.API.Controllers
                 return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
             }
         }
+
+        [HttpPost("deposit")]
+        public async Task<IActionResult> Deposit([FromQuery] int userId, [FromBody] DepositRequest request)
+        {
+            try
+            {
+                await _walletService.DepositAsync(userId, request.CurrencyId, request.Amount);
+                return Ok(new { success = true, message = "Deposit executed successfully." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = "Invalid amount", message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = "Deposit failed", message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
+            }
+        }
+
+        [HttpPost("withdraw")]
+        public async Task<IActionResult> Withdraw([FromQuery] int userId, [FromBody] WithdrawRequest request)
+        {
+            try
+            {
+                await _walletService.WithdrawAsync(userId, request.CurrencyId, request.Amount);
+                return Ok(new { success = true, message = "Withdrawal executed successfully." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = "Invalid amount", message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = "Withdrawal failed", message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
+            }
+        }
     }
 
-    // Ta klasa musi być tutaj, aby kontroler widział strukturę przesyłanego obiektu JSON
     public class TradeRequest
     {
         public int FromCurrencyId { get; set; }
         public decimal AmountFrom { get; set; }
         public int ToCurrencyId { get; set; }
-        public decimal AmountTo { get; set; }
+    }
+
+    public class WalletResponse
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public int CurrencyId { get; set; }
+        public decimal Balance { get; set; }
+        public WalletCurrencyResponse? Currency { get; set; }
+
+        public static WalletResponse FromWallet(Wallet wallet)
+        {
+            return new WalletResponse
+            {
+                Id = wallet.Id,
+                UserId = wallet.UserId,
+                CurrencyId = wallet.CurrencyId,
+                Balance = wallet.Balance,
+                Currency = wallet.Currency == null ? null : WalletCurrencyResponse.FromCurrency(wallet.Currency)
+            };
+        }
+    }
+
+    public class WalletCurrencyResponse
+    {
+        public int Id { get; set; }
+        public string Symbol { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+
+        public static WalletCurrencyResponse FromCurrency(Currency currency)
+        {
+            return new WalletCurrencyResponse
+            {
+                Id = currency.Id,
+                Symbol = currency.Symbol,
+                Name = currency.Name,
+                IsActive = currency.IsActive
+            };
+        }
+    }
+
+    public class DepositRequest
+    {
+        public int CurrencyId { get; set; }
+        public decimal Amount { get; set; }
+    }
+
+    public class WithdrawRequest
+    {
+        public int CurrencyId { get; set; }
+        public decimal Amount { get; set; }
     }
 }

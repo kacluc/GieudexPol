@@ -1,0 +1,143 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package "GieudexPol.Domain.Entities" {
+    class WhaleRanking {
+        + Id: int
+        + UserId: int
+        + User: User
+        + TotalPortfolioValue: decimal
+        + Rank: int
+        + LastUpdated: DateTime
+    }
+
+    class User {
+        + Id: int
+        + Username: string
+        + Wallets: ICollection<Wallet>
+    }
+
+    class Wallet {
+        + Id: int
+        + UserId: int
+        + User: User
+        + CurrencyId: int
+        + Currency: Currency
+        + Balance: decimal
+    }
+
+    class Currency {
+        + Id: int
+        + Symbol: string
+        + Name: string
+        + IsActive: bool
+    }
+
+    class ExchangeRate {
+        + Id: int
+        + CurrencyId: int
+        + Currency: Currency
+        + RateSourceId: int
+        + RateSource: RateSource
+        + BuyPrice: decimal
+        + SellPrice: decimal
+        + EffectiveDate: DateTime
+    }
+
+    class RateSource {
+        + Id: int
+        + Name: string
+        + Url: string
+    }
+}
+
+package "GieudexPol.Application.Interfaces" {
+    interface IWhaleRankingRepository {
+        + GetAllAsync(): Task<IEnumerable<WhaleRanking>>
+        + GetByIdAsync(id: int): Task<WhaleRanking?>
+        + GetByUserIdAsync(userId: int): Task<WhaleRanking?>
+        + AddAsync(entity: WhaleRanking): Task
+        + UpdateAsync(entity: WhaleRanking): Task
+        + DeleteAsync(entity: WhaleRanking): Task
+        + GetTopWhalesAsync(topN: int): Task<IEnumerable<WhaleRanking>>
+        + RefreshRankingAsync(): Task
+    }
+
+    interface IWhaleRankingService {
+        + GetAllAsync(): Task<IEnumerable<WhaleRanking>>
+        + GetByIdAsync(id: int): Task<WhaleRanking?>
+        + GetByUserIdAsync(userId: int): Task<WhaleRanking?>
+        + GetTopWhalesAsync(topN: int): Task<IEnumerable<WhaleRanking>>
+        + RefreshRankingAsync(): Task
+    }
+}
+
+package "GieudexPol.Application.Services" {
+    class WhaleRankingService {
+        - _whaleRankingRepository: IWhaleRankingRepository
+        + WhaleRankingService(whaleRankingRepository: IWhaleRankingRepository)
+        + GetAllAsync(): Task<IEnumerable<WhaleRanking>>
+        + GetByIdAsync(id: int): Task<WhaleRanking?>
+        + GetByUserIdAsync(userId: int): Task<WhaleRanking?>
+        + GetTopWhalesAsync(topN: int): Task<IEnumerable<WhaleRanking>>
+        + RefreshRankingAsync(): Task
+    }
+}
+
+package "GieudexPol.Infrastructure.Repositories" {
+    class WhaleRankingRepository {
+        - _context: ApplicationDbContext
+        + WhaleRankingRepository(context: ApplicationDbContext)
+        + GetAllAsync(): Task<IEnumerable<WhaleRanking>>
+        + GetByIdAsync(id: int): Task<WhaleRanking?>
+        + GetByUserIdAsync(userId: int): Task<WhaleRanking?>
+        + AddAsync(entity: WhaleRanking): Task
+        + UpdateAsync(entity: WhaleRanking): Task
+        + DeleteAsync(entity: WhaleRanking): Task
+        + GetTopWhalesAsync(topN: int): Task<IEnumerable<WhaleRanking>>
+        + RefreshRankingAsync(): Task
+    }
+}
+
+package "GieudexPol.API.Controllers" {
+    class WhaleRankingController {
+        - _whaleRankingService: IWhaleRankingService
+        + WhaleRankingController(whaleRankingService: IWhaleRankingService)
+        + GetAll(): IActionResult
+        + GetById(id: int): IActionResult
+        + GetByUserId(userId: int): IActionResult
+        + GetTopWhales(topN: int): IActionResult
+        + RefreshRanking(): IActionResult
+    }
+}
+
+package "GieudexPol.Application.DTOs" {
+    class WhaleRankingDto {
+        + Id: int
+        + UserId: int
+        + Username: string
+        + TotalPortfolioValue: decimal
+        + Rank: int
+        + LastUpdated: DateTime
+    }
+}
+
+'WhaleRanking' --> 'User' : "User"
+'WhaleRanking' --> 'Wallet' : "Wallets"
+'WhaleRanking' --> 'Currency' : "Currencies"
+'WhaleRanking' --> 'ExchangeRate' : "ExchangeRates"
+
+'IWhaleRankingService' <|-- 'WhaleRankingService'
+'IWhaleRankingRepository' <|-- 'WhaleRankingRepository'
+
+'WhaleRankingService' ..> 'IWhaleRankingRepository'
+'WhaleRankingController' ..> 'IWhaleRankingService'
+'WhaleRankingRepository' ..> 'WhaleRanking'
+'WhaleRankingRepository' ..> 'User'
+'WhaleRankingRepository' ..> 'Wallet'
+'WhaleRankingRepository' ..> 'Currency'
+'WhaleRankingRepository' ..> 'ExchangeRate'
+'WhaleRankingRepository' ..> 'RateSource'
+'WhaleRankingService' ..> 'WhaleRanking'
+'WhaleRankingController' ..> 'WhaleRanking'
+'WhaleRankingDto' ..> 'WhaleRanking'

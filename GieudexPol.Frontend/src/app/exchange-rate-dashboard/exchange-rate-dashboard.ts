@@ -17,7 +17,147 @@ import { ExchangeRateApiService } from '../services/exchange-rate-api.service';
 })
 export class ExchangeRateDashboard implements OnInit {
   private readonly nbpSourceCode = 'NBP';
-  readonly currencies = ['EUR', 'USD', 'CHF', 'GBP'];
+  private readonly ecbSourceCode = 'ECB';
+  private readonly riksbankSourceCode = 'RIKSBANK';
+  private readonly boeSourceCode = 'BOE';
+  private readonly cnbSourceCode = 'CNB';
+  private readonly norgesSourceCode = 'NORGES';
+  private readonly bnrSourceCode = 'BNR';
+  private readonly mockSourceCode = 'MOCK_BANK_A';
+  private readonly nbpBuySellCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'NOK',
+    'SEK',
+    'USD',
+  ]);
+  private readonly ecbCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly riksbankCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly boeCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly cnbCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly norgesCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  private readonly bnrCurrencyCodes = new Set([
+    'AUD',
+    'CAD',
+    'CHF',
+    'CZK',
+    'DKK',
+    'EUR',
+    'GBP',
+    'HUF',
+    'JPY',
+    'KRW',
+    'NOK',
+    'RON',
+    'SEK',
+    'TRY',
+    'USD',
+  ]);
+  readonly currencies = [
+    { code: 'EUR', label: 'Euro' },
+    { code: 'USD', label: 'Dolar amerykanski' },
+    { code: 'CHF', label: 'Frank szwajcarski' },
+    { code: 'GBP', label: 'Funt brytyjski' },
+    { code: 'HUF', label: 'Forint wegierski' },
+    { code: 'CZK', label: 'Korona czeska' },
+    { code: 'DKK', label: 'Korona dunska' },
+    { code: 'SEK', label: 'Korona szwedzka' },
+    { code: 'NOK', label: 'Korona norweska' },
+    { code: 'RON', label: 'Lej rumunski' },
+    { code: 'TRY', label: 'Lira turecka' },
+    { code: 'UAH', label: 'Hrywna ukrainska' },
+    { code: 'AUD', label: 'Dolar australijski' },
+    { code: 'CAD', label: 'Dolar kanadyjski' },
+    { code: 'JPY', label: 'Jen japonski' },
+    { code: 'KRW', label: 'Won poludniowokoreanski' },
+  ];
   readonly sources = [
     {
       code: 'MOCK_BANK_A',
@@ -27,6 +167,30 @@ export class ExchangeRateDashboard implements OnInit {
       code: 'NBP',
       label: 'NBP - realne kursy',
     },
+    {
+      code: 'ECB',
+      label: 'ECB - kursy referencyjne',
+    },
+    {
+      code: 'RIKSBANK',
+      label: 'RIKSBANK - kursy referencyjne',
+    },
+    {
+      code: 'BOE',
+      label: 'BOE - publikowane kursy spot',
+    },
+    {
+      code: 'CNB',
+      label: 'CNB - kursy referencyjne',
+    },
+    {
+      code: 'NORGES',
+      label: 'NORGES - kursy referencyjne',
+    },
+    {
+      code: 'BNR',
+      label: 'BNR - kursy referencyjne',
+    },
   ];
   readonly rangePresets = [
     { label: '7D', days: 7 },
@@ -35,6 +199,8 @@ export class ExchangeRateDashboard implements OnInit {
     { label: 'YTD', ytd: true },
     { label: 'DEV', from: '2026-01-01' },
   ];
+  readonly minimumRateDate = '2026-01-01';
+  readonly maximumRateDate = this.formatDateInput(new Date());
   readonly chartWidth = 920;
   readonly chartHeight = 320;
   readonly chartPadding = {
@@ -47,7 +213,7 @@ export class ExchangeRateDashboard implements OnInit {
   currency = 'EUR';
   source = 'MOCK_BANK_A';
   from = '2026-01-01';
-  to = this.formatDateInput(new Date());
+  to = this.maximumRateDate;
 
   chartPoints: ExchangeRateChartPoint[] = [];
   latestRates: ExchangeRateTableRow[] = [];
@@ -78,6 +244,7 @@ export class ExchangeRateDashboard implements OnInit {
 
   onSourceChange(source: string): void {
     this.source = source;
+    this.ensureSelectedCurrencyIsAvailable();
     void this.fetchData();
   }
 
@@ -298,8 +465,56 @@ export class ExchangeRateDashboard implements OnInit {
   }
 
   selectCurrency(currency: string): void {
+    if (!this.isCurrencyAvailableForSource(currency, this.source)) {
+      return;
+    }
+
     this.currency = currency;
     void this.fetchData();
+  }
+
+  isCurrencyAvailableForSource(currencyCode: string, sourceCode: string = this.source): boolean {
+    if (sourceCode === this.mockSourceCode) {
+      return true;
+    }
+
+    if (sourceCode === this.nbpSourceCode) {
+      return this.nbpBuySellCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.ecbSourceCode) {
+      return this.ecbCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.riksbankSourceCode) {
+      return this.riksbankCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.boeSourceCode) {
+      return this.boeCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.cnbSourceCode) {
+      return this.cnbCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.norgesSourceCode) {
+      return this.norgesCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.bnrSourceCode) {
+      return this.bnrCurrencyCodes.has(currencyCode);
+    }
+
+    return false;
+  }
+
+  currencyOptionLabel(currency: { code: string; label: string }): string {
+    const suffix = this.isCurrencyAvailableForSource(currency.code)
+      ? ''
+      : ' - brak danych dla zrodla';
+
+    return `${currency.code} - ${currency.label}${suffix}`;
   }
 
   applyRangePreset(preset: { days?: number; ytd?: boolean; from?: string }): void {
@@ -307,22 +522,41 @@ export class ExchangeRateDashboard implements OnInit {
     this.to = this.formatDateInput(today);
 
     if (preset.from) {
-      this.from = preset.from;
+      this.from = this.clampToMinimumRateDate(preset.from);
     } else if (preset.ytd) {
-      this.from = `${today.getFullYear()}-01-01`;
+      this.from = this.clampToMinimumRateDate(`${today.getFullYear()}-01-01`);
     } else if (preset.days) {
       const startDate = new Date(today);
       startDate.setDate(startDate.getDate() - preset.days);
-      this.from = this.formatDateInput(startDate);
+      this.from = this.clampToMinimumRateDate(this.formatDateInput(startDate));
     }
 
     void this.fetchData();
+  }
+
+  onDateRangeChange(): void {
+    this.from = this.clampToMinimumRateDate(this.from);
+    this.to = this.clampToMinimumRateDate(this.to);
+
+    if (this.from > this.maximumRateDate) {
+      this.from = this.maximumRateDate;
+    }
+
+    if (this.to > this.maximumRateDate) {
+      this.to = this.maximumRateDate;
+    }
   }
 
   private validateFilters(): boolean {
     if (!this.currency || !this.source || !this.from || !this.to) {
       this.errorMessage = 'Uzupelnij walute, zrodlo i zakres dat.';
       this.statusMessage = 'Wymagane sa wszystkie filtry.';
+      return false;
+    }
+
+    if (this.from < this.minimumRateDate || this.to < this.minimumRateDate) {
+      this.errorMessage = 'Zakres dat nie moze zaczynac sie przed 2026-01-01.';
+      this.statusMessage = 'Wybierz date od 2026-01-01.';
       return false;
     }
 
@@ -333,6 +567,20 @@ export class ExchangeRateDashboard implements OnInit {
     }
 
     return true;
+  }
+
+  private ensureSelectedCurrencyIsAvailable(): void {
+    if (this.isCurrencyAvailableForSource(this.currency, this.source)) {
+      return;
+    }
+
+    const firstAvailableCurrency = this.currencies.find((currency) =>
+      this.isCurrencyAvailableForSource(currency.code, this.source),
+    );
+
+    if (firstAvailableCurrency) {
+      this.currency = firstAvailableCurrency.code;
+    }
   }
 
   private async loadDataFromBackend(): Promise<void> {
@@ -384,6 +632,10 @@ export class ExchangeRateDashboard implements OnInit {
 
   private formatDateInput(date: Date): string {
     return date.toISOString().slice(0, 10);
+  }
+
+  private clampToMinimumRateDate(date: string): string {
+    return date && date < this.minimumRateDate ? this.minimumRateDate : date;
   }
 
   private get chartValues(): number[] {
