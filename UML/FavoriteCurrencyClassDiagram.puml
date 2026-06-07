@@ -1,0 +1,46 @@
+@startuml FavoriteCurrencyClassDiagram
+
+title Diagram klas dla funkcjonalności ulubionych walut
+
+class User {
+  -Id: int
+  -Email: string
+  +GetUserId(): int
+}
+
+class FavoriteCurrency {
+  -Id: int
+  -CurrencyCode: string
+  -UserId: int
+  -CreatedAt: DateTime
+}
+
+class FavoriteCurrencyRepository {
+  +GetFavoritesAsync(userId: int): List<FavoriteCurrency>
+  +AddAsync(favorite: FavoriteCurrency): Task
+  +RemoveAsync(userId: int, currencyCode: string): Task
+  +ExistsAsync(userId: int, currencyCode: string): Task<bool>
+}
+
+class FavoriteCurrencyService {
+  -repository: IFavoriteCurrencyRepository
+  -httpContextAccessor: IHttpContextAccessor
+  +GetFavoritesAsync(): Task<List<FavoriteCurrencyDto>>
+  +AddFavoriteAsync(dto: AddFavoriteCurrencyDto): Task
+  +RemoveFavoriteAsync(currencyCode: string): Task
+}
+
+class AddFavoriteCurrencyDto {
+  -CurrencyCode: string
+}
+
+class FavoriteCurrencyDto {
+  -CurrencyCode: string
+}
+
+User "1" --> "0..*" FavoriteCurrency : contains
+FavoriteCurrencyService --> FavoriteCurrencyRepository : uses
+FavoriteCurrencyService --> AddFavoriteCurrencyDto : uses
+FavoriteCurrencyService --> FavoriteCurrencyDto : returns
+
+@enduml
