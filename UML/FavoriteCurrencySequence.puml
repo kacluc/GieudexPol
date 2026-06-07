@@ -1,0 +1,43 @@
+@startuml FavoriteCurrencySequence
+
+title Dodawanie i usuwanie walut do ulubionych
+
+participant "User" as U
+participant "Frontend" as F
+participant "BackendController" as B
+participant "FavoriteCurrencyService" as S
+participant "FavoriteCurrencyRepository" as R
+participant "Database" as DB
+
+U -> F: Wybiera walutę do dodania/usuwania
+alt Dodawanie waluty
+    F -> B: POST /api/favorites {currencyCode}
+    B -> S: AddFavoriteAsync(currencyCode)
+    S -> R: Sprawdza istnienie waluty dla użytkownika
+    alt Waluta istnieje
+        S -> F: Powiadomienie o błędzie
+    else Waluta nie istnieje
+        S -> R: Dodaje nową ulubioną walutę
+        R -> DB: Zapisz FavoriteCurrency
+        DB --> R: Potwierdzenie
+        R --> S: Potwierdzenie
+        S --> B: Powiadomienie o sukcesie
+        B --> F: 200 OK
+    end
+else Usuwanie waluty
+    F -> B: DELETE /api/favorites/{currencyCode}
+    B -> S: RemoveFavoriteAsync(currencyCode)
+    S -> R: Znajduje ulubioną walutę dla użytkownika
+    alt Waluta istnieje
+        S -> R: Usuwa ulubioną walutę
+        R -> DB: Usuń FavoriteCurrency
+        DB --> R: Potwierdzenie
+        R --> S: Potwierdzenie
+        S --> B: Powiadomienie o sukcesie
+        B --> F: 200 OK
+    else Waluta nie istnieje
+        S -> F: Powiadomienie o błędzie
+    end
+end
+
+@enduml
