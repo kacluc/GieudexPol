@@ -128,5 +128,4 @@ HTTP/1.1 200 OK
 - **Frontend:** Wykorzystuje usługi `FavoriteCurrencyService` do interakcji z API.
 
 ## 10. Testowanie
-- **Testy jednostkowe:** `FavoriteCurrencyServiceTests.cs` i `FavoriteCurrencyRepositoryTests.cs`
-- **Testy integracyjne:** Testy API dla endpointów `/api/favorites`
+- **Testy jednostkowe:** `FavoriteCurrencyServiceTests.cs`
