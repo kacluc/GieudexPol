@@ -33,6 +33,32 @@ class BankOfEnglandExchangeRateClient {
   + ParsePublishedSpotRates(...)
 }
 
+class BankOfCanadaExchangeRateClient {
+  + SourceCode = "BOC"
+  + SourceName = "Bank of Canada"
+  + MaxRangeDays = 366
+  + GetBuySellRatesAsync(from, to, cancellationToken)
+  + GetLatestExchangeRatesAsync(...)
+  + ParseObservations(...)
+  + CalculateCrossRateToPln(...)
+  + CalculateCadRateToPln(...)
+}
+
+class BankOfCanadaResponseDto {
+  + Observations: List<BankOfCanadaObservationDto>
+}
+
+class BankOfCanadaObservationDto {
+  + Date: string
+  + PlnCad: BankOfCanadaSeriesValueDto?
+  + AdditionalValues: Dictionary<string, JsonElement>
+  + SeriesValues: IReadOnlyDictionary
+}
+
+class BankOfCanadaSeriesValueDto {
+  + Value: string?
+}
+
 class CnbExchangeRateClient {
   + SourceCode = "CNB"
   + MaxRangeDays = 31
@@ -65,8 +91,12 @@ class ExternalExchangeRateItemDto {
 
 class ExchangeRateSyncService {
   - SyntheticRateSourceCodes: HashSet<string>
+  - SyncLocks: ConcurrentDictionary<string, SemaphoreSlim>
   + SyncRatesAsync(sourceCode, from, to, cancellationToken)
+  + SyncCurrentYearRatesAsync(sourceCode, cancellationToken)
   - GetStoredPrices(sourceCode, rate)
+  - GetOrCreateRateSourceAsync(client)
+  - LoadExistingRatesAsync(sourceId, from, to)
 }
 
 class ExchangeRateSpreadCalculator {
@@ -81,6 +111,7 @@ IExternalExchangeRateClient <|.. NbpExchangeRateClient
 IExternalExchangeRateClient <|.. EcbExchangeRateClient
 IExternalExchangeRateClient <|.. RiksbankExchangeRateClient
 IExternalExchangeRateClient <|.. BankOfEnglandExchangeRateClient
+IExternalExchangeRateClient <|.. BankOfCanadaExchangeRateClient
 IExternalExchangeRateClient <|.. CnbExchangeRateClient
 IExternalExchangeRateClient <|.. NorgesExchangeRateClient
 IExternalExchangeRateClient <|.. BnrExchangeRateClient
@@ -89,6 +120,10 @@ NbpExchangeRateClient --> ExternalExchangeRateTableDto : JSON bid/ask
 EcbExchangeRateClient --> ExternalExchangeRateTableDto : XML EUR -> PLN
 RiksbankExchangeRateClient --> ExternalExchangeRateTableDto : JSON SEK -> PLN
 BankOfEnglandExchangeRateClient --> ExternalExchangeRateTableDto : CSV GBP -> PLN
+BankOfCanadaExchangeRateClient --> ExternalExchangeRateTableDto : JSON CAD -> PLN
+BankOfCanadaExchangeRateClient --> BankOfCanadaResponseDto : deserializuje
+BankOfCanadaResponseDto "1" *-- "many" BankOfCanadaObservationDto
+BankOfCanadaObservationDto --> BankOfCanadaSeriesValueDto
 CnbExchangeRateClient --> ExternalExchangeRateTableDto : JSON CZK -> PLN
 NorgesExchangeRateClient --> ExternalExchangeRateTableDto : SDMX NOK -> PLN
 BnrExchangeRateClient --> ExternalExchangeRateTableDto : XML RON -> PLN
@@ -105,9 +140,21 @@ SellPrice = ask
 Bez sztucznego spreadu.
 end note
 
+note right of BankOfCanadaExchangeRateClient
+Valet API bez klucza:
+FXUSDCAD, FXEURCAD, FXGBPCAD,
+FXCHFCAD, FXJPYCAD, FXPLNCAD
+
+CURRENCY_PLN = CURRENCY_CAD / PLN_CAD
+CAD_PLN = 1 / PLN_CAD
+
+Brak danych jest pomijany bez
+przerwania calej synchronizacji.
+end note
+
 note right of ExchangeRateSpreadCalculator
-ECB, RIKSBANK, BOE, CNB,
-NORGES i BNR:
+ECB, RIKSBANK, BOE, BOC,
+CNB, NORGES i BNR:
 
 Buy = ReferenceRate * (1 - spread/2)
 Sell = ReferenceRate * (1 + spread/2)

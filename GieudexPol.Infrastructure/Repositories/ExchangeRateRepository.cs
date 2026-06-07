@@ -15,6 +15,15 @@ namespace GieudexPol.Infrastructure.Repositories
         {
         }
 
+        public new async Task<IEnumerable<ExchangeRate>> GetAllAsync()
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Include(er => er.Currency)
+                .Include(er => er.RateSource)
+                .ToListAsync();
+        }
+
         public async Task<ExchangeRate?> GetByCurrencyPairAsync(string baseCurrencySymbol, string targetCurrencySymbol)
         {
             if (targetCurrencySymbol != "PLN")

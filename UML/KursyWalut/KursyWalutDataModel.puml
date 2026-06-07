@@ -1,0 +1,58 @@
+@startuml
+title Kursy walut - model danych
+hide circle
+skinparam linetype ortho
+
+entity "Currencies" as Currency {
+  * Id : int <<PK>>
+  --
+  * Symbol : string
+  * Name : string
+  * IsActive : bool
+}
+
+entity "RateSources" as RateSource {
+  * Id : int <<PK>>
+  --
+  * Code : string <<UQ>>
+  * Name : string
+  * IsActive : bool
+}
+
+entity "ExchangeRates" as ExchangeRate {
+  * Id : int <<PK>>
+  --
+  * CurrencyId : int <<FK>>
+  * RateSourceId : int <<FK>>
+  * BuyPrice : decimal(18,4)
+  MidPrice : decimal(18,4) <<nullable>>
+  * SellPrice : decimal(18,4)
+  * EffectiveDate : datetime2
+  * FetchedAt : datetime2
+}
+
+Currency ||--o{ ExchangeRate : CurrencyId
+RateSource ||--o{ ExchangeRate : RateSourceId
+
+note right of ExchangeRate
+Unikalny indeks:
+CurrencyId + RateSourceId + EffectiveDate
+
+Znaczenie cen:
+BuyPrice = system kupuje od uzytkownika
+SellPrice = system sprzedaje uzytkownikowi
+MidPrice = kurs referencyjny lub srodek bid/ask
+
+Wszystkie wartosci oznaczaja PLN
+za 1 jednostke waluty.
+end note
+
+note bottom of RateSource
+Kody produkcyjne:
+NBP, ECB, RIKSBANK, BOE,
+BOC, CNB, NORGES, BNR
+
+RateSource jest tworzony lub
+aktualizowany podczas synchronizacji.
+end note
+@enduml

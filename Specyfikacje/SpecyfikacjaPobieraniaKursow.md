@@ -22,6 +22,7 @@ zewnetrznymi przechodzi przez backend.
 | `ECB` | European Central Bank | XML | kurs referencyjny wzgledem EUR | 366 dni |
 | `RIKSBANK` | Sveriges Riksbank, grupa 130 | JSON REST | kurs referencyjny wzgledem SEK | 366 dni |
 | `BOE` | Bank of England Database | CSV | publikowany kurs spot wzgledem GBP | 366 dni |
+| `BOC` | Bank of Canada Valet API | JSON | kurs referencyjny wzgledem CAD | 366 dni |
 | `CNB` | Czech National Bank | JSON | kurs referencyjny wzgledem CZK | 31 dni |
 | `NORGES` | Norges Bank | SDMX-JSON | kurs referencyjny wzgledem NOK | 366 dni |
 | `BNR` | National Bank of Romania | XML | kurs referencyjny wzgledem RON | 366 dni |
@@ -84,7 +85,7 @@ NBP nie przechodzi przez kalkulator sztucznego spreadu.
 
 ## 6. Zrodla referencyjne
 
-ECB, RIKSBANK, BOE, CNB, NORGES i BNR nie publikuja oficjalnej tabeli
+ECB, RIKSBANK, BOE, BOC, CNB, NORGES i BNR nie publikuja oficjalnej tabeli
 kupna/sprzedazy zgodnej z modelem aplikacji. Klient dostawcy najpierw wyznacza
 kurs referencyjny w PLN, a synchronizator tworzy ceny syntetyczne.
 
@@ -95,12 +96,18 @@ kurs referencyjny w PLN, a synchronizator tworzy ceny syntetyczne.
 | ECB | `EUR_PLN / EUR_CURRENCY` |
 | RIKSBANK | `SEK_CURRENCY / SEK_PLN`; dla SEK: `1 / SEK_PLN` |
 | BOE | `GBP_PLN / GBP_CURRENCY`; dla GBP: `GBP_PLN` |
+| BOC | `CURRENCY_CAD / PLN_CAD`; dla CAD: `1 / PLN_CAD` |
 | CNB | `(RATE_CZK / AMOUNT) / PLN_TO_CZK`; dla CZK: `1 / PLN_TO_CZK` |
 | NORGES | `(RATE_NOK / UNIT) / PLN_TO_NOK`; dla NOK: `1 / PLN_TO_NOK` |
 | BNR | `(RATE_RON / MULTIPLIER) / PLN_TO_RON`; dla RON: `1 / PLN_TO_RON` |
 
 Po normalizacji klient ustawia `ReferenceRate`. Pole jest przekazywane do
 `ExchangeRateSyncService`.
+
+BOC pobiera w jednym wywolaniu serie `FXUSDCAD`, `FXEURCAD`, `FXGBPCAD`,
+`FXCHFCAD`, `FXJPYCAD` i pomocnicza `FXPLNCAD`. Bank of Canada rozpoczal
+publikowanie PLN w maju 2026. Dni bez `FXPLNCAD` oraz pojedyncze brakujace serie
+sa pomijane, poniewaz nie mozna dla nich wyznaczyc poprawnego kursu w PLN.
 
 ### 6.2 Sztuczny spread
 
@@ -205,7 +212,7 @@ danych, dane sa sprzed biezacego roku albo wykryto stare rowne ceny syntetyczne.
 1. czeka na SQL Server,
 2. wykonuje migracje EF Core,
 3. w Development uruchamia seeder,
-4. sprawdza kolejno `NBP`, `ECB`, `RIKSBANK`, `BOE`, `CNB`, `NORGES`, `BNR`,
+4. sprawdza kolejno `NBP`, `ECB`, `RIKSBANK`, `BOE`, `BOC`, `CNB`, `NORGES`, `BNR`,
 5. pobiera brakujacy zakres do dzisiaj,
 6. naprawia historyczne syntetyczne rekordy z rownymi cenami.
 
@@ -221,6 +228,7 @@ GET /api/ExchangeRates/chart?currency=EUR&source=NBP&from=2026-01-01&to=2026-06-
 GET /api/ExchangeRates/chart?currency=USD&source=ECB
 GET /api/ExchangeRates/latest?source=BNR
 GET /api/ExchangeRates/latest?source=BOE&currency=USD
+GET /api/ExchangeRates/latest?source=BOC&currency=CAD
 ```
 
 ### Synchronizacja dedykowana
@@ -230,6 +238,7 @@ POST /api/ExchangeRates/sync/nbp?from=2026-01-01&to=2026-06-07
 POST /api/ExchangeRates/sync/ecb
 POST /api/ExchangeRates/sync/riksbank
 POST /api/ExchangeRates/sync/boe
+POST /api/ExchangeRates/sync/boc
 POST /api/ExchangeRates/sync/cnb
 POST /api/ExchangeRates/sync/norges
 POST /api/ExchangeRates/sync/bnr

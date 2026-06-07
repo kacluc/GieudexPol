@@ -486,6 +486,58 @@ namespace GieudexPol.Tests
         }
 
         [Fact]
+        public async Task SyncRatesAsync_ShouldPersistBankOfCanadaRateWithSyntheticSpread()
+        {
+            await using var context = CreateContext();
+            var nbpClient = new FakeExternalExchangeRateClient();
+            var bocClient = new FakeExternalExchangeRateClient
+            {
+                SourceCode = "BOC",
+                SourceName = "Bank of Canada",
+                TablesToReturn =
+                [
+                    new ExternalExchangeRateTableDto
+                    {
+                        Table = "BOC",
+                        Number = "BOC/2026-06-05",
+                        EffectiveDate = new DateTime(2026, 6, 5),
+                        Rates =
+                        [
+                            new ExternalExchangeRateItemDto
+                            {
+                                CurrencyCode = "USD",
+                                CurrencyName = "USD",
+                                BuyPrice = 5.00m,
+                                SellPrice = 5.00m,
+                                ReferenceRate = 5.00m
+                            }
+                        ]
+                    }
+                ]
+            };
+            var service = CreateService(context, nbpClient, bocClient);
+
+            var result = await service.SyncRatesAsync(
+                "BOC",
+                new DateTime(2026, 6, 5),
+                new DateTime(2026, 6, 5));
+
+            result.Added.Should().Be(1);
+            nbpClient.RequestedRanges.Should().BeEmpty();
+            bocClient.RequestedRanges.Should().ContainSingle()
+                .Which.Should().Be((new DateTime(2026, 6, 5), new DateTime(2026, 6, 5)));
+
+            var rateSource = await context.RateSources.SingleAsync();
+            rateSource.Code.Should().Be("BOC");
+            rateSource.Name.Should().Be("Bank of Canada");
+
+            var exchangeRate = await context.ExchangeRates.SingleAsync();
+            exchangeRate.MidPrice.Should().Be(5.00m);
+            exchangeRate.BuyPrice.Should().Be(4.95m);
+            exchangeRate.SellPrice.Should().Be(5.05m);
+        }
+
+        [Fact]
         public async Task SyncRatesAsync_ShouldSelectCnbClientBySourceCode()
         {
             await using var context = CreateContext();

@@ -14,6 +14,7 @@ namespace GieudexPol.API.Services
             "ECB",
             "RIKSBANK",
             "BOE",
+            "BOC",
             "CNB",
             "NORGES",
             "BNR"

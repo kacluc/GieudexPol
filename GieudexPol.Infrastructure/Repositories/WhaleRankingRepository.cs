@@ -1,4 +1,5 @@
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using GieudexPol.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ namespace GieudexPol.Infrastructure.Repositories
             return await _context.WhaleRankings
                 .AsNoTracking()
                 .Include(wr => wr.User)
+                .Where(wr => wr.User.Username != DevelopmentIdentity.UserEmail)
                 .OrderBy(wr => wr.Rank)
                 .ToListAsync();
         }
@@ -31,7 +33,9 @@ namespace GieudexPol.Infrastructure.Repositories
             return await _context.WhaleRankings
                 .AsNoTracking()
                 .Include(wr => wr.User)
-                .FirstOrDefaultAsync(wr => wr.Id == id);
+                .FirstOrDefaultAsync(wr =>
+                    wr.Id == id &&
+                    wr.User.Username != DevelopmentIdentity.UserEmail);
         }
 
         public async Task<WhaleRanking?> GetByUserIdAsync(int userId)
@@ -39,7 +43,9 @@ namespace GieudexPol.Infrastructure.Repositories
             return await _context.WhaleRankings
                 .AsNoTracking()
                 .Include(wr => wr.User)
-                .FirstOrDefaultAsync(wr => wr.UserId == userId);
+                .FirstOrDefaultAsync(wr =>
+                    wr.UserId == userId &&
+                    wr.User.Username != DevelopmentIdentity.UserEmail);
         }
 
         public async Task AddAsync(WhaleRanking entity)
@@ -65,6 +71,7 @@ namespace GieudexPol.Infrastructure.Repositories
             return await _context.WhaleRankings
                 .AsNoTracking()
                 .Include(wr => wr.User)
+                .Where(wr => wr.User.Username != DevelopmentIdentity.UserEmail)
                 .OrderByDescending(wr => wr.TotalPortfolioValue)
                 .Take(topN)
                 .ToListAsync();
@@ -72,7 +79,9 @@ namespace GieudexPol.Infrastructure.Repositories
 
         public async Task RefreshRankingAsync()
         {
-            var users = await _context.Users.ToListAsync();
+            var users = await _context.Users
+                .Where(user => user.Username != DevelopmentIdentity.UserEmail)
+                .ToListAsync();
             var whaleRankings = new List<WhaleRanking>();
 
             foreach (var user in users)

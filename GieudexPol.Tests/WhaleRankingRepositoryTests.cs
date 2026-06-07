@@ -1,3 +1,4 @@
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Repositories;
@@ -194,6 +195,42 @@ namespace GieudexPol.Tests
             Assert.NotNull(result);
             Assert.Equal(2, result.Count());
             Assert.Equal(3000, result.First().TotalPortfolioValue);
+        }
+
+        [Fact]
+        public async Task GetAllAsync_DoesNotReturnDevelopmentUser()
+        {
+            var regularUser = new User { Id = 1, Username = "user@gieudexpol.local" };
+            var developmentUser = new User
+            {
+                Id = 2,
+                Username = DevelopmentIdentity.UserEmail
+            };
+
+            await _context.Users.AddRangeAsync(regularUser, developmentUser);
+            await _context.WhaleRankings.AddRangeAsync(
+                new WhaleRanking
+                {
+                    Id = 1,
+                    UserId = regularUser.Id,
+                    TotalPortfolioValue = 1000,
+                    Rank = 2,
+                    LastUpdated = DateTime.UtcNow
+                },
+                new WhaleRanking
+                {
+                    Id = 2,
+                    UserId = developmentUser.Id,
+                    TotalPortfolioValue = 2000,
+                    Rank = 1,
+                    LastUpdated = DateTime.UtcNow
+                });
+            await _context.SaveChangesAsync();
+
+            var result = (await _repository.GetAllAsync()).ToList();
+
+            var ranking = Assert.Single(result);
+            Assert.Equal(regularUser.Id, ranking.UserId);
         }
 
         [Fact]

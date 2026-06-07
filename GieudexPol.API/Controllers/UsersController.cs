@@ -1,7 +1,10 @@
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Security.Claims;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -22,6 +25,15 @@ namespace GieudexPol.API.Controllers
         [HttpGet("{username}")]
         public async Task<IActionResult> GetUserByUsername(string username)
         {
+            if (string.Equals(username, DevelopmentIdentity.UserEmail, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(
+                    User.FindFirstValue(ClaimTypes.Email),
+                    DevelopmentIdentity.UserEmail,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return NotFound();
+            }
+
             var user = await _userService.GetByUsernameAsync(username);
             if (user == null)
             {

@@ -2,9 +2,11 @@ using GieudexPol.Application.Interfaces;
 using GieudexPol.Application.Services;
 using GieudexPol.Application.Settings;
 using GieudexPol.Application.Auth.Services;
+using GieudexPol.API.Middleware;
 using GieudexPol.API.Services;
 using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Data;
+using GieudexPol.Infrastructure.ExternalServices.BankOfCanada;
 using GieudexPol.Infrastructure.ExternalServices.BankOfEngland;
 using GieudexPol.Infrastructure.ExternalServices.Bnr;
 using GieudexPol.Infrastructure.ExternalServices.Cnb;
@@ -207,6 +209,18 @@ builder.Services.AddHttpClient<BankOfEnglandExchangeRateClient>(client =>
     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/csv"));
 });
 
+builder.Services.AddHttpClient<BankOfCanadaExchangeRateClient>(client =>
+{
+    var baseUrl = builder.Configuration["BankOfCanadaApi:BaseUrl"] ?? "https://www.bankofcanada.ca/valet/";
+    if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
+    {
+        baseUrl += "/";
+    }
+
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
 builder.Services.AddHttpClient<CnbExchangeRateClient>(client =>
 {
     var baseUrl = builder.Configuration["CnbApi:BaseUrl"] ?? "https://api.cnb.cz/cnbapi/";
@@ -251,6 +265,8 @@ builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<RiksbankExchangeRateClient>());
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<BankOfEnglandExchangeRateClient>());
+builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
+    serviceProvider.GetRequiredService<BankOfCanadaExchangeRateClient>());
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<CnbExchangeRateClient>());
 builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
@@ -302,6 +318,7 @@ app.UseRouting();
 
 app.UseCors("AllowAll");
 
+app.UseMiddleware<ApiExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 

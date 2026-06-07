@@ -1,0 +1,99 @@
+@startuml
+title Kursy walut - diagram komponentow
+skinparam componentStyle rectangle
+left to right direction
+
+actor Uzytkownik as User
+
+package "Frontend Angular" {
+  component "ExchangeRateDashboard" as Dashboard
+  component "ExchangeRateApiService" as FrontApi
+}
+
+package "GieudexPol.API" {
+  component "ExchangeRatesController" as Controller
+  component "ExchangeRateStartupSyncService" as StartupSync
+  component "Dependency Injection\nIHttpClientFactory" as DI
+}
+
+package "GieudexPol.Application" {
+  interface "IExchangeRateService" as ReadPort
+  interface "IExchangeRateSyncService" as SyncPort
+  interface "IExchangeRateRepository" as RepositoryPort
+  interface "IExternalExchangeRateClient" as ProviderPort
+  component "ExchangeRateSpreadCalculator" as Spread
+  component "ExchangeRateSettings" as Settings
+}
+
+package "GieudexPol.Infrastructure" {
+  component "ExchangeRateService" as ReadService
+  component "ExchangeRateRepository" as Repository
+  component "ExchangeRateSyncService" as SyncService
+  component "NBP Client" as NBP
+  component "ECB Client" as ECB
+  component "Riksbank Client" as Riksbank
+  component "Bank of England Client" as BOE
+  component "Bank of Canada Client" as BOC
+  component "CNB Client" as CNB
+  component "Norges Client" as Norges
+  component "BNR Client" as BNR
+  component "ApplicationDbContext" as DbContext
+}
+
+database "SQL Server\nGieudexPolDB" as Database
+cloud "Zewnetrzne API\nbankow centralnych" as Providers
+
+User --> Dashboard
+Dashboard --> FrontApi
+FrontApi --> Controller : HTTP /api/ExchangeRates
+
+Controller --> ReadPort
+Controller --> SyncPort
+StartupSync --> SyncPort
+
+ReadPort <|.. ReadService
+SyncPort <|.. SyncService
+RepositoryPort <|.. Repository
+
+ReadService --> RepositoryPort
+Repository --> DbContext
+SyncService --> DbContext
+DbContext --> Database
+
+SyncService --> ProviderPort : wybiera po SourceCode
+SyncService --> Spread
+SyncService --> Settings
+
+ProviderPort <|.. NBP
+ProviderPort <|.. ECB
+ProviderPort <|.. Riksbank
+ProviderPort <|.. BOE
+ProviderPort <|.. BOC
+ProviderPort <|.. CNB
+ProviderPort <|.. Norges
+ProviderPort <|.. BNR
+
+DI ..> NBP
+DI ..> ECB
+DI ..> Riksbank
+DI ..> BOE
+DI ..> BOC
+DI ..> CNB
+DI ..> Norges
+DI ..> BNR
+
+NBP --> Providers
+ECB --> Providers
+Riksbank --> Providers
+BOE --> Providers
+BOC --> Providers
+CNB --> Providers
+Norges --> Providers
+BNR --> Providers
+
+note bottom of SyncService
+NBP zachowuje realne bid/ask.
+Pozostale zrodla uzywaja ReferenceRate
+i wspolnego synthetic spread.
+end note
+@enduml

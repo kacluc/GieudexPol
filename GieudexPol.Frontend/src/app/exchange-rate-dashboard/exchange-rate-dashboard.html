@@ -82,10 +82,12 @@
         }
       </div>
     </div>
-    <div class="fallback-note">
-      <strong>Fallback dev:</strong>
-      <span>MOCK_BANK_A zostaje lokalnie, a zrodla zewnetrzne pobieraja sie przez backend przy braku danych.</span>
-    </div>
+    @if (isDevelopmentUser) {
+      <div class="fallback-note">
+        <strong>Fallback dev:</strong>
+        <span>MOCK_BANK_A zostaje lokalnie, a zrodla zewnetrzne pobieraja sie przez backend przy braku danych.</span>
+      </div>
+    }
   </section>
 
   <div class="status-row" [class.is-loading]="loading || syncingNbp" [class.has-error]="errorMessage">

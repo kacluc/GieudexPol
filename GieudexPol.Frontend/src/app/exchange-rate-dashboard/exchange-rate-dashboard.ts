@@ -16,10 +16,12 @@ import { ExchangeRateApiService } from '../services/exchange-rate-api.service';
   styleUrl: './exchange-rate-dashboard.css',
 })
 export class ExchangeRateDashboard implements OnInit {
+  private readonly developmentUserEmail = 'dev@gieudexpol.local';
   private readonly nbpSourceCode = 'NBP';
   private readonly ecbSourceCode = 'ECB';
   private readonly riksbankSourceCode = 'RIKSBANK';
   private readonly boeSourceCode = 'BOE';
+  private readonly bocSourceCode = 'BOC';
   private readonly cnbSourceCode = 'CNB';
   private readonly norgesSourceCode = 'NORGES';
   private readonly bnrSourceCode = 'BNR';
@@ -87,6 +89,14 @@ export class ExchangeRateDashboard implements OnInit {
     'RON',
     'SEK',
     'TRY',
+    'USD',
+  ]);
+  private readonly bocCurrencyCodes = new Set([
+    'CAD',
+    'CHF',
+    'EUR',
+    'GBP',
+    'JPY',
     'USD',
   ]);
   private readonly cnbCurrencyCodes = new Set([
@@ -158,7 +168,7 @@ export class ExchangeRateDashboard implements OnInit {
     { code: 'JPY', label: 'Jen japonski' },
     { code: 'KRW', label: 'Won poludniowokoreanski' },
   ];
-  readonly sources = [
+  private readonly availableSources = [
     {
       code: 'MOCK_BANK_A',
       label: 'MOCK_BANK_A - fallback dev',
@@ -180,6 +190,10 @@ export class ExchangeRateDashboard implements OnInit {
       label: 'BOE - publikowane kursy spot',
     },
     {
+      code: 'BOC',
+      label: 'BOC - kursy referencyjne',
+    },
+    {
       code: 'CNB',
       label: 'CNB - kursy referencyjne',
     },
@@ -192,6 +206,16 @@ export class ExchangeRateDashboard implements OnInit {
       label: 'BNR - kursy referencyjne',
     },
   ];
+
+  get isDevelopmentUser(): boolean {
+    return localStorage.getItem('userEmail')?.toLowerCase() === this.developmentUserEmail;
+  }
+
+  get sources(): Array<{ code: string; label: string }> {
+    return this.isDevelopmentUser
+      ? this.availableSources
+      : this.availableSources.filter((source) => source.code !== this.mockSourceCode);
+  }
   readonly rangePresets = [
     { label: '7D', days: 7 },
     { label: '30D', days: 30 },
@@ -211,7 +235,7 @@ export class ExchangeRateDashboard implements OnInit {
   };
 
   currency = 'EUR';
-  source = 'MOCK_BANK_A';
+  source = this.nbpSourceCode;
   from = '2026-01-01';
   to = this.maximumRateDate;
 
@@ -231,6 +255,10 @@ export class ExchangeRateDashboard implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    if (this.isDevelopmentUser) {
+      this.source = this.mockSourceCode;
+    }
+
     this.fetchData();
   }
 
@@ -492,6 +520,10 @@ export class ExchangeRateDashboard implements OnInit {
 
     if (sourceCode === this.boeSourceCode) {
       return this.boeCurrencyCodes.has(currencyCode);
+    }
+
+    if (sourceCode === this.bocSourceCode) {
+      return this.bocCurrencyCodes.has(currencyCode);
     }
 
     if (sourceCode === this.cnbSourceCode) {

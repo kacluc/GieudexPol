@@ -1,0 +1,62 @@
+@startuml
+title Kursy walut - stany odczytu i synchronizacji
+
+[*] --> ZadanieOdczytu : request chart/latest\nlub start API
+
+state ZadanieOdczytu
+state OdczytBazy
+state DaneAktualne
+state WymaganaSynchronizacja
+state OczekiwanieNaBlokade
+state PobieranieZakresu
+state Normalizacja
+state Zapis
+state CzescDanychPominieta
+state SynchronizacjaZakonczona
+state BrakDanych
+state BladWalidacji
+
+ZadanieOdczytu --> BladWalidacji : niepoprawne zrodlo lub daty
+ZadanieOdczytu --> OdczytBazy : parametry poprawne
+
+OdczytBazy --> DaneAktualne : dane obejmuja oczekiwana publikacje\noraz BuyPrice != SellPrice
+OdczytBazy --> WymaganaSynchronizacja : brak danych
+OdczytBazy --> WymaganaSynchronizacja : brak oczekiwanej daty
+OdczytBazy --> WymaganaSynchronizacja : stary kurs syntetyczny\nBuyPrice == SellPrice
+
+DaneAktualne --> [*] : odpowiedz z lokalnej bazy
+
+WymaganaSynchronizacja --> BrakDanych : zrodlo niesynchronizowalne
+WymaganaSynchronizacja --> OczekiwanieNaBlokade : zrodlo synchronizowalne
+
+OczekiwanieNaBlokade --> PobieranieZakresu : blokada SourceCode uzyskana
+PobieranieZakresu --> Normalizacja : dostawca zwrocil tabele
+PobieranieZakresu --> CzescDanychPominieta : blad pojedynczego zakresu
+
+Normalizacja --> CzescDanychPominieta : brak FXPLNCAD lub serii waluty
+Normalizacja --> Zapis : kurs poprawny
+
+Zapis --> PobieranieZakresu : pozostaly kolejne zakresy
+CzescDanychPominieta --> PobieranieZakresu : pozostaly kolejne zakresy
+Zapis --> SynchronizacjaZakonczona : wszystkie zakresy przetworzone
+CzescDanychPominieta --> SynchronizacjaZakonczona : brak kolejnych zakresow
+
+SynchronizacjaZakonczona --> OdczytBazy : ponowny odczyt
+BrakDanych --> [*] : pusta lub czesciowa odpowiedz
+BladWalidacji --> [*] : HTTP 400 / 403
+
+note right of Normalizacja
+NBP:
+BuyPrice = bid
+SellPrice = ask
+
+Zrodla referencyjne:
+MidPrice = ReferenceRate w PLN
+BuyPrice/SellPrice = synthetic spread
+end note
+
+note right of OczekiwanieNaBlokade
+SemaphoreSlim jest wspolny
+dla danego SourceCode.
+end note
+@enduml

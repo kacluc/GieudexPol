@@ -1,0 +1,67 @@
+@startuml
+title Kursy walut - diagram wdrozenia
+skinparam componentStyle rectangle
+
+node "Przegladarka uzytkownika" as Browser {
+  artifact "Angular SPA\nExchangeRateDashboard" as SPA
+}
+
+node "Docker Compose / host aplikacji" as Docker {
+  node "Nginx container" as Nginx {
+    artifact "GieudexPol.Frontend" as Frontend
+  }
+
+  node "ASP.NET Core container" as Api {
+    artifact "GieudexPol.API" as ApiArtifact
+    component "ExchangeRatesController" as Controller
+    component "ExchangeRateStartupSyncService" as Startup
+    component "ExchangeRateSyncService" as Sync
+    component "Typed HttpClients" as Clients
+  }
+
+  database "SQL Server 2022 container\nGieudexPolDB" as Sql
+}
+
+cloud "NBP API" as NBP
+cloud "ECB API" as ECB
+cloud "Sveriges Riksbank API" as Riksbank
+cloud "Bank of England API" as BOE
+cloud "Bank of Canada Valet API" as BOC
+cloud "Czech National Bank API" as CNB
+cloud "Norges Bank API" as Norges
+cloud "National Bank of Romania API" as BNR
+
+Browser --> Nginx : HTTP :2137
+Nginx --> Api : reverse proxy /api
+Api --> Sql : EF Core / TCP 1433
+
+ApiArtifact *-- Controller
+ApiArtifact *-- Startup
+ApiArtifact *-- Sync
+ApiArtifact *-- Clients
+Controller --> Sync : synchronizacja na zadanie
+Startup --> Sync : synchronizacja przy starcie
+Sync --> Clients : klient po SourceCode
+
+Clients --> NBP : HTTPS JSON tabela C
+Clients --> ECB : HTTPS XML
+Clients --> Riksbank : HTTPS JSON
+Clients --> BOE : HTTPS CSV
+Clients --> BOC : HTTPS Valet JSON
+Clients --> CNB : HTTPS JSON
+Clients --> Norges : HTTPS SDMX-JSON
+Clients --> BNR : HTTPS XML
+
+note right of BOC
+Bez klucza API.
+Serie FX...CAD i FXPLNCAD.
+end note
+
+note bottom of Api
+Konfiguracja:
+ConnectionStrings__DefaultConnection
+*Api__BaseUrl
+ExchangeRateSettings__SyntheticSpreadPercent
+NbpSync__StartDate
+end note
+@enduml

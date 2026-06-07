@@ -27,6 +27,7 @@ services:
       - NbpApi__BaseUrl=https://api.nbp.pl/api/
       - EcbApi__BaseUrl=https://www.ecb.europa.eu/stats/eurofxref/
       - RiksbankApi__BaseUrl=https://api.riksbank.se/swea/v1/
+      - BankOfCanadaApi__BaseUrl=https://www.bankofcanada.ca/valet/
       - NbpSync__StartDate=2026-01-01
       - PORT=80
     ports:

@@ -9,6 +9,8 @@ database "ApplicationDbContext" as Db
 
 Sync -> Sync: wybierz klienta po SourceCode
 Sync -> Sync: przejmij blokade per zrodlo
+Sync -> Db: znajdz lub utworz RateSource
+Sync -> Db: zaladuj Currency i istniejace ExchangeRate
 
 loop zakresy wedlug MaxRangeDays
   Sync -> Client: GetBuySellRatesAsync(rangeFrom, rangeTo)
@@ -33,6 +35,17 @@ loop zakresy wedlug MaxRangeDays
     Provider --> Client: kursy wzgledem GBP
     Client -> Client: ReferenceRate = GBP_PLN / GBP_CURRENCY
     Client --> Sync: ReferenceRate w PLN
+  else BOC
+    Client -> Provider: GET observations/FXUSDCAD,...,FXPLNCAD/json\n?start_date&end_date
+    Provider --> Client: observations[d][FX...CAD].v
+    alt brak FXPLNCAD dla daty
+      Client -> Client: pomin cala date
+    else FXPLNCAD dostepne
+      Client -> Client: ReferenceRate = CURRENCY_CAD / PLN_CAD
+      Client -> Client: dla CAD ReferenceRate = 1 / PLN_CAD
+      Client -> Client: pomin brakujace serie walut
+      Client --> Sync: ReferenceRate w PLN
+    end
   else CNB
     Client -> Provider: GET exrates/daily?date=...
     Provider --> Client: amount i rate w CZK
@@ -56,7 +69,7 @@ loop zakresy wedlug MaxRangeDays
     Sync -> Sync: MidPrice = round(referenceRate, 4)
   end
 
-  Sync -> Db: znajdz/utworz RateSource i Currency
+  Sync -> Db: znajdz lub utworz Currency
   alt nowy klucz Currency + Source + Date
     Sync -> Db: INSERT ExchangeRate
   else istniejacy kurs syntetyczny
@@ -68,4 +81,9 @@ end
 
 Sync -> Db: SaveChangesAsync()
 Sync -> Sync: zwolnij blokade SourceCode
+
+note over Client, Provider
+Blad pojedynczego zakresu jest zapisywany jako warning
+i nie przerywa synchronizacji pozostalych zakresow.
+end note
 @enduml

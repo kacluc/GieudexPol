@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../services/auth.service';
@@ -33,8 +34,12 @@ export class LoginComponent implements OnInit {
       try {
         const { email, password } = this.loginForm.value;
         await this.authService.login(email, password);
-      } catch (error: any) {
-        this.errorMessage = error.message || 'Błąd logowania. Sprawdź swoje dane.';
+      } catch (error: unknown) {
+        if (error instanceof HttpErrorResponse && error.status === 401) {
+          this.errorMessage = error.error?.detail ?? 'Nieprawidłowy adres e-mail lub hasło.';
+        } else {
+          this.errorMessage = 'Błąd logowania. Spróbuj ponownie.';
+        }
       }
     }
   }

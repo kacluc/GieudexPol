@@ -21,6 +21,7 @@ namespace GieudexPol.Infrastructure.Services
             {
                 "ECB",
                 "BOE",
+                "BOC",
                 "RIKSBANK",
                 "CNB",
                 "NORGES",
@@ -268,7 +269,7 @@ namespace GieudexPol.Infrastructure.Services
                 var referenceRate = rate.ReferenceRate ??
                     decimal.Round((rate.BuyPrice + rate.SellPrice) / 2m, 6, MidpointRounding.AwayFromZero);
 
-                // ECB, BOE, RIKSBANK, CNB, NORGES and BNR publish reference/mid rates,
+                // ECB, BOE, BOC, RIKSBANK, CNB, NORGES and BNR publish reference/mid rates,
                 // not official bid/ask tables. BuyPrice and SellPrice are synthetic values
                 // calculated from the reference rate using configured spread.
                 var (buyPrice, sellPrice) =

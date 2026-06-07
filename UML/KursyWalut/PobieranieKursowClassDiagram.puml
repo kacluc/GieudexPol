@@ -39,8 +39,15 @@ package "API" {
 
 package "Application" {
   interface IExchangeRateService
-  interface IExchangeRateSyncService
-  interface IExchangeRateRepository
+  interface IExchangeRateSyncService {
+    + SyncRatesAsync(sourceCode, from, to, cancellationToken)
+    + SyncCurrentYearRatesAsync(sourceCode, cancellationToken)
+    + SyncNbpRatesAsync(from, to, cancellationToken)
+  }
+  interface IExchangeRateRepository {
+    + GetChartDataAsync(currencyCode, sourceCode, from, to)
+    + GetLatestRatesAsync(sourceCode, currencyCode)
+  }
   interface IExternalExchangeRateClient {
     + SourceCode: string
     + SourceName: string
@@ -62,6 +69,13 @@ package "Application" {
     + BuyPrice: decimal
     + SellPrice: decimal
     + ReferenceRate: decimal?
+  }
+
+  class ExternalExchangeRateTableDto {
+    + Table: string
+    + Number: string
+    + EffectiveDate: DateTime
+    + Rates: List<ExternalExchangeRateItemDto>
   }
 
   class ExchangeRateChartPointDto {
@@ -88,12 +102,38 @@ package "Infrastructure" {
     + SyncRatesAsync(sourceCode, from, to, cancellationToken)
     + SyncCurrentYearRatesAsync(sourceCode, cancellationToken)
     - GetStoredPrices(sourceCode, rate)
+    - GetOrCreateRateSourceAsync(client)
     - LoadExistingRatesAsync(...)
     - SplitIntoRanges(...)
   }
 
   class ExchangeRateRepository
   class ApplicationDbContext
+
+  class BankOfCanadaExchangeRateClient {
+    + SourceCode: string = "BOC"
+    + SourceName: string = "Bank of Canada"
+    + MaxRangeDays: int = 366
+    + GetBuySellRatesAsync(from, to, cancellationToken)
+    + GetLatestExchangeRatesAsync(cancellationToken)
+    {static} + ParseObservations(json, from, to)
+    {static} + CalculateCrossRateToPln(currencyCadRate, plnCadRate)
+    {static} + CalculateCadRateToPln(plnCadRate)
+  }
+
+  class BankOfCanadaResponseDto {
+    + Observations: List<BankOfCanadaObservationDto>
+  }
+
+  class BankOfCanadaObservationDto {
+    + Date: string
+    + PlnCad: BankOfCanadaSeriesValueDto?
+    + SeriesValues: IReadOnlyDictionary
+  }
+
+  class BankOfCanadaSeriesValueDto {
+    + Value: string?
+  }
 }
 
 package "Domain" {
@@ -137,7 +177,14 @@ ExchangeRateSyncService --> ApplicationDbContext
 ExchangeRateSyncService --> IExternalExchangeRateClient
 ExchangeRateSyncService --> ExchangeRateSpreadCalculator
 ExchangeRateSyncService --> ExchangeRateSettings
-IExternalExchangeRateClient --> ExternalExchangeRateItemDto
+IExternalExchangeRateClient --> ExternalExchangeRateTableDto
+ExternalExchangeRateTableDto "1" *-- "many" ExternalExchangeRateItemDto
+
+IExternalExchangeRateClient <|.. BankOfCanadaExchangeRateClient
+BankOfCanadaExchangeRateClient --> BankOfCanadaResponseDto : deserializuje JSON
+BankOfCanadaResponseDto "1" *-- "many" BankOfCanadaObservationDto
+BankOfCanadaObservationDto --> BankOfCanadaSeriesValueDto
+BankOfCanadaExchangeRateClient --> ExternalExchangeRateTableDto : CAD -> PLN
 
 ApplicationDbContext --> Currency
 ApplicationDbContext --> RateSource
@@ -151,5 +198,17 @@ CurrencyId + RateSourceId + EffectiveDate
 
 Wszystkie ceny oznaczaja PLN
 za 1 jednostke waluty.
+end note
+
+note right of BankOfCanadaExchangeRateClient
+Serie:
+FXUSDCAD, FXEURCAD, FXGBPCAD,
+FXCHFCAD, FXJPYCAD, FXPLNCAD
+
+CURRENCY_PLN = CURRENCY_CAD / PLN_CAD
+CAD_PLN = 1 / PLN_CAD
+
+Brak FXPLNCAD powoduje pominiecie daty.
+Brak innej serii powoduje pominiecie waluty.
 end note
 @enduml

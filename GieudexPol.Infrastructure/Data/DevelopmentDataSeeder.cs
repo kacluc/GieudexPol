@@ -1,3 +1,4 @@
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -9,8 +10,8 @@ namespace GieudexPol.Infrastructure.Data
 {
     public static class DevelopmentDataSeeder
     {
-        private const string DevelopmentSourceCode = "MOCK_BANK_A";
-        public const string DevelopmentUserEmail = "dev@gieudexpol.local";
+        private const string DevelopmentSourceCode = DevelopmentIdentity.RateSourceCode;
+        public const string DevelopmentUserEmail = DevelopmentIdentity.UserEmail;
         public const string DevelopmentUserPassword = "DevPassword123!";
         public const string DemoUserPassword = "DemoPassword123!";
         private static readonly Guid DevelopmentUserAuthId = new("11111111-1111-1111-1111-111111111111");

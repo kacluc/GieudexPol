@@ -3,6 +3,7 @@ title Obsluga kursow walut - diagram aktywnosci
 
 start
 :Uzytkownik wybiera walute,\nzrodlo i zakres dat;
+:Frontend wysyla rownolegle request\nwykresu i najnowszych kursow;
 
 if (Daty podane?) then (nie)
   :from = 1 stycznia biezacego roku;
@@ -23,16 +24,29 @@ if (Brak danych, brak oczekiwanej publikacji\nlub stare BuyPrice == SellPrice?) 
   endif
 
   :Przejmij blokade per SourceCode;
+  :Znajdz lub utworz RateSource;
   :Podziel zakres wedlug MaxRangeDays;
   :Wybierz IExternalExchangeRateClient;
   :Pobierz dane dostawcy;
-  :Przelicz kurs referencyjny do PLN;
 
   if (source == NBP?) then (tak)
+    :Pobierz tabele C;
     :BuyPrice = bid;
     :SellPrice = ask;
     :MidPrice = (bid + ask) / 2;
   else (nie)
+    if (source == BOC?) then (tak)
+      :Pobierz FXUSDCAD, FXEURCAD,\nFXGBPCAD, FXCHFCAD, FXJPYCAD\noraz FXPLNCAD;
+      if (Brak FXPLNCAD dla daty?) then (tak)
+        :Pomin obserwacje z tej daty;
+      else (nie)
+        :MidPrice waluty = CURRENCY_CAD / PLN_CAD;
+        :MidPrice CAD = 1 / PLN_CAD;
+        :Pomin pojedyncze brakujace serie;
+      endif
+    else (inne zrodlo referencyjne)
+      :Przelicz kurs referencyjny\ndostawcy do PLN;
+    endif
     :Pobierz SyntheticSpreadPercent;
     :ExchangeRateSpreadCalculator\nwylicza ceny wokol MidPrice;
     if (Ceny zrownaly sie po zaokragleniu?) then (tak)

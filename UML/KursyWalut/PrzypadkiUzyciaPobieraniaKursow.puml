@@ -6,7 +6,7 @@ skinparam packageStyle rectangle
 actor Uzytkownik as User
 actor Administrator as Admin
 actor "Serwis startowy" as Startup
-actor "NBP / ECB / Riksbank /\nBOE / CNB / Norges / BNR" as Providers
+actor "NBP / ECB / Riksbank /\nBOE / BOC / CNB / Norges / BNR" as Providers
 
 rectangle "GieudexPol - kursy walut" {
   usecase "Wybranie waluty,\nzrodla i zakresu dat" as Select
@@ -15,10 +15,12 @@ rectangle "GieudexPol - kursy walut" {
   usecase "Odczyt danych\nz lokalnej bazy" as ReadCache
   usecase "Automatyczna synchronizacja\nbrakujacych danych" as AutoSync
   usecase "Normalizacja kursu\ndo PLN" as Normalize
+  usecase "Przeliczenie BOC\nprzez kurs CAD/PLN" as BocCross
   usecase "Zachowanie realnego\nbid/ask NBP C" as NbpBidAsk
   usecase "Wyliczenie syntetycznego\nBuyPrice / SellPrice" as Synthetic
+  usecase "Zapis RateSource, Currency\ni ExchangeRate w bazie" as Persist
   usecase "Reczna synchronizacja\nwybranego zrodla" as ManualSync
-  usecase "Synchronizacja i migracje\nprzy starcie API" as StartupSync
+  usecase "Synchronizacja zrodel\nprzy starcie API" as StartupSync
 }
 
 User --> Select
@@ -30,18 +32,27 @@ Display ..> AutoSync : <<extend>>\nbrak lub nieaktualne dane
 AutoSync ..> Normalize : <<include>>
 NbpBidAsk ..> Normalize : <<extend>>\nsource = NBP
 Synthetic ..> Normalize : <<extend>>\nsource referencyjne
+BocCross ..> Normalize : <<extend>>\nsource = BOC
+AutoSync ..> Persist : <<include>>
 AutoSync --> Providers
 
 Admin --> ManualSync
 ManualSync ..> Validate : <<include>>
 ManualSync ..> Normalize : <<include>>
+ManualSync ..> Persist : <<include>>
 ManualSync --> Providers
 
 Startup --> StartupSync
 StartupSync ..> AutoSync : <<include>>
 
 note bottom of Synthetic
-ECB, RIKSBANK, BOE, CNB, NORGES, BNR
+ECB, RIKSBANK, BOE, BOC, CNB, NORGES, BNR
 korzystaja ze spreadu konfigurowalnego.
+end note
+
+note bottom of BocCross
+Waluty: CURRENCY_CAD / PLN_CAD
+CAD: 1 / PLN_CAD
+Daty bez FXPLNCAD sa pomijane.
 end note
 @enduml

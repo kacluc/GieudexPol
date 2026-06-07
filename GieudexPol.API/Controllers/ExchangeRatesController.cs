@@ -1,5 +1,7 @@
 using System;
+using System.Security.Claims;
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +21,7 @@ namespace GieudexPol.API.Controllers
             "ECB",
             "RIKSBANK",
             "BOE",
+            "BOC",
             "CNB",
             "NORGES",
             "BNR"
@@ -45,6 +48,12 @@ namespace GieudexPol.API.Controllers
             {
                 return NotFound();
             }
+
+            if (!CanAccessSource(exchangeRate.RateSource.Code))
+            {
+                return NotFound();
+            }
+
             return Ok(exchangeRate);
         }
 
@@ -85,6 +94,10 @@ namespace GieudexPol.API.Controllers
 
             var currencyCode = currency.Trim().ToUpperInvariant();
             var sourceCode = source.Trim().ToUpperInvariant();
+            if (!CanAccessSource(sourceCode))
+            {
+                return Forbid();
+            }
 
             var chartData = await _exchangeRateService.GetChartDataAsync(
                 currencyCode,
@@ -142,6 +155,11 @@ namespace GieudexPol.API.Controllers
             }
 
             var sourceCode = source.Trim().ToUpperInvariant();
+            if (!CanAccessSource(sourceCode))
+            {
+                return Forbid();
+            }
+
             var currencyCode = string.IsNullOrWhiteSpace(currency)
                 ? null
                 : currency.Trim().ToUpperInvariant();
@@ -176,6 +194,15 @@ namespace GieudexPol.API.Controllers
         public async Task<IActionResult> GetAllExchangeRates()
         {
             var exchangeRates = await _exchangeRateService.GetAllAsync();
+            if (!IsDevelopmentUser())
+            {
+                exchangeRates = exchangeRates.Where(rate =>
+                    !string.Equals(
+                        rate.RateSource.Code,
+                        DevelopmentIdentity.RateSourceCode,
+                        StringComparison.OrdinalIgnoreCase));
+            }
+
             return Ok(exchangeRates);
         }
 
@@ -233,6 +260,15 @@ namespace GieudexPol.API.Controllers
             CancellationToken cancellationToken)
         {
             return await SyncRatesBySource("BOE", from, to, cancellationToken);
+        }
+
+        [HttpPost("sync/boc")]
+        public async Task<IActionResult> SyncBankOfCanadaRates(
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            CancellationToken cancellationToken)
+        {
+            return await SyncRatesBySource("BOC", from, to, cancellationToken);
         }
 
         [HttpPost("sync/cnb")]
@@ -354,6 +390,23 @@ namespace GieudexPol.API.Controllers
         private static bool IsSyncableSource(string sourceCode)
         {
             return SyncableSources.Contains(sourceCode);
+        }
+
+        private bool CanAccessSource(string sourceCode)
+        {
+            return !string.Equals(
+                       sourceCode,
+                       DevelopmentIdentity.RateSourceCode,
+                       StringComparison.OrdinalIgnoreCase) ||
+                   IsDevelopmentUser();
+        }
+
+        private bool IsDevelopmentUser()
+        {
+            return string.Equals(
+                User.FindFirstValue(ClaimTypes.Email),
+                DevelopmentIdentity.UserEmail,
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private static DateTime ResolveExpectedPublicationDate(DateTime date)

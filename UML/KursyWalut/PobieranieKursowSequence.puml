@@ -7,6 +7,8 @@ participant "ExchangeRateApiService" as ApiClient
 participant "ExchangeRatesController" as Controller
 participant "ExchangeRateService" as ReadService
 participant "ExchangeRateSyncService" as SyncService
+participant "IExternalExchangeRateClient\nwybrany po SourceCode" as ExternalClient
+participant "NBP / ECB / RIKSBANK / BOE /\nBOC / CNB / NORGES / BNR" as Provider
 database "SQL Server\nExchangeRates" as Db
 
 User -> Frontend: wybiera walute, zrodlo i daty
@@ -14,18 +16,25 @@ Frontend -> Frontend: ogranicz daty do\n2026-01-01 .. dzisiaj
 
 par dane wykresu
   Frontend -> ApiClient: getChartData(currency, source, from, to)
-  ApiClient -> Controller: GET /api/ExchangeRates/chart
-  Controller -> Controller: waliduj parametry i ustaw domyslny YTD
+  ApiClient -> Controller: GET /api/ExchangeRates/chart\n?currency&source&from&to
+  Controller -> Controller: waliduj parametry,\ndostep do zrodla i domyslny YTD
   Controller -> ReadService: GetChartDataAsync(...)
   ReadService -> Db: SELECT po walucie, zrodle i zakresie
   Db --> ReadService: ExchangeRateChartPointDto[]
   ReadService --> Controller: odpowiedz wykresu
 
-  alt brak danych / brak oczekiwanej daty / stare rowne ceny
+  alt brak danych / brak oczekiwanej publikacji / stare BuyPrice == SellPrice
     Controller -> SyncService: SyncRatesAsync(source, from, to)
-    SyncService -> SyncService: pobierz, znormalizuj i zapisz kursy
-    SyncService -> Db: INSERT nowych lub UPDATE syntetycznych
+    SyncService -> SyncService: wybierz klienta i przejmij\nblokade per SourceCode
+    SyncService -> Db: znajdz lub utworz RateSource
+    SyncService -> ExternalClient: GetBuySellRatesAsync(from, to)
+    ExternalClient -> Provider: request dla wybranego zrodla
+    Provider --> ExternalClient: tabele / obserwacje kursow
+    ExternalClient --> SyncService: ExternalExchangeRateTableDto[]
+    SyncService -> SyncService: normalizacja do PLN;\nrealny lub syntetyczny bid/ask
+    SyncService -> Db: INSERT nowych lub UPDATE\nistniejacych kursow syntetycznych
     Db --> SyncService: zapisano
+    SyncService --> Controller: NbpSyncResultDto
     Controller -> ReadService: GetChartDataAsync(...)
     ReadService -> Db: ponowny SELECT
     Db --> ReadService: aktualne punkty
@@ -36,7 +45,7 @@ par dane wykresu
   ApiClient --> Frontend: date, buyPrice, midPrice, sellPrice
 else najnowsze kursy
   Frontend -> ApiClient: getLatestRates(source)
-  ApiClient -> Controller: GET /api/ExchangeRates/latest
+  ApiClient -> Controller: GET /api/ExchangeRates/latest?source
   Controller -> ReadService: GetLatestRatesAsync(source)
   ReadService -> Db: najnowszy dzien dla kazdej waluty
   Db --> ReadService: ExchangeRateTableRowDto[]
@@ -44,8 +53,14 @@ else najnowsze kursy
 
   alt brak danych biezacego roku lub stare rowne ceny
     Controller -> SyncService: SyncCurrentYearRatesAsync(source)
+    SyncService -> ExternalClient: GetBuySellRatesAsync(YTD)
+    ExternalClient -> Provider: request do zrodla
+    Provider --> ExternalClient: dane kursowe
+    ExternalClient --> SyncService: kursy znormalizowane do PLN
     SyncService -> Db: zapisz lub odswiez kursy
     Controller -> ReadService: ponowny odczyt latest
+    ReadService -> Db: SELECT najnowszego dnia
+    Db --> ReadService: aktualne kursy
   end
 
   Controller --> ApiClient: 200 ExchangeRateTableRowDto[]
@@ -58,5 +73,12 @@ note right of Frontend
 Perspektywa uzytkownika:
 Sprzedajesz po = BuyPrice
 Kupujesz po = SellPrice
+end note
+
+note over SyncService, Provider
+Frontend nie laczy sie bezposrednio z bankiem centralnym.
+Backend najpierw odczytuje lokalna baze i pobiera dane
+zewnetrzne tylko wtedy, gdy lokalnych danych brakuje,
+sa nieaktualne albo wymagaja odswiezenia spreadu.
 end note
 @enduml

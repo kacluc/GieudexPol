@@ -214,6 +214,7 @@ Supported sources:
 *   `ECB` - European Central Bank, official XML reference rates.
 *   `RIKSBANK` - Sveriges Riksbank, official REST API reference rates against SEK.
 *   `BOE` - Bank of England, published CSV spot series against GBP.
+*   `BOC` - Bank of Canada Valet API reference rates against CAD.
 *   `CNB` - Czech National Bank, JSON reference rates against CZK.
 *   `NORGES` - Norges Bank, SDMX-JSON reference rates against NOK.
 *   `BNR` - National Bank of Romania, XML reference rates against RON.
@@ -230,7 +231,7 @@ Supported sources:
 *   All persisted and returned rates are PLN-relative.
 *   `BuyPrice` is the lower bank buy rate; `SellPrice` is the higher bank sell rate.
 *   `MidPrice` stores the source reference rate or the midpoint of NBP bid/ask.
-*   NBP table C keeps real bid/ask. ECB, RIKSBANK, BOE, CNB, NORGES and BNR use a configurable synthetic spread.
+*   NBP table C keeps real bid/ask. ECB, RIKSBANK, BOE, BOC, CNB, NORGES and BNR use a configurable synthetic spread.
 
 ### NBP Source
 
@@ -317,7 +318,15 @@ Example:
 1 USD = 9.37 / 2.56 PLN
 ```
 
-Riksbank publishes indicative mid-market rates, not bid/ask. `RateToPLN` becomes `MidPrice`, and synthetic `BuyPrice < SellPrice` is calculated in the same shared calculator used for ECB, BOE, CNB, NORGES and BNR.
+Riksbank publishes indicative mid-market rates, not bid/ask. `RateToPLN` becomes `MidPrice`, and synthetic `BuyPrice < SellPrice` is calculated in the same shared calculator used for ECB, BOE, BOC, CNB, NORGES and BNR.
+
+### Bank of Canada Source
+
+BOC uses the public Valet API and requests `FXUSDCAD`, `FXEURCAD`, `FXGBPCAD`,
+`FXCHFCAD`, `FXJPYCAD` and `FXPLNCAD` in one JSON request. Foreign-currency
+rates are converted with `CURRENCY_CAD / PLN_CAD`; CAD uses `1 / PLN_CAD`.
+Bank of Canada started publishing PLN in May 2026, so earlier dates without
+`FXPLNCAD` are skipped.
 
 ### Default Date Range
 
@@ -362,6 +371,7 @@ POST /api/ExchangeRates/sync/ecb?from=2026-01-01&to=2026-06-07
 POST /api/ExchangeRates/sync/riksbank
 POST /api/ExchangeRates/sync/riksbank?from=2026-01-01&to=2026-06-07
 POST /api/ExchangeRates/sync/boe
+POST /api/ExchangeRates/sync/boc
 POST /api/ExchangeRates/sync/cnb
 POST /api/ExchangeRates/sync/norges
 POST /api/ExchangeRates/sync/bnr
@@ -389,6 +399,9 @@ POST /api/whale-ranking/refresh
   "RiksbankApi": {
     "BaseUrl": "https://api.riksbank.se/swea/v1/"
   },
+  "BankOfCanadaApi": {
+    "BaseUrl": "https://www.bankofcanada.ca/valet/"
+  },
   "ExchangeRateSettings": {
     "SyntheticSpreadPercent": 0.02
   },
@@ -404,6 +417,7 @@ Docker Compose passes the same values through environment variables:
 NbpApi__BaseUrl=https://api.nbp.pl/api/
 EcbApi__BaseUrl=https://www.ecb.europa.eu/stats/eurofxref/
 RiksbankApi__BaseUrl=https://api.riksbank.se/swea/v1/
+BankOfCanadaApi__BaseUrl=https://www.bankofcanada.ca/valet/
 ExchangeRateSettings__SyntheticSpreadPercent=0.02
 NbpSync__StartDate=2026-01-01
 ```
