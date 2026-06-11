@@ -1,12 +1,8 @@
 using GieudexPol.Application.Interfaces;
-using GieudexPol.Domain;
-using GieudexPol.Domain.Entities;
+using GieudexPol.Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Security.Claims;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace GieudexPol.API.Controllers
 {
@@ -25,13 +21,11 @@ namespace GieudexPol.API.Controllers
         [HttpGet("{username}")]
         public async Task<IActionResult> GetUserByUsername(string username)
         {
-            if (string.Equals(username, DevelopmentIdentity.UserEmail, StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(
-                    User.FindFirstValue(ClaimTypes.Email),
-                    DevelopmentIdentity.UserEmail,
-                    StringComparison.OrdinalIgnoreCase))
+            var authenticatedEmail = User.FindFirstValue(ClaimTypes.Email);
+            if (!User.IsInRole(UserRoles.Admin) &&
+                !string.Equals(authenticatedEmail, username, StringComparison.OrdinalIgnoreCase))
             {
-                return NotFound();
+                return Forbid();
             }
 
             var user = await _userService.GetByUsernameAsync(username);
@@ -39,37 +33,15 @@ namespace GieudexPol.API.Controllers
             {
                 return NotFound();
             }
-            return Ok(user);
-        }
 
-        [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] User user)
-        {
-            await _userService.AddAsync(user);
-            return CreatedAtAction(nameof(GetUserByUsername), new { username = user.Username }, user);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateUser(int id, [FromBody] User user)
-        {
-            if (id != user.Id)
+            return Ok(new AdminUserDto
             {
-                return BadRequest();
-            }
-            await _userService.UpdateAsync(user);
-            return NoContent();
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
-        {
-            var user = await _userService.GetByIdAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-            await _userService.DeleteAsync(user);
-            return NoContent();
+                Id = user.Id,
+                Email = user.Username,
+                Username = user.Username,
+                DisplayName = user.DisplayName,
+                Role = user.Role
+            });
         }
     }
 }

@@ -52,12 +52,18 @@ namespace GieudexPol.Application.Services
                 Id = ranking.Id,
                 UserId = ranking.UserId,
                 Username = string.IsNullOrWhiteSpace(ranking.User.DisplayName)
-                    ? ranking.User.Username
+                    ? GetEmailLocalPart(ranking.User.Username)
                     : ranking.User.DisplayName,
                 TotalPortfolioValue = ranking.TotalPortfolioValue,
                 Rank = ranking.Rank,
                 LastUpdated = ranking.LastUpdated
             };
+        }
+
+        private static string GetEmailLocalPart(string username)
+        {
+            var separatorIndex = username.IndexOf('@');
+            return separatorIndex > 0 ? username[..separatorIndex] : username;
         }
     }
 }

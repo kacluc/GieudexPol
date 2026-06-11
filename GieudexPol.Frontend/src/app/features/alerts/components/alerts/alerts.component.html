@@ -6,7 +6,7 @@
       <label for="currency">Waluta:</label>
       <select id="currency" formControlName="currencyId" class="form-control">
         <option value="">Wybierz walutę</option>
-        <option *ngFor="let currency of currencies" [value]="currency.id">{{ currency.symbol }}</option>
+        <option *ngFor="let currency of currencies()" [value]="currency.id">{{ currency.symbol }}</option>
       </select>
       <div *ngIf="alertForm.get('currencyId')?.invalid && alertForm.get('currencyId')?.touched" class="error-message">
         Wybór waluty jest wymagany.
@@ -64,11 +64,11 @@
   </form>
 
   <h3>Moje Alerty</h3>
-  <div *ngIf="alerts.length === 0" class="no-alerts-message">
+  <div *ngIf="alerts().length === 0" class="no-alerts-message">
     Brak aktywnych alertów. Utwórz nowy alert, aby monitorować zmiany cen walut.
   </div>
   <ul class="alerts-list">
-    <li *ngFor="let alert of alerts" class="alert-item">
+    <li *ngFor="let alert of alerts()" class="alert-item">
       <div class="alert-details">
         <strong>Waluta:</strong> {{ alert.currencySymbol }}<br>
         <strong>Typ:</strong> {{ alert.alertType }}

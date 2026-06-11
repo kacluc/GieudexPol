@@ -122,7 +122,7 @@
     </article>
     <article>
       <span>Najnowszy wpis tabeli</span>
-      <strong>{{ latestSelectedRate?.effectiveDate | date:'yyyy-MM-dd' }}</strong>
+      <strong>{{ latestSelectedRate?.effectiveDate | date:'dd.MM.yyyy' }}</strong>
     </article>
   </section>
 
@@ -179,7 +179,7 @@
 
             <g class="tooltip" [attr.transform]="'translate(' + selectedTooltipX + ' ' + selectedTooltipY + ')'">
               <rect width="176" height="76" rx="6"></rect>
-              <text x="12" y="22">{{ selectedPoint.date | date:'yyyy-MM-dd' }}</text>
+              <text x="12" y="22">{{ selectedPoint.date | date:'dd.MM.yyyy' }}</text>
               <text x="12" y="44">Sprzedajesz: {{ selectedPoint.buyPrice | number:'1.4-4' }}</text>
               <text x="12" y="62">Kupujesz: {{ selectedPoint.sellPrice | number:'1.4-4' }}</text>
             </g>
@@ -189,10 +189,10 @@
         }
 
         <text class="date-label" [attr.x]="chartPadding.left" [attr.y]="chartHeight - 12" text-anchor="start">
-          {{ firstPointDate | date:'yyyy-MM-dd' }}
+          {{ firstPointDate | date:'dd.MM.yyyy' }}
         </text>
         <text class="date-label" [attr.x]="chartWidth - chartPadding.right" [attr.y]="chartHeight - 12" text-anchor="end">
-          {{ lastPointDate | date:'yyyy-MM-dd' }}
+          {{ lastPointDate | date:'dd.MM.yyyy' }}
         </text>
       </svg>
     </div>
@@ -222,9 +222,9 @@
           </tr>
         </thead>
         <tbody>
-          @for (point of chartPoints; track point.date) {
+          @for (point of tablePoints; track point.date) {
             <tr>
-              <td>{{ point.date | date:'yyyy-MM-dd' }}</td>
+              <td>{{ point.date | date:'dd.MM.yyyy' }}</td>
               <td>{{ point.buyPrice | number:'1.4-4' }}</td>
               <td>{{ point.midPrice == null ? '-' : (point.midPrice | number:'1.4-4') }}</td>
               <td>{{ point.sellPrice | number:'1.4-4' }}</td>
@@ -263,7 +263,7 @@
             <tr>
               <td>{{ rate.currencyCode }}</td>
               <td>{{ rate.currencyName }}</td>
-              <td>{{ rate.effectiveDate | date:'yyyy-MM-dd' }}</td>
+              <td>{{ rate.effectiveDate | date:'dd.MM.yyyy' }}</td>
               <td>{{ rate.buyPrice | number:'1.4-4' }}</td>
               <td>{{ rate.midPrice == null ? '-' : (rate.midPrice | number:'1.4-4') }}</td>
               <td>{{ rate.sellPrice | number:'1.4-4' }}</td>

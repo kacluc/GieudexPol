@@ -7,27 +7,11 @@ import { UserDto } from '../models/user.dto';
   providedIn: 'root'
 })
 export class UserService {
-  private apiUrl = '/api/Users'; // Endpoint na podstawie UsersController
+  private readonly apiUrl = '/api/Users';
   
   constructor(private http: HttpClient) {}
 
-  // GET /api/users/{username}
   getUserByUsername(username: string): Observable<UserDto> {
     return this.http.get<UserDto>(`${this.apiUrl}/${username}`);
-  }
-
-  // POST /api/users
-  createUser(user: UserDto): Observable<UserDto> {
-    return this.http.post<UserDto>(this.apiUrl, user);
-  }
-
-  // PUT /api/users/{id}
-  updateUser(userId: number, user: UserDto): Observable<void> {
-    return this.http.put<void>(`${this.apiUrl}/${userId}`, user);
-  }
-
-  // DELETE /api/users/{id}
-  deleteUser(userId: number): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${userId}`);
   }
 }

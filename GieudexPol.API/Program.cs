@@ -117,9 +117,11 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidAudience = jwtSettings["Audience"],
         ValidateLifetime = true,
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role,
         ClockSkew = TimeSpan.Zero
     };
 });
+builder.Services.AddAuthorization();
 
 // Add CORS policy
 builder.Services.AddCors(options =>
@@ -143,6 +145,8 @@ builder.Services.AddScoped<GieudexPol.Domain.Auth.IUserRepository, GieudexPol.In
 builder.Services.AddScoped<ICurrencyService, CurrencyService>();
 builder.Services.AddScoped<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAdminUserService, AdminUserService>();
+builder.Services.AddScoped<IAdminTestExchangeRateService, AdminTestExchangeRateService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<ITransactionService, GieudexPol.Application.Services.TransactionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();

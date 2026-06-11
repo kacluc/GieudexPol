@@ -176,6 +176,10 @@ namespace GieudexPol.Infrastructure.Data
                 if (existingUsersByEmail.TryGetValue(seed.Email, out var existingUser))
                 {
                     existingUser.DisplayName = seed.DisplayName;
+                    if (seed.Email == DevelopmentUserEmail)
+                    {
+                        existingUser.Role = "Admin";
+                    }
                     continue;
                 }
 
@@ -186,7 +190,7 @@ namespace GieudexPol.Infrastructure.Data
                     Username = seed.Email,
                     DisplayName = seed.DisplayName,
                     PasswordHash = passwordHasher.HashPassword(authUser, seed.Password),
-                    Role = "User"
+                    Role = seed.Email == DevelopmentUserEmail ? "Admin" : "User"
                 });
             }
 

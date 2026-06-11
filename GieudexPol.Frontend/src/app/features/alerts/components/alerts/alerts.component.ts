@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UserAlertService } from '../../services/user-alert.service';
 import { AlertType, UserAlertCreateDto, UserAlertUpdateDto, UserAlertDto } from '../../../../shared/models/user-alert.model';
@@ -16,10 +16,10 @@ import { AuthService } from '../../../auth/services/auth.service';
 })
 export class AlertsComponent implements OnInit {
   AlertType = AlertType; // Expose AlertType enum to the template
-  alerts: UserAlertDto[] = [];
+  readonly alerts = signal<UserAlertDto[]>([]);
   alertForm: FormGroup;
   alertTypes = Object.values(AlertType);
-  currencies: Currency[] = [];
+  readonly currencies = signal<Currency[]>([]);
   currentUserId: number | null = null;
   editingAlert: UserAlertDto | null = null;
 
@@ -57,14 +57,14 @@ export class AlertsComponent implements OnInit {
   loadAlerts(): void {
     if (this.currentUserId) {
       this.userAlertService.getUserAlerts(this.currentUserId).subscribe(alerts => {
-        this.alerts = alerts;
+        this.alerts.set(alerts);
       });
     }
   }
 
   loadCurrencies(): void {
     this.currencyService.getAllCurrencies().subscribe(currencies => {
-      this.currencies = currencies;
+      this.currencies.set(currencies);
     });
   }
 
@@ -85,9 +85,6 @@ export class AlertsComponent implements OnInit {
       case AlertType.PriceIncrease:
         percentageChangeControl?.setValidators([Validators.required, Validators.min(0.01), Validators.max(100)]);
         timeFrameHoursControl?.setValidators([Validators.required, Validators.min(1)]);
-        break;
-      case AlertType.Volume:
-        // Volume alert might require different fields or no specific validators here for now
         break;
     }
 
@@ -134,7 +131,7 @@ export class AlertsComponent implements OnInit {
     this.editingAlert = alert;
     // The UserAlertDto does not have currencyId directly, it has currencySymbol.
     // We need to find the currencyId based on the currencySymbol.
-    const selectedCurrency = this.currencies.find(c => c.symbol === alert.currencySymbol);
+    const selectedCurrency = this.currencies().find(c => c.symbol === alert.currencySymbol);
     this.alertForm.patchValue({
       currencyId: selectedCurrency ? selectedCurrency.id : 
       null,

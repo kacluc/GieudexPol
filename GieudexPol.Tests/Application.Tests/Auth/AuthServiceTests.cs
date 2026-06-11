@@ -66,6 +66,7 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             // Arrange
             var registerRequest = new RegisterRequest
             {
+                DisplayName = "Test User",
                 Email = "test@example.com",
                 Password = "Password123!",
                 ConfirmPassword = "Password123!"
@@ -77,7 +78,10 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             _mockUserRepository.Setup(r => r.AddAsync(It.IsAny<User>()))
                                .Callback<User>(user => user.AssignApplicationUserId(7))
                                .Returns(Task.CompletedTask);
-            _mockJwtService.Setup(j => j.GenerateToken(It.IsAny<string>(), It.IsAny<string>()))
+            _mockJwtService.Setup(j => j.GenerateToken(
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    "User"))
                            .Returns("dummy_jwt_token");
 
             // Act
@@ -88,6 +92,9 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             Assert.Equal("dummy_jwt_token", response.Token);
             Assert.Equal(registerRequest.Email, response.Email);
             Assert.Equal(7, response.UserId);
+            Assert.Equal("User", response.Role);
+            _mockUserRepository.Verify(r => r.AddAsync(
+                It.Is<User>(user => user.DisplayName == registerRequest.DisplayName)), Times.Once);
             _mockUserRepository.Verify(r => r.AddAsync(It.IsAny<User>()), Times.Once);
         }
 
@@ -97,6 +104,7 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             // Arrange
             var registerRequest = new RegisterRequest
             {
+                DisplayName = "Test User",
                 Email = "test@example.com",
                 Password = "Password123!",
                 ConfirmPassword = "Password123!"
@@ -131,7 +139,10 @@ namespace GieudexPol.Tests.Application.Tests.Auth
                               .ReturnsAsync(SignInResult.Success);
             _mockUserRepository.Setup(r => r.GetByEmailAsync(loginRequest.Email))
                                .ReturnsAsync(new User(Guid.Parse(applicationUser.Id), applicationUser.Email, "hashedPassword", 7));
-            _mockJwtService.Setup(j => j.GenerateToken(applicationUser.Id, loginRequest.Email))
+            _mockJwtService.Setup(j => j.GenerateToken(
+                    applicationUser.Id,
+                    loginRequest.Email,
+                    "User"))
                            .Returns("dummy_jwt_token");
 
             // Act
@@ -142,6 +153,7 @@ namespace GieudexPol.Tests.Application.Tests.Auth
             Assert.Equal("dummy_jwt_token", response.Token);
             Assert.Equal(loginRequest.Email, response.Email);
             Assert.Equal(7, response.UserId);
+            Assert.Equal("User", response.Role);
         }
 
         [Fact]

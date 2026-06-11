@@ -1,4 +1,6 @@
 using GieudexPol.Domain.Auth;
+using GieudexPol.Domain;
+using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using AuthUser = GieudexPol.Domain.Auth.User;
@@ -31,7 +33,9 @@ namespace GieudexPol.Infrastructure.Auth
                 applicationUser.AuthId,
                 applicationUser.Username,
                 applicationUser.PasswordHash,
-                applicationUser.Id);
+                applicationUser.Id,
+                applicationUser.Role,
+                applicationUser.DisplayName);
         }
 
         public async Task AddAsync(AuthUser user)
@@ -43,14 +47,27 @@ namespace GieudexPol.Infrastructure.Auth
             }
 
             var hashedPassword = _passwordHasher.HashPassword(user, user.HashedPassword);
+            var baseCurrency = await _context.Currencies
+                .SingleOrDefaultAsync(currency =>
+                    currency.Symbol == TradingCurrencyCatalog.BaseCurrencySymbol &&
+                    currency.IsActive)
+                ?? throw new InvalidOperationException(
+                    $"Active {TradingCurrencyCatalog.BaseCurrencySymbol} currency is required to register a user.");
 
             var applicationUser = new AppUser
             {
                 AuthId = user.Id,
                 Username = user.Email,
+                DisplayName = user.DisplayName,
                 PasswordHash = hashedPassword,
                 Role = "User"
             };
+
+            applicationUser.Wallets.Add(new Wallet
+            {
+                Currency = baseCurrency,
+                Balance = 0m
+            });
 
             await _context.Users.AddAsync(applicationUser);
             await _context.SaveChangesAsync();
@@ -67,6 +84,7 @@ namespace GieudexPol.Infrastructure.Auth
             }
 
             applicationUser.Username = user.Email;
+            applicationUser.DisplayName = user.DisplayName;
             applicationUser.PasswordHash = user.HashedPassword;
 
             await _context.SaveChangesAsync();

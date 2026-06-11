@@ -1,7 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { RouterModule } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -13,12 +13,12 @@ import { AuthService } from '../services/auth.service';
 })
 export class LoginComponent implements OnInit {
   loginForm!: FormGroup;
-  errorMessage: string | null = null;
+  readonly errorMessage = signal<string | null>(null);
+  readonly isSubmitting = signal(false);
 
   constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
-    private router: Router
+    private readonly fb: FormBuilder,
+    private readonly authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -29,18 +29,28 @@ export class LoginComponent implements OnInit {
   }
 
   async onSubmit(): Promise<void> {
-    this.errorMessage = null;
-    if (this.loginForm.valid) {
-      try {
-        const { email, password } = this.loginForm.value;
-        await this.authService.login(email, password);
-      } catch (error: unknown) {
-        if (error instanceof HttpErrorResponse && error.status === 401) {
-          this.errorMessage = error.error?.detail ?? 'Nieprawidłowy adres e-mail lub hasło.';
-        } else {
-          this.errorMessage = 'Błąd logowania. Spróbuj ponownie.';
-        }
+    this.errorMessage.set(null);
+
+    if (this.loginForm.invalid || this.isSubmitting()) {
+      this.loginForm.markAllAsTouched();
+      return;
+    }
+
+    this.isSubmitting.set(true);
+
+    try {
+      const { email, password } = this.loginForm.getRawValue();
+      await this.authService.login(email, password);
+    } catch (error: unknown) {
+      if (error instanceof HttpErrorResponse && error.status === 401) {
+        this.errorMessage.set(
+          error.error?.detail ?? 'Nieprawidłowy adres e-mail lub hasło.'
+        );
+      } else {
+        this.errorMessage.set('Błąd logowania. Spróbuj ponownie.');
       }
+    } finally {
+      this.isSubmitting.set(false);
     }
   }
 }

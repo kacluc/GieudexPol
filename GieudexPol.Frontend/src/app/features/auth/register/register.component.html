@@ -1,34 +1,79 @@
-<div class="card p-4">
-  <!-- Komunikat o błędzie walidacji Email -->
-  @if (registerForm.get('email')?.invalid && registerForm.get('email')?.touched) {
-    <div class="error-message">
-      @if (registerForm.get('email')?.errors?.['required']) {Email jest wymagany.} @else {}
-      @if (registerForm.get('email')?.errors?.['email']) {Wprowadź poprawny adres email.} @else {}
-    </div>
-  }
+<div class="auth-container">
+  <h2>Rejestracja</h2>
 
-  <!-- Formularz rejestracji -->
-  <form (ngSubmit)="onSubmit()">
-    <div class="mb-3">
-      <label for="email" class="form-label">Email</label>
-      <input type="email" id="email" formControlName="email" class="form-control" required>
+  <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label for="displayName">Nazwa użytkownika</label>
+      <input
+        type="text"
+        id="displayName"
+        formControlName="displayName"
+        autocomplete="nickname"
+        maxlength="50">
+      @if (registerForm.get('displayName')?.invalid && registerForm.get('displayName')?.touched) {
+        <div class="error-message">
+          @if (
+            registerForm.get('displayName')?.errors?.['required'] ||
+            registerForm.get('displayName')?.errors?.['pattern']
+          ) {
+            Nazwa użytkownika jest wymagana.
+          } @else if (registerForm.get('displayName')?.errors?.['minlength']) {
+            Nazwa musi mieć co najmniej 2 znaki.
+          } @else if (registerForm.get('displayName')?.errors?.['maxlength']) {
+            Nazwa może mieć maksymalnie 50 znaków.
+          }
+        </div>
+      }
     </div>
 
-    <div class="mb-3">
-      <label for="password" class="form-label">Hasło</label>
-      <input type="password" id="password" formControlName="password" class="form-control" required minlength="6">
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input type="email" id="email" formControlName="email" autocomplete="email">
+      @if (registerForm.get('email')?.invalid && registerForm.get('email')?.touched) {
+        <div class="error-message">
+          @if (registerForm.get('email')?.errors?.['required']) {
+            Email jest wymagany.
+          } @else if (registerForm.get('email')?.errors?.['email']) {
+            Wprowadź poprawny adres email.
+          }
+        </div>
+      }
     </div>
 
-    <div class="mb-3">
-      <label for="confirmPassword" class="form-label">Potwierdzenie hasła</label>
-      <input type="password" id="confirmPassword" formControlName="confirmPassword" class="form-control" required>
+    <div class="form-group">
+      <label for="password">Hasło</label>
+      <input type="password" id="password" formControlName="password" autocomplete="new-password">
+      @if (registerForm.get('password')?.invalid && registerForm.get('password')?.touched) {
+        <div class="error-message">
+          @if (registerForm.get('password')?.errors?.['required']) {
+            Hasło jest wymagane.
+          } @else if (registerForm.get('password')?.errors?.['minlength']) {
+            Hasło musi mieć co najmniej 6 znaków.
+          }
+        </div>
+      }
     </div>
 
-    <button type="submit" class="btn btn-primary mb-3">Zarejestruj się</button>
+    <div class="form-group">
+      <label for="confirmPassword">Potwierdzenie hasła</label>
+      <input type="password" id="confirmPassword" formControlName="confirmPassword" autocomplete="new-password">
+      @if (registerForm.get('confirmPassword')?.touched) {
+        @if (registerForm.get('confirmPassword')?.hasError('required')) {
+          <div class="error-message">Potwierdzenie hasła jest wymagane.</div>
+        } @else if (registerForm.hasError('passwordMismatch')) {
+          <div class="error-message">Hasła nie są takie same.</div>
+        }
+      }
+    </div>
+
+    <button type="submit" [disabled]="registerForm.invalid || isSubmitting()">
+      {{ isSubmitting() ? 'Tworzenie konta...' : 'Zarejestruj się' }}
+    </button>
+
+    @if (errorMessage(); as message) {
+      <div class="error-message form-error" role="alert" aria-live="assertive">{{ message }}</div>
+    }
   </form>
 
-  <!-- Globalny komunikat o błędzie -->
-  @if (errorMessage) {
-    <div class="error-message mt-3 alert alert-danger">{{ errorMessage }}</div>
-  }
+  <p>Masz już konto? <a routerLink="/auth/login">Zaloguj się</a></p>
 </div>

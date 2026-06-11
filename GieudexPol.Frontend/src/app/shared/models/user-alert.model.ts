@@ -2,7 +2,6 @@ export enum AlertType {
   PriceDrop = 'PriceDrop',
   PriceIncrease = 'PriceIncrease',
   Threshold = 'Threshold',
-  Volume = 'Volume',
 }
 
 export interface UserAlertCreateDto {

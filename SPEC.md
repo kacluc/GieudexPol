@@ -145,7 +145,6 @@ src/app/
         *   **Alert spadku ceny:** Powiadomienie, gdy cena ulubionej waluty spadnie o określony procent (np. 2%) w stosunku do średniej z ostatnich 24 godzin lub ostatniej zarejestrowanej ceny.
         *   **Alert wzrostu ceny:** Powiadomienie, gdy cena ulubionej waluty wzrośnie o określony procent (np. 2%) w stosunku do średniej z ostatnich 24 godzin lub ostatniej zarejestrowanej ceny.
         *   **Alert osiągnięcia progu:** Powiadomienie, gdy cena waluty osiągnie lub przekroczy zdefiniowany przez użytkownika poziom (np. "kup, gdy EUR/PLN spadnie poniżej 4.50").
-        *   **Alert wolumenowy:** Powiadomienie o znaczącym wzroście wolumenu obrotu daną walutą, co może sygnalizować zwiększone zainteresowanie rynkowe.
     *   **Zarządzanie alertami:** Użytkownicy będą mogli tworzyć, edytować i usuwać alerty za pośrednictwem intuicyjnego interfejsu w aplikacji.
     *   **Kanały powiadomień:** Początkowo powiadomienia będą wyświetlane w aplikacji (np. dzwonek, toast notification). W przyszłości możliwe rozszerzenie o e-mail lub powiadomienia push.
     *   **Endpoint API (POST):** `/api/user-alerts`

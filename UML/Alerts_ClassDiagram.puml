@@ -6,7 +6,6 @@ package "Domain.Entities" {
         PriceDrop
         PriceIncrease
         Threshold
-        Volume
     }
 
     class UserAlert {

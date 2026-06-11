@@ -56,7 +56,7 @@ namespace GieudexPol.Tests
             // Assert
             Assert.NotNull(result);
             Assert.Equal(2, result.Count());
-            Assert.Equal("user1@example.com", result.First().Username);
+            Assert.Equal("user1", result.First().Username);
             _mockRepository.Verify(repo => repo.GetAllAsync(), Times.Once);
         }
 
@@ -74,8 +74,21 @@ namespace GieudexPol.Tests
             // Assert
             Assert.NotNull(result);
             Assert.Equal(1, result.Id);
-            Assert.Equal("user1@example.com", result.Username);
+            Assert.Equal("user1", result.Username);
             _mockRepository.Verify(repo => repo.GetByIdAsync(1), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetByIdAsync_UsesDisplayName_WhenUserHasOne()
+        {
+            var whaleRanking = CreateRanking(1, 1000, 1);
+            whaleRanking.User.DisplayName = "Kapitan Kapital";
+            _mockRepository.Setup(repo => repo.GetByIdAsync(1)).ReturnsAsync(whaleRanking);
+
+            var result = await _service.GetByIdAsync(1);
+
+            Assert.NotNull(result);
+            Assert.Equal("Kapitan Kapital", result.Username);
         }
 
         [Fact]

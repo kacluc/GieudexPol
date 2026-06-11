@@ -20,14 +20,17 @@ namespace GieudexPol.Infrastructure.Repositories
 
         public async Task<IReadOnlyList<Currency>> GetTradableCurrenciesAsync()
         {
-            var supportedSymbols = TradingCurrencyCatalog.Symbols;
+            var supportedSymbols = TradingCurrencyCatalog.Symbols
+                .Append(TradingCurrencyCatalog.BaseCurrencySymbol)
+                .ToArray();
 
             return await _dbSet
                 .AsNoTracking()
                 .Where(currency =>
                     currency.IsActive &&
                     supportedSymbols.Contains(currency.Symbol) &&
-                    currency.ExchangeRates.Any())
+                    (currency.Symbol == TradingCurrencyCatalog.BaseCurrencySymbol ||
+                     currency.ExchangeRates.Any()))
                 .OrderBy(currency => currency.Symbol)
                 .ToListAsync();
         }

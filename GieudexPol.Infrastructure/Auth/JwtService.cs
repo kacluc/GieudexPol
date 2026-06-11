@@ -17,7 +17,7 @@ namespace GieudexPol.Infrastructure.Auth
             _configuration = configuration;
         }
 
-        public string GenerateToken(string userId, string email)
+        public string GenerateToken(string userId, string email, string role)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var secret = _configuration["Jwt:Key"] ?? _configuration["JwtSettings:Secret"];
@@ -36,7 +36,8 @@ namespace GieudexPol.Infrastructure.Auth
                 Subject = new ClaimsIdentity(new[]
                 {
                     new Claim(ClaimTypes.NameIdentifier, userId),
-                    new Claim(ClaimTypes.Email, email)
+                    new Claim(ClaimTypes.Email, email),
+                    new Claim(ClaimTypes.Role, role)
                 }),
                 Expires = DateTime.UtcNow.AddMinutes(expireMinutes),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature),

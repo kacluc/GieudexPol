@@ -1,0 +1,183 @@
+<main class="admin-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Panel administratora</p>
+      <h1>Testowe kursy walut</h1>
+      <p>Reczna edycja danych developmentowych bez ingerencji w kursy bankow centralnych.</p>
+    </div>
+    <a routerLink="/admin/users" class="secondary-link">Wroc do uzytkownikow</a>
+  </header>
+
+  <aside class="source-banner">
+    <strong>Zrodlo:</strong>
+    <span>{{ sourceName }}</span>
+    <small>Prawdziwe zrodla NBP, ECB, BOE, BOC, CNB, Norges, BNR i Riksbank sa chronione.</small>
+  </aside>
+
+  @if (errorMessage) {
+    <div class="message error" role="alert">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="message success" role="status">{{ successMessage }}</div>
+  }
+
+  <section class="panel">
+    <div class="section-heading">
+      <div>
+        <h2>Filtry</h2>
+        <span>Zawiez liste po walucie lub zakresie dat.</span>
+      </div>
+      <button type="button" (click)="startAdding()">Dodaj kurs</button>
+    </div>
+
+    <form class="filter-form" [formGroup]="filterForm" (ngSubmit)="loadRates()">
+      <label>
+        <span>Waluta</span>
+        <select formControlName="currencyId">
+          <option [ngValue]="null">Wszystkie waluty</option>
+          @for (currency of currencies; track currency.id) {
+            <option [ngValue]="currency.id">{{ currency.symbol }} - {{ currency.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Data od</span>
+        <input type="date" formControlName="dateFrom">
+      </label>
+
+      <label>
+        <span>Data do</span>
+        <input type="date" formControlName="dateTo">
+      </label>
+
+      <div class="form-actions">
+        <button type="submit" [disabled]="loading">Filtruj</button>
+        <button type="button" class="secondary" (click)="clearFilters()" [disabled]="loading">
+          Wyczysc
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel editor-panel">
+    <div class="section-heading">
+      <div>
+        <h2>{{ editingRate ? 'Edytuj kurs' : 'Dodaj testowy kurs' }}</h2>
+        <span>Zrodlo jest przypisywane automatycznie: {{ sourceName }}.</span>
+      </div>
+    </div>
+
+    <form class="rate-form" [formGroup]="rateForm" (ngSubmit)="saveRate()">
+      <label>
+        <span>Waluta</span>
+        <select formControlName="currencyId">
+          <option [ngValue]="null">Wybierz walute</option>
+          @for (currency of currencies; track currency.id) {
+            <option [ngValue]="currency.id">{{ currency.symbol }} - {{ currency.name }}</option>
+          }
+        </select>
+        @if (rateForm.controls.currencyId.touched && rateForm.controls.currencyId.invalid) {
+          <small>Wybierz walute.</small>
+        }
+      </label>
+
+      <label>
+        <span>Data kursu</span>
+        <input type="date" formControlName="effectiveDate">
+        @if (rateForm.controls.effectiveDate.touched && rateForm.controls.effectiveDate.invalid) {
+          <small>Podaj date kursu.</small>
+        }
+      </label>
+
+      <label>
+        <span>BuyPrice</span>
+        <input type="number" step="0.0001" min="0.0001" formControlName="buyPrice">
+        @if (rateForm.controls.buyPrice.touched && rateForm.controls.buyPrice.invalid) {
+          <small>Cena kupna musi byc dodatnia.</small>
+        }
+      </label>
+
+      <label>
+        <span>SellPrice</span>
+        <input type="number" step="0.0001" min="0.0001" formControlName="sellPrice">
+        @if (rateForm.controls.sellPrice.touched && rateForm.controls.sellPrice.invalid) {
+          <small>Cena sprzedazy musi byc dodatnia.</small>
+        }
+      </label>
+
+      <label>
+        <span>MidPrice (opcjonalnie)</span>
+        <input type="number" step="0.0001" min="0.0001" formControlName="midPrice">
+        @if (rateForm.controls.midPrice.touched && rateForm.controls.midPrice.invalid) {
+          <small>Cena srednia musi byc dodatnia.</small>
+        }
+      </label>
+
+      <div class="form-actions editor-actions">
+        <button type="submit" [disabled]="saving">
+          {{ editingRate ? 'Zapisz zmiany' : 'Dodaj kurs' }}
+        </button>
+        @if (editingRate) {
+          <button type="button" class="secondary" (click)="cancelEditing()">Anuluj</button>
+        }
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <div>
+        <h2>Kursy testowe</h2>
+        <span>{{ rates.length }} rekordow ze zrodla {{ sourceName }}</span>
+      </div>
+      <button type="button" class="secondary" (click)="loadRates()" [disabled]="loading">
+        Odswiez
+      </button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Waluta</th>
+            <th>Data</th>
+            <th>BuyPrice</th>
+            <th>SellPrice</th>
+            <th>MidPrice</th>
+            <th>Zrodlo</th>
+            <th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (rate of rates; track rate.id) {
+            <tr>
+              <td><strong>{{ rate.currencyCode }}</strong> {{ rate.currencyName }}</td>
+              <td>{{ rate.effectiveDate | date: 'yyyy-MM-dd' }}</td>
+              <td>{{ rate.buyPrice | number: '1.4-4' }}</td>
+              <td>{{ rate.sellPrice | number: '1.4-4' }}</td>
+              <td>{{ rate.midPrice | number: '1.4-4' }}</td>
+              <td>{{ rate.rateSourceName }}</td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="secondary small" (click)="startEditing(rate)">
+                    Edytuj
+                  </button>
+                  <button type="button" class="danger small" (click)="deleteRate(rate)" [disabled]="saving">
+                    Usun
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="empty">
+                {{ loading ? 'Ladowanie kursow...' : 'Brak testowych kursow dla wybranych filtrow.' }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>

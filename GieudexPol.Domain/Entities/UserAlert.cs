@@ -6,8 +6,7 @@ namespace GieudexPol.Domain.Entities
     {
         PriceDrop,
         PriceIncrease,
-        Threshold,
-        Volume
+        Threshold
     }
 
     public class UserAlert

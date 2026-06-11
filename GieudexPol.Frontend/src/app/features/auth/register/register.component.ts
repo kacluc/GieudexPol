@@ -1,5 +1,13 @@
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, OnInit, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators
+} from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
@@ -12,53 +20,59 @@ import { AuthService } from '../services/auth.service';
 })
 export class RegisterComponent implements OnInit {
   registerForm!: FormGroup;
-  errorMessage: string | null = null;
+  readonly errorMessage = signal<string | null>(null);
+  readonly isSubmitting = signal(false);
 
   constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
-    private router: Router
+    private readonly fb: FormBuilder,
+    private readonly authService: AuthService,
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {
     this.registerForm = this.fb.group({
+      displayName: ['', [
+        Validators.required,
+        Validators.minLength(2),
+        Validators.maxLength(50),
+        Validators.pattern(/\S/)
+      ]],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', Validators.required]
-    });
-
-    // Dodanie walidacji pasma haseł po inicjalizacji formularza
-    this.registerForm.get('confirmPassword')?.setValidators([
-        Validators.required,
-        this.matchPasswords.bind(this)
-    ]);
+    }, { validators: this.passwordsMatch });
   }
 
-  matchPasswords(control: any): { [key: string]: any } | null {
-    if (!this.registerForm) {
-      return null; // Form not initialized yet
-    }
-    const password = this.registerForm.get('password')?.value;
-    const confirmPassword = control.value;
-    return password === confirmPassword ? null : { 'passwordMismatch': true };
+  private passwordsMatch(group: AbstractControl): ValidationErrors | null {
+    const password = group.get('password')?.value;
+    const confirmPassword = group.get('confirmPassword')?.value;
+    return password === confirmPassword ? null : { passwordMismatch: true };
   }
 
   async onSubmit(): Promise<void> {
-    this.errorMessage = null;
+    this.errorMessage.set(null);
 
-    // Zabezpieczenie przed undefined – informuje TS, że formularz istnieje
-    if (!this.registerForm) {
+    if (this.registerForm.invalid || this.isSubmitting()) {
+      this.registerForm.markAllAsTouched();
       return;
     }
 
-    if (this.registerForm.valid) {
-      try {
-        const { email, password } = this.registerForm.value;
-        await this.authService.register(email, password);
-        this.router.navigate(['/auth/login']);
-      } catch (error: any) {
-        this.errorMessage = error.message || 'Błąd rejestracji. Spróbuj ponownie.';
+    this.isSubmitting.set(true);
+
+    try {
+      const { displayName, email, password } = this.registerForm.getRawValue();
+      await this.authService.register(displayName.trim(), email.trim(), password);
+      await this.router.navigate(['/auth/login']);
+    } catch (error: unknown) {
+      if (error instanceof HttpErrorResponse) {
+        this.errorMessage.set(
+          error.error?.detail ?? error.error?.message ?? 'Nie udało się utworzyć konta.'
+        );
+      } else {
+        this.errorMessage.set('Błąd rejestracji. Spróbuj ponownie.');
       }
+    } finally {
+      this.isSubmitting.set(false);
     }
   }
 }

@@ -240,6 +240,7 @@ export class ExchangeRateDashboard implements OnInit {
   to = this.maximumRateDate;
 
   chartPoints: ExchangeRateChartPoint[] = [];
+  tablePoints: ExchangeRateChartPoint[] = [];
   latestRates: ExchangeRateTableRow[] = [];
   loading = false;
   syncingNbp = false;
@@ -631,8 +632,10 @@ export class ExchangeRateDashboard implements OnInit {
 
     if (chartResult.status === 'fulfilled') {
       this.chartPoints = chartResult.value.points ?? [];
+      this.tablePoints = [...this.chartPoints].sort((left, right) => right.date.localeCompare(left.date));
     } else {
       this.chartPoints = [];
+      this.tablePoints = [];
       this.errorMessage = 'Nie udalo sie pobrac danych wykresu. Sprawdz backend albo zakres dat.';
     }
 

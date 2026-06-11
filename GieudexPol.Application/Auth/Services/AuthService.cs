@@ -12,7 +12,7 @@ namespace GieudexPol.Application.Auth.Services
     // lub bezpośrednio w folderze z serwisami autoryzacji.
     public interface IJwtService
     {
-        string GenerateToken(string userId, string email);
+        string GenerateToken(string userId, string email, string role);
     }
 
     public interface IIdentityService
@@ -40,23 +40,30 @@ namespace GieudexPol.Application.Auth.Services
 
         public async Task<AuthResponse> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
         {
-            var existingUser = await _userRepository.GetByEmailAsync(request.RegisterRequest.Email);
+            var email = request.RegisterRequest.Email.Trim();
+            var displayName = request.RegisterRequest.DisplayName.Trim();
+            var existingUser = await _userRepository.GetByEmailAsync(email);
             if (existingUser != null)
             {
-                throw new UserAlreadyExistsException(request.RegisterRequest.Email);
+                throw new UserAlreadyExistsException(email);
             }
 
             // Dodano brakujący na liście błędów Guid.NewGuid() - upewnij się, że system to obsługuje
-            var user = new User(Guid.NewGuid(), request.RegisterRequest.Email, request.RegisterRequest.Password);
+            var user = new User(
+                Guid.NewGuid(),
+                email,
+                request.RegisterRequest.Password,
+                displayName: displayName);
             await _userRepository.AddAsync(user);
 
-            var token = _jwtService.GenerateToken(user.Id.ToString(), user.Email);
+            var token = _jwtService.GenerateToken(user.Id.ToString(), user.Email, user.Role);
 
             return new AuthResponse
             {
                 Token = token,
                 Email = user.Email,
-                UserId = user.ApplicationUserId
+                UserId = user.ApplicationUserId,
+                Role = user.Role
             };
         }
 
@@ -77,13 +84,14 @@ namespace GieudexPol.Application.Auth.Services
                 throw new InvalidCredentialsException();
             }
 
-            var token = _jwtService.GenerateToken(user.Id.ToString(), user.Email);
+            var token = _jwtService.GenerateToken(user.Id.ToString(), user.Email, user.Role);
 
             return new AuthResponse
             {
                 Token = token,
                 Email = user.Email,
-                UserId = user.ApplicationUserId
+                UserId = user.ApplicationUserId,
+                Role = user.Role
             };
         }
     }

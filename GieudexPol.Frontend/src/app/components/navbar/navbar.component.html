@@ -12,6 +12,15 @@
         {{ item.label }}
       </a>
     }
+    @if (isAdmin) {
+      <a
+        class="nav-link"
+        routerLink="/admin/users"
+        routerLinkActive="active-link"
+      >
+        Panel administratora
+      </a>
+    }
   </div>
 
   <div class="account">

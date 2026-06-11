@@ -2,6 +2,7 @@
   max-width: 400px;
   margin: 50px auto;
   padding: 30px;
+  border: 1px solid #d7dee8;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   background-color: #ffffff;
@@ -29,21 +30,36 @@
       padding: 12px 15px;
       border: 1px solid #ccc;
       border-radius: 5px;
+      background-color: #fff;
+      color: #1f2937;
       font-size: 16px;
       box-sizing: border-box;
-      transition: border-color 0.3s ease;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
       &:focus {
         border-color: #007bff;
         outline: none;
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.16);
+      }
+
+      &.ng-invalid.ng-touched {
+        border-color: #dc3545;
       }
     }
+  }
 
-    .error-message {
-      color: #dc3545;
-      font-size: 14px;
-      margin-top: 5px;
-    }
+  .error-message {
+    color: #b42332;
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  .form-error {
+    padding: 10px 12px;
+    border: 1px solid #f1aeb5;
+    border-radius: 5px;
+    background-color: #f8d7da;
+    text-align: left;
   }
 
   button {
@@ -57,7 +73,7 @@
     cursor: pointer;
     transition: background-color 0.3s ease;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background-color: #0056b3;
     }
 
@@ -67,11 +83,8 @@
     }
   }
 
-  .mt-3 {
-    margin-top: 15px;
-  }
-
   p {
+    margin: 24px 0 0;
     color: #666;
     font-size: 15px;
 
@@ -83,5 +96,12 @@
         text-decoration: underline;
       }
     }
+  }
+}
+
+@media (max-width: 520px) {
+  .auth-container {
+    margin: 24px 16px;
+    padding: 24px 20px;
   }
 }
