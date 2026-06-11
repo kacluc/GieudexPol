@@ -69,6 +69,9 @@
             <button class="primary-button" type="submit" [disabled]="transferForm.invalid">
                 Wykonaj transfer
             </button>
+            <p class="fee-note">
+                Prowizja: 0,5% kwoty, minimum równowartość 10 PLN. Prowizja jest pobierana w walucie transferu.
+            </p>
         </form>
 
         <div *ngIf="errorMessage" class="message message-error" role="alert">{{ errorMessage }}</div>

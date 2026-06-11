@@ -9,6 +9,13 @@ namespace GieudexPol.Infrastructure.Services
 {
     public class AdminTestExchangeRateService : IAdminTestExchangeRateService
     {
+        private static readonly HashSet<string> DevelopmentSourceCodes =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                DevelopmentIdentity.RateSourceCode,
+                DevelopmentIdentity.RateSourceCodeB
+            };
+
         private readonly ApplicationDbContext _context;
 
         public AdminTestExchangeRateService(ApplicationDbContext context)
@@ -16,21 +23,42 @@ namespace GieudexPol.Infrastructure.Services
             _context = context;
         }
 
+        public async Task<IReadOnlyList<AdminTestRateSourceDto>> GetSourcesAsync(
+            CancellationToken cancellationToken = default)
+        {
+            return await _context.RateSources
+                .AsNoTracking()
+                .Where(source => DevelopmentSourceCodes.Contains(source.Code))
+                .OrderBy(source => source.Name)
+                .Select(source => new AdminTestRateSourceDto
+                {
+                    Code = source.Code,
+                    Name = source.Name
+                })
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task<IReadOnlyList<AdminTestExchangeRateDto>> GetRatesAsync(
+            string? rateSourceCode,
             int? currencyId,
             string? currencyCode,
             DateTime? dateFrom,
             DateTime? dateTo,
             CancellationToken cancellationToken = default)
         {
-            var source = await GetDevelopmentSourceAsync(cancellationToken);
             ValidateDateRange(dateFrom, dateTo);
+            var normalizedSourceCode = NormalizeOptionalSourceCode(rateSourceCode);
 
             var query = _context.ExchangeRates
                 .AsNoTracking()
                 .Include(rate => rate.Currency)
                 .Include(rate => rate.RateSource)
-                .Where(rate => rate.RateSourceId == source.Id);
+                .Where(rate => DevelopmentSourceCodes.Contains(rate.RateSource.Code));
+
+            if (normalizedSourceCode != null)
+            {
+                query = query.Where(rate => rate.RateSource.Code == normalizedSourceCode);
+            }
 
             if (currencyId.HasValue)
             {
@@ -67,13 +95,13 @@ namespace GieudexPol.Infrastructure.Services
             int id,
             CancellationToken cancellationToken = default)
         {
-            var source = await GetDevelopmentSourceAsync(cancellationToken);
             var rate = await _context.ExchangeRates
                 .AsNoTracking()
                 .Include(item => item.Currency)
                 .Include(item => item.RateSource)
                 .FirstOrDefaultAsync(
-                    item => item.Id == id && item.RateSourceId == source.Id,
+                    item => item.Id == id &&
+                            DevelopmentSourceCodes.Contains(item.RateSource.Code),
                     cancellationToken);
 
             return rate == null ? null : ToDto(rate);
@@ -84,7 +112,9 @@ namespace GieudexPol.Infrastructure.Services
             CancellationToken cancellationToken = default)
         {
             ValidatePrices(request.EffectiveDate, request.BuyPrice, request.SellPrice, request.MidPrice);
-            var source = await GetDevelopmentSourceAsync(cancellationToken);
+            var source = await GetDevelopmentSourceAsync(
+                request.RateSourceCode,
+                cancellationToken);
             var currency = await ResolveCurrencyAsync(
                 request.CurrencyId,
                 request.CurrencyCode,
@@ -127,7 +157,6 @@ namespace GieudexPol.Infrastructure.Services
             CancellationToken cancellationToken = default)
         {
             ValidatePrices(request.EffectiveDate, request.BuyPrice, request.SellPrice, request.MidPrice);
-            var source = await GetDevelopmentSourceAsync(cancellationToken);
             var rate = await _context.ExchangeRates
                 .Include(item => item.Currency)
                 .Include(item => item.RateSource)
@@ -138,7 +167,8 @@ namespace GieudexPol.Infrastructure.Services
                 return null;
             }
 
-            EnsureDevelopmentRate(rate, source);
+            EnsureDevelopmentRate(rate);
+            var source = rate.RateSource;
             var effectiveDate = request.EffectiveDate.Date;
 
             if (await HasDuplicateAsync(
@@ -166,7 +196,6 @@ namespace GieudexPol.Infrastructure.Services
             int id,
             CancellationToken cancellationToken = default)
         {
-            var source = await GetDevelopmentSourceAsync(cancellationToken);
             var rate = await _context.ExchangeRates
                 .Include(item => item.RateSource)
                 .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -176,20 +205,24 @@ namespace GieudexPol.Infrastructure.Services
                 return false;
             }
 
-            EnsureDevelopmentRate(rate, source);
+            EnsureDevelopmentRate(rate);
             _context.ExchangeRates.Remove(rate);
             await _context.SaveChangesAsync(cancellationToken);
             return true;
         }
 
         private async Task<RateSource> GetDevelopmentSourceAsync(
+            string? sourceCode,
             CancellationToken cancellationToken)
         {
+            var normalizedCode = NormalizeOptionalSourceCode(sourceCode)
+                ?? DevelopmentIdentity.RateSourceCode;
+
             return await _context.RateSources.FirstOrDefaultAsync(
-                       source => source.Code == DevelopmentIdentity.RateSourceCode,
+                       source => source.Code == normalizedCode,
                        cancellationToken)
                    ?? throw new DevelopmentRateSourceNotFoundException(
-                       $"Developmentowe zrodlo kursow '{DevelopmentIdentity.RateSourceCode}' nie istnieje.");
+                       $"Developmentowe zrodlo kursow '{normalizedCode}' nie istnieje.");
         }
 
         private async Task<Currency> ResolveCurrencyAsync(
@@ -260,17 +293,30 @@ namespace GieudexPol.Infrastructure.Services
             }
         }
 
-        private static void EnsureDevelopmentRate(ExchangeRate rate, RateSource source)
+        private static void EnsureDevelopmentRate(ExchangeRate rate)
         {
-            if (rate.RateSourceId != source.Id ||
-                !string.Equals(
-                    rate.RateSource.Code,
-                    DevelopmentIdentity.RateSourceCode,
-                    StringComparison.Ordinal))
+            if (!DevelopmentSourceCodes.Contains(rate.RateSource.Code))
             {
                 throw new ProtectedExchangeRateException(
                     "Nie wolno edytowac ani usuwac kursow pochodzacych z prawdziwych zrodel.");
             }
+        }
+
+        private static string? NormalizeOptionalSourceCode(string? sourceCode)
+        {
+            if (string.IsNullOrWhiteSpace(sourceCode))
+            {
+                return null;
+            }
+
+            var normalizedCode = sourceCode.Trim().ToUpperInvariant();
+            if (!DevelopmentSourceCodes.Contains(normalizedCode))
+            {
+                throw new ProtectedExchangeRateException(
+                    "Wybrane zrodlo nie jest developmentowym zrodlem kursow.");
+            }
+
+            return normalizedCode;
         }
 
         private static void ValidateDateRange(DateTime? dateFrom, DateTime? dateTo)

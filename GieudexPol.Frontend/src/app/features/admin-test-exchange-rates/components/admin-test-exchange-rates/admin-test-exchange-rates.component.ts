@@ -8,6 +8,7 @@ import { CurrencyDto } from '../../../../models/currency.dto';
 import { CurrencyService } from '../../../../services/currency.service';
 import {
   AdminTestExchangeRate,
+  AdminTestRateSource,
   CreateTestExchangeRate,
   UpdateTestExchangeRate,
 } from '../../models/admin-test-exchange-rate.model';
@@ -21,8 +22,9 @@ import { AdminTestExchangeRatesService } from '../../services/admin-test-exchang
   styleUrl: './admin-test-exchange-rates.component.scss',
 })
 export class AdminTestExchangeRatesComponent implements OnInit {
-  readonly sourceName = 'Development Mock Bank A';
+  readonly defaultSourceCode = 'MOCK_BANK_A';
   rates: AdminTestExchangeRate[] = [];
+  sources: AdminTestRateSource[] = [];
   currencies: CurrencyDto[] = [];
   editingRate: AdminTestExchangeRate | null = null;
   loading = false;
@@ -40,12 +42,14 @@ export class AdminTestExchangeRatesComponent implements OnInit {
     private readonly changeDetector: ChangeDetectorRef,
   ) {
     this.filterForm = this.formBuilder.group({
+      rateSourceCode: [this.defaultSourceCode, Validators.required],
       currencyId: [null as number | null],
       dateFrom: [''],
       dateTo: [''],
     });
 
     this.rateForm = this.formBuilder.group({
+      rateSourceCode: [this.defaultSourceCode, Validators.required],
       currencyId: [null as number | null, Validators.required],
       effectiveDate: ['', Validators.required],
       buyPrice: [null as number | null, [Validators.required, Validators.min(0.0001)]],
@@ -55,8 +59,14 @@ export class AdminTestExchangeRatesComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadSources();
     this.loadCurrencies();
     this.loadRates();
+  }
+
+  get selectedSourceName(): string {
+    const sourceCode = this.filterForm.controls.rateSourceCode.value;
+    return this.sources.find(source => source.code === sourceCode)?.name ?? sourceCode ?? '';
   }
 
   loadRates(): void {
@@ -65,6 +75,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
     this.errorMessage = '';
 
     this.adminRatesService.getTestExchangeRates({
+      rateSourceCode: filters.rateSourceCode || undefined,
       currencyId: filters.currencyId ?? undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
@@ -80,6 +91,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
 
   clearFilters(): void {
     this.filterForm.reset({
+      rateSourceCode: this.defaultSourceCode,
       currencyId: null,
       dateFrom: '',
       dateTo: '',
@@ -87,10 +99,24 @@ export class AdminTestExchangeRatesComponent implements OnInit {
     this.loadRates();
   }
 
+  onSourceChanged(): void {
+    const sourceCode =
+      this.filterForm.controls.rateSourceCode.value ?? this.defaultSourceCode;
+    this.rateForm.controls.rateSourceCode.setValue(sourceCode);
+    if (this.editingRate?.rateSourceCode !== sourceCode) {
+      this.startAdding();
+    }
+    this.loadRates();
+  }
+
   startAdding(): void {
     this.editingRate = null;
     this.rateForm.controls.currencyId.enable();
+    this.rateForm.controls.rateSourceCode.enable();
+    const selectedSourceCode =
+      this.filterForm.controls.rateSourceCode.value ?? this.defaultSourceCode;
     this.rateForm.reset({
+      rateSourceCode: selectedSourceCode,
       currencyId: null,
       effectiveDate: this.toDateInput(new Date().toISOString()),
       buyPrice: null,
@@ -103,6 +129,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
   startEditing(rate: AdminTestExchangeRate): void {
     this.editingRate = rate;
     this.rateForm.reset({
+      rateSourceCode: rate.rateSourceCode,
       currencyId: rate.currencyId,
       effectiveDate: this.toDateInput(rate.effectiveDate),
       buyPrice: rate.buyPrice,
@@ -110,6 +137,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
       midPrice: rate.midPrice,
     });
     this.rateForm.controls.currencyId.disable();
+    this.rateForm.controls.rateSourceCode.disable();
     this.clearMessages();
   }
 
@@ -150,13 +178,14 @@ export class AdminTestExchangeRatesComponent implements OnInit {
       return;
     }
 
-    if (value.currencyId == null) {
+    if (value.currencyId == null || !value.rateSourceCode) {
       this.rateForm.controls.currencyId.setErrors({ required: true });
       this.saving = false;
       return;
     }
 
     const request: CreateTestExchangeRate = {
+      rateSourceCode: value.rateSourceCode,
       currencyId: value.currencyId,
       effectiveDate: value.effectiveDate,
       buyPrice: value.buyPrice,
@@ -198,6 +227,22 @@ export class AdminTestExchangeRatesComponent implements OnInit {
         this.currencies = [...currencies].sort((left, right) =>
           left.symbol.localeCompare(right.symbol),
         );
+        this.changeDetector.markForCheck();
+      },
+      error: error => this.handleError(error),
+    });
+  }
+
+  private loadSources(): void {
+    this.adminRatesService.getTestRateSources().subscribe({
+      next: sources => {
+        this.sources = sources;
+        const selectedCode = this.filterForm.controls.rateSourceCode.value;
+        if (!sources.some(source => source.code === selectedCode) && sources.length > 0) {
+          this.filterForm.controls.rateSourceCode.setValue(sources[0].code);
+          this.rateForm.controls.rateSourceCode.setValue(sources[0].code);
+          this.loadRates();
+        }
         this.changeDetector.markForCheck();
       },
       error: error => this.handleError(error),

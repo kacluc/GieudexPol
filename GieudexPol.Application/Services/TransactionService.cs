@@ -13,18 +13,18 @@ namespace GieudexPol.Application.Services
         private readonly ITransactionRepository _transactionRepository;
         private readonly IUserRepository _userRepository;
         private readonly IWalletRepository _walletRepository;
-        private readonly ITransactionFeeRepository _transactionFeeRepository;
+        private readonly ITransactionFeeCalculator _transactionFeeCalculator;
 
         public TransactionService(
             ITransactionRepository transactionRepository,
             IUserRepository userRepository,
             IWalletRepository walletRepository,
-            ITransactionFeeRepository transactionFeeRepository)
+            ITransactionFeeCalculator transactionFeeCalculator)
         {
             _transactionRepository = transactionRepository;
             _userRepository = userRepository;
             _walletRepository = walletRepository;
-            _transactionFeeRepository = transactionFeeRepository;
+            _transactionFeeCalculator = transactionFeeCalculator;
         }
 
         public async Task<Transaction?> GetByIdAsync(int id)
@@ -57,12 +57,6 @@ namespace GieudexPol.Application.Services
 
         public async Task<Transaction> CreateTransfer(int senderId, TransferRequest request)
         {
-            var transactionFee = await _transactionFeeRepository.GetActiveTransactionFeeByTypeAsync("Transfer");
-            if (transactionFee == null)
-            {
-                throw new InvalidOperationException("No active transaction fee found for transfers.");
-            }
-
             var sender = await _userRepository.GetByIdAsync(senderId);
             if (sender == null)
             {
@@ -81,8 +75,11 @@ namespace GieudexPol.Application.Services
                 throw new ArgumentException("Cannot transfer money to yourself.");
             }
 
-            // Calculate the fee
-            decimal calculatedFee = request.Amount * (transactionFee.FeePercentage / 100) + transactionFee.FlatFee;
+            var fee = await _transactionFeeCalculator.CalculateAsync(
+                "Transfer",
+                request.CurrencyId,
+                request.Amount);
+            var calculatedFee = fee.FeeAmount;
             decimal totalAmountToDeduct = request.Amount + calculatedFee;
 
             var senderWallet = await _walletRepository.GetUserWalletAsync(senderId, request.CurrencyId);
@@ -101,7 +98,7 @@ namespace GieudexPol.Application.Services
                 Status = "Completed",
                 TransactionType = "Transfer",
                 AppliedFee = calculatedFee,
-                TransactionFeeId = transactionFee.Id
+                TransactionFeeId = fee.TransactionFeeId
             };
 
             try

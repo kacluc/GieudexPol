@@ -13,7 +13,6 @@ import { MainLayoutComponent } from './layouts/main-layout/main-layout.component
 import { TransactionTransferComponent } from './transaction-transfer/transaction-transfer.component';
 import { WhaleRankingListComponent } from './features/whale-ranking/components/whale-ranking-list.component';
 import { AdminUsersComponent } from './features/admin-users/components/admin-users/admin-users.component';
-import { AdminTestExchangeRatesComponent } from './features/admin-test-exchange-rates/components/admin-test-exchange-rates/admin-test-exchange-rates.component';
 import { AdminGuard } from './features/auth/guards/admin.guard';
 
 export const routes: Routes = [
@@ -41,7 +40,10 @@ export const routes: Routes = [
       },
       {
         path: 'admin/test-exchange-rates',
-        component: AdminTestExchangeRatesComponent,
+        loadComponent: () =>
+          import(
+            './features/admin-test-exchange-rates/components/admin-test-exchange-rates/admin-test-exchange-rates.component'
+          ).then(module => module.AdminTestExchangeRatesComponent),
         canActivate: [AdminGuard],
       },
     ],

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Application.Services;
 using GieudexPol.Domain.Entities;
@@ -10,18 +11,18 @@ namespace GieudexPol.Tests
     public class WalletServiceTests
     {
         private readonly Mock<IWalletRepository> _walletRepository = new();
-        private readonly Mock<ITransactionService> _transactionService = new();
         private readonly Mock<ICurrencyService> _currencyService = new();
         private readonly Mock<IExchangeRateService> _exchangeRateService = new();
+        private readonly Mock<ITransactionFeeCalculator> _transactionFeeCalculator = new();
         private readonly WalletService _walletService;
 
         public WalletServiceTests()
         {
             _walletService = new WalletService(
                 _walletRepository.Object,
-                _transactionService.Object,
                 _currencyService.Object,
-                _exchangeRateService.Object);
+                _exchangeRateService.Object,
+                _transactionFeeCalculator.Object);
         }
 
         [Fact]
@@ -217,6 +218,54 @@ namespace GieudexPol.Tests
             result.SellRateSource.Should().Be("BOE");
             result.BuyRateSource.Should().Be("PLN");
             result.EffectiveDate.Should().Be(previousPublicationDate);
+        }
+
+        [Fact]
+        public async Task DepositAsync_CreditsAmountReducedByFeeAndStoresFee()
+        {
+            var wallet = new Wallet { Id = 10, UserId = 1, CurrencyId = 1, Balance = 50m };
+            _walletRepository.Setup(repository => repository.GetUserWalletsAsync(1))
+                .ReturnsAsync([wallet]);
+            _transactionFeeCalculator.Setup(calculator => calculator.CalculateAsync(
+                    "Deposit",
+                    wallet.CurrencyId,
+                    100m,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new OperationFeeCalculationDto(10m, null));
+
+            await _walletService.DepositAsync(1, wallet.CurrencyId, 100m);
+
+            _walletRepository.Verify(repository => repository.ExecuteBalanceOperationAsync(
+                wallet.Id,
+                90m,
+                It.Is<Transaction>(transaction =>
+                    transaction.Amount == 100m &&
+                    transaction.AppliedFee == 10m &&
+                    transaction.TransactionType == "Deposit")), Times.Once);
+        }
+
+        [Fact]
+        public async Task WithdrawAsync_DebitsAmountAndFeeAndStoresFee()
+        {
+            var wallet = new Wallet { Id = 10, UserId = 1, CurrencyId = 1, Balance = 150m };
+            _walletRepository.Setup(repository => repository.GetUserWalletsAsync(1))
+                .ReturnsAsync([wallet]);
+            _transactionFeeCalculator.Setup(calculator => calculator.CalculateAsync(
+                    "Withdrawal",
+                    wallet.CurrencyId,
+                    100m,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new OperationFeeCalculationDto(10m, null));
+
+            await _walletService.WithdrawAsync(1, wallet.CurrencyId, 100m);
+
+            _walletRepository.Verify(repository => repository.ExecuteBalanceOperationAsync(
+                wallet.Id,
+                -110m,
+                It.Is<Transaction>(transaction =>
+                    transaction.Amount == 100m &&
+                    transaction.AppliedFee == 10m &&
+                    transaction.TransactionType == "Withdrawal")), Times.Once);
         }
     }
 }

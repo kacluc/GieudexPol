@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AdminTestExchangeRate,
   AdminTestExchangeRateFilters,
+  AdminTestRateSource,
   CreateTestExchangeRate,
   UpdateTestExchangeRate,
 } from '../models/admin-test-exchange-rate.model';
@@ -16,11 +17,18 @@ export class AdminTestExchangeRatesService {
 
   constructor(private readonly http: HttpClient) {}
 
+  getTestRateSources(): Observable<AdminTestRateSource[]> {
+    return this.http.get<AdminTestRateSource[]>(`${this.apiUrl}/sources`);
+  }
+
   getTestExchangeRates(
     filters: AdminTestExchangeRateFilters = {},
   ): Observable<AdminTestExchangeRate[]> {
     let params = new HttpParams();
 
+    if (filters.rateSourceCode) {
+      params = params.set('rateSourceCode', filters.rateSourceCode);
+    }
     if (filters.currencyId) {
       params = params.set('currencyId', filters.currencyId);
     }

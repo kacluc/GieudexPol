@@ -9,8 +9,8 @@
   </header>
 
   <aside class="source-banner">
-    <strong>Zrodlo:</strong>
-    <span>{{ sourceName }}</span>
+    <strong>Wybrane zrodlo:</strong>
+    <span>{{ selectedSourceName }}</span>
     <small>Prawdziwe zrodla NBP, ECB, BOE, BOC, CNB, Norges, BNR i Riksbank sa chronione.</small>
   </aside>
 
@@ -31,6 +31,15 @@
     </div>
 
     <form class="filter-form" [formGroup]="filterForm" (ngSubmit)="loadRates()">
+      <label>
+        <span>Zrodlo testowe</span>
+        <select formControlName="rateSourceCode" (change)="onSourceChanged()">
+          @for (source of sources; track source.code) {
+            <option [value]="source.code">{{ source.name }}</option>
+          }
+        </select>
+      </label>
+
       <label>
         <span>Waluta</span>
         <select formControlName="currencyId">
@@ -64,11 +73,20 @@
     <div class="section-heading">
       <div>
         <h2>{{ editingRate ? 'Edytuj kurs' : 'Dodaj testowy kurs' }}</h2>
-        <span>Zrodlo jest przypisywane automatycznie: {{ sourceName }}.</span>
+        <span>Do wyboru dostepne sa wylacznie developmentowe zrodla A i B.</span>
       </div>
     </div>
 
     <form class="rate-form" [formGroup]="rateForm" (ngSubmit)="saveRate()">
+      <label>
+        <span>Zrodlo</span>
+        <select formControlName="rateSourceCode">
+          @for (source of sources; track source.code) {
+            <option [value]="source.code">{{ source.name }}</option>
+          }
+        </select>
+      </label>
+
       <label>
         <span>Waluta</span>
         <select formControlName="currencyId">
@@ -129,7 +147,7 @@
     <div class="section-heading">
       <div>
         <h2>Kursy testowe</h2>
-        <span>{{ rates.length }} rekordow ze zrodla {{ sourceName }}</span>
+        <span>{{ rates.length }} rekordow ze zrodla {{ selectedSourceName }}</span>
       </div>
       <button type="button" class="secondary" (click)="loadRates()" [disabled]="loading">
         Odswiez

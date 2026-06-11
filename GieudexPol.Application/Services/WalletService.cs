@@ -8,20 +8,20 @@ namespace GieudexPol.Application.Services
     public class WalletService : IWalletService
     {
         private readonly IWalletRepository _walletRepository;
-        private readonly ITransactionService _transactionService;
         private readonly ICurrencyService _currencyService;
         private readonly IExchangeRateService _exchangeRateService;
+        private readonly ITransactionFeeCalculator _transactionFeeCalculator;
 
         public WalletService(
             IWalletRepository walletRepository,
-            ITransactionService transactionService,
             ICurrencyService currencyService,
-            IExchangeRateService exchangeRateService)
+            IExchangeRateService exchangeRateService,
+            ITransactionFeeCalculator transactionFeeCalculator)
         {
             _walletRepository = walletRepository;
-            _transactionService = transactionService;
             _currencyService = currencyService;
             _exchangeRateService = exchangeRateService;
+            _transactionFeeCalculator = transactionFeeCalculator;
         }
 
         public async Task<IEnumerable<Wallet>> GetAvailableBalancesAsync(int userId)
@@ -187,8 +187,24 @@ namespace GieudexPol.Application.Services
                 .FirstOrDefault(item => item.CurrencyId == currencyId)
                 ?? throw new InvalidOperationException($"Uzytkownik nie posiada portfela dla waluty o ID {currencyId}.");
 
-            await _walletRepository.CreditWalletBalanceAsync(wallet.Id, amount);
-            await _transactionService.AddAsync(CreateBalanceTransaction(userId, currencyId, amount, "Deposit"));
+            var fee = await _transactionFeeCalculator.CalculateAsync("Deposit", currencyId, amount);
+            var creditedAmount = amount - fee.FeeAmount;
+            if (creditedAmount <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Kwota wplaty musi byc wyzsza od naliczonej prowizji.");
+            }
+
+            await _walletRepository.ExecuteBalanceOperationAsync(
+                wallet.Id,
+                creditedAmount,
+                CreateBalanceTransaction(
+                    userId,
+                    currencyId,
+                    amount,
+                    "Deposit",
+                    fee.FeeAmount,
+                    fee.TransactionFeeId));
         }
 
         public async Task WithdrawAsync(int userId, int currencyId, decimal amount)
@@ -202,13 +218,25 @@ namespace GieudexPol.Application.Services
                 .FirstOrDefault(item => item.CurrencyId == currencyId)
                 ?? throw new InvalidOperationException($"Uzytkownik nie posiada portfela dla waluty o ID {currencyId}.");
 
-            if (wallet.Balance < amount)
+            var fee = await _transactionFeeCalculator.CalculateAsync("Withdrawal", currencyId, amount);
+            var totalDebit = amount + fee.FeeAmount;
+
+            if (wallet.Balance < totalDebit)
             {
-                throw new InvalidOperationException("Niewystarczajace srodki na koncie.");
+                throw new InvalidOperationException(
+                    "Niewystarczajace srodki na wyplate wraz z prowizja.");
             }
 
-            await _walletRepository.DebitWalletBalanceAsync(wallet.Id, amount);
-            await _transactionService.AddAsync(CreateBalanceTransaction(userId, currencyId, amount, "Withdrawal"));
+            await _walletRepository.ExecuteBalanceOperationAsync(
+                wallet.Id,
+                -totalDebit,
+                CreateBalanceTransaction(
+                    userId,
+                    currencyId,
+                    amount,
+                    "Withdrawal",
+                    fee.FeeAmount,
+                    fee.TransactionFeeId));
         }
 
         private async Task<IReadOnlyList<ExchangeRate>> GetRatesForTradeAsync(
@@ -285,7 +313,9 @@ namespace GieudexPol.Application.Services
             int userId,
             int currencyId,
             decimal amount,
-            string transactionType)
+            string transactionType,
+            decimal appliedFee,
+            Guid? transactionFeeId)
         {
             return new Transaction
             {
@@ -294,7 +324,8 @@ namespace GieudexPol.Application.Services
                 Amount = amount,
                 CurrencyId = currencyId,
                 TransactionType = transactionType,
-                AppliedFee = 0,
+                AppliedFee = appliedFee,
+                TransactionFeeId = transactionFeeId,
                 Status = "Completed",
                 Timestamp = DateTime.UtcNow
             };

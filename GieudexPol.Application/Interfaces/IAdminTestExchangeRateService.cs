@@ -4,7 +4,11 @@ namespace GieudexPol.Application.Interfaces
 {
     public interface IAdminTestExchangeRateService
     {
+        Task<IReadOnlyList<AdminTestRateSourceDto>> GetSourcesAsync(
+            CancellationToken cancellationToken = default);
+
         Task<IReadOnlyList<AdminTestExchangeRateDto>> GetRatesAsync(
+            string? rateSourceCode,
             int? currencyId,
             string? currencyCode,
             DateTime? dateFrom,

@@ -9,6 +9,10 @@ namespace GieudexPol.Application.Interfaces
         Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId);
         Task DebitWalletBalanceAsync(int walletId, decimal amount);
         Task CreditWalletBalanceAsync(int walletId, decimal amount);
+        Task ExecuteBalanceOperationAsync(
+            int walletId,
+            decimal balanceChange,
+            Transaction transaction);
         Task<Wallet?> GetUserWalletAsync(int userId, int currencyId);
         Task ExecuteTradeAsync(
             Wallet fromWallet,

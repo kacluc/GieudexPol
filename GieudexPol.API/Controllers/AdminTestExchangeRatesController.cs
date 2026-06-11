@@ -18,8 +18,16 @@ namespace GieudexPol.API.Controllers
             _service = service;
         }
 
+        [HttpGet("sources")]
+        public async Task<ActionResult<IReadOnlyList<AdminTestRateSourceDto>>> GetSources(
+            CancellationToken cancellationToken)
+        {
+            return Ok(await _service.GetSourcesAsync(cancellationToken));
+        }
+
         [HttpGet]
         public async Task<ActionResult<IReadOnlyList<AdminTestExchangeRateDto>>> GetRates(
+            [FromQuery] string? rateSourceCode,
             [FromQuery] int? currencyId,
             [FromQuery] string? currencyCode,
             [FromQuery] DateTime? dateFrom,
@@ -29,6 +37,7 @@ namespace GieudexPol.API.Controllers
             try
             {
                 return Ok(await _service.GetRatesAsync(
+                    rateSourceCode,
                     currencyId,
                     currencyCode,
                     dateFrom,
@@ -42,6 +51,10 @@ namespace GieudexPol.API.Controllers
             catch (DevelopmentRateSourceNotFoundException exception)
             {
                 return NotFound(new { message = exception.Message });
+            }
+            catch (ProtectedExchangeRateException exception)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = exception.Message });
             }
         }
 
@@ -60,6 +73,10 @@ namespace GieudexPol.API.Controllers
             catch (DevelopmentRateSourceNotFoundException exception)
             {
                 return NotFound(new { message = exception.Message });
+            }
+            catch (ProtectedExchangeRateException exception)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = exception.Message });
             }
         }
 
@@ -80,6 +97,10 @@ namespace GieudexPol.API.Controllers
             catch (DevelopmentRateSourceNotFoundException exception)
             {
                 return NotFound(new { message = exception.Message });
+            }
+            catch (ProtectedExchangeRateException exception)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = exception.Message });
             }
             catch (TestExchangeRateConflictException exception)
             {

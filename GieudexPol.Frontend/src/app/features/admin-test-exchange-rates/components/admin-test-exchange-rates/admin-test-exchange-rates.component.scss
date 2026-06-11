@@ -95,11 +95,11 @@
 }
 
 .filter-form {
-  grid-template-columns: 1.5fr 1fr 1fr auto;
+  grid-template-columns: 1.5fr 1.5fr 1fr 1fr auto;
 }
 
 .rate-form {
-  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
 }
 
 label {

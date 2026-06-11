@@ -360,6 +360,12 @@ tbody tr:hover {
     }
 }
 
+.fee-note {
+    margin: 0.75rem 0 0;
+    color: #627086;
+    font-size: 0.85rem;
+}
+
 @media (max-width: 600px) {
     .transfer-page {
         width: min(100% - 1rem, 1180px);

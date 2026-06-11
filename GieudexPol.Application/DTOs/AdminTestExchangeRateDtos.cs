@@ -2,6 +2,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace GieudexPol.Application.DTOs
 {
+    public class AdminTestRateSourceDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
     public class AdminTestExchangeRateDto
     {
         public int Id { get; set; }
@@ -19,6 +25,8 @@ namespace GieudexPol.Application.DTOs
 
     public class CreateTestExchangeRateDto
     {
+        public string? RateSourceCode { get; set; }
+
         public int? CurrencyId { get; set; }
 
         public string? CurrencyCode { get; set; }

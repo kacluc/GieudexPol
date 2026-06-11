@@ -20,6 +20,7 @@ public class AdminTestExchangeRateServiceTests
         var service = new AdminTestExchangeRateService(context);
 
         var result = await service.GetRatesAsync(
+            DevelopmentIdentity.RateSourceCode,
             data.Eur.Id,
             null,
             new DateTime(2026, 6, 10),
@@ -50,6 +51,51 @@ public class AdminTestExchangeRateServiceTests
         var stored = await context.ExchangeRates.SingleAsync(
             rate => rate.Id == result.Id);
         stored.RateSourceId.Should().Be(data.DevelopmentSource.Id);
+    }
+
+    [Fact]
+    public async Task CreateRateAsync_CreatesRateForSecondDevelopmentSource()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        context.RateSources.Add(new RateSource
+        {
+            Code = DevelopmentIdentity.RateSourceCodeB,
+            Name = "Development Mock Bank B",
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
+        var service = new AdminTestExchangeRateService(context);
+
+        var result = await service.CreateRateAsync(new CreateTestExchangeRateDto
+        {
+            RateSourceCode = DevelopmentIdentity.RateSourceCodeB,
+            CurrencyCode = "USD",
+            EffectiveDate = new DateTime(2026, 6, 11),
+            BuyPrice = 3.95m,
+            SellPrice = 4.15m
+        });
+
+        result.RateSourceCode.Should().Be(DevelopmentIdentity.RateSourceCodeB);
+    }
+
+    [Fact]
+    public async Task CreateRateAsync_RejectsRealSourceCode()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var service = new AdminTestExchangeRateService(context);
+
+        var action = () => service.CreateRateAsync(new CreateTestExchangeRateDto
+        {
+            RateSourceCode = "NBP",
+            CurrencyCode = "USD",
+            EffectiveDate = new DateTime(2026, 6, 11),
+            BuyPrice = 3.95m,
+            SellPrice = 4.15m
+        });
+
+        await action.Should().ThrowAsync<ProtectedExchangeRateException>();
     }
 
     [Fact]

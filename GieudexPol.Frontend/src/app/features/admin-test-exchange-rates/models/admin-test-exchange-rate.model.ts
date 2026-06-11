@@ -12,7 +12,13 @@ export interface AdminTestExchangeRate {
   fetchedAt: string;
 }
 
+export interface AdminTestRateSource {
+  code: string;
+  name: string;
+}
+
 export interface AdminTestExchangeRateFilters {
+  rateSourceCode?: string;
   currencyId?: number;
   currencyCode?: string;
   dateFrom?: string;
@@ -20,6 +26,7 @@ export interface AdminTestExchangeRateFilters {
 }
 
 export interface CreateTestExchangeRate {
+  rateSourceCode: string;
   currencyId?: number;
   currencyCode?: string;
   effectiveDate: string;

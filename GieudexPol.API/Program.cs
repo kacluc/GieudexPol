@@ -149,6 +149,7 @@ builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<IAdminTestExchangeRateService, AdminTestExchangeRateService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<ITransactionService, GieudexPol.Application.Services.TransactionService>();
+builder.Services.AddScoped<ITransactionFeeCalculator, TransactionFeeCalculator>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IUserAlertService, UserAlertService>();
 builder.Services.AddScoped<IExchangeRateSyncService, ExchangeRateSyncService>();

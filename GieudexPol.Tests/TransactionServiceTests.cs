@@ -18,20 +18,20 @@ namespace GieudexPol.Tests
         private readonly TransactionService _transactionService;
         private readonly Mock<IUserRepository> _mockUserRepository;
         private readonly Mock<IWalletRepository> _mockWalletRepository;
-        private readonly Mock<ITransactionFeeRepository> _mockTransactionFeeRepository;
+        private readonly Mock<ITransactionFeeCalculator> _mockTransactionFeeCalculator;
 
         public TransactionServiceTests()
         {
             _mockTransactionRepository = new Mock<ITransactionRepository>();
             _mockUserRepository = new Mock<IUserRepository>();
             _mockWalletRepository = new Mock<IWalletRepository>();
-            _mockTransactionFeeRepository = new Mock<ITransactionFeeRepository>();
+            _mockTransactionFeeCalculator = new Mock<ITransactionFeeCalculator>();
 
             _transactionService = new TransactionService(
                 _mockTransactionRepository.Object,
                 _mockUserRepository.Object,
                 _mockWalletRepository.Object,
-                _mockTransactionFeeRepository.Object
+                _mockTransactionFeeCalculator.Object
             );
         }
 
@@ -140,9 +140,13 @@ namespace GieudexPol.Tests
                 IsActive = true
             };
 
-            _mockTransactionFeeRepository
-                .Setup(repo => repo.GetActiveTransactionFeeByTypeAsync("Transfer"))
-                .ReturnsAsync(fee);
+            _mockTransactionFeeCalculator
+                .Setup(calculator => calculator.CalculateAsync(
+                    "Transfer",
+                    currency.Id,
+                    100m,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new OperationFeeCalculationDto(10m, fee.Id));
             _mockUserRepository
                 .Setup(repo => repo.GetByIdAsync(sender.Id))
                 .ReturnsAsync(sender);
@@ -158,7 +162,7 @@ namespace GieudexPol.Tests
                     receiver.Id,
                     currency.Id,
                     100m,
-                    0.25m,
+                    10m,
                     It.IsAny<Transaction>()))
                 .Callback<int, int, int, decimal, decimal, Transaction>(
                     (_, _, _, amount, appliedFee, transaction) =>
@@ -182,15 +186,15 @@ namespace GieudexPol.Tests
             // Assert
             result.Id.Should().Be(123);
             result.Status.Should().Be("Completed");
-            result.AppliedFee.Should().Be(0.25m);
-            senderWallet.Balance.Should().Be(899.75m);
+            result.AppliedFee.Should().Be(10m);
+            senderWallet.Balance.Should().Be(890m);
             receiverWallet.Balance.Should().Be(600m);
             _mockWalletRepository.Verify(repo => repo.ExecuteTransferAsync(
                 senderWallet.Id,
                 receiver.Id,
                 currency.Id,
                 100m,
-                0.25m,
+                10m,
                 It.Is<Transaction>(transaction =>
                     transaction.SenderId == sender.Id &&
                     transaction.ReceiverId == receiver.Id &&

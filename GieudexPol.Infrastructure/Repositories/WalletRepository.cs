@@ -53,6 +53,30 @@ namespace GieudexPol.Infrastructure.Repositories
             await _context.SaveChangesAsync();
         }
 
+        public async Task ExecuteBalanceOperationAsync(
+            int walletId,
+            decimal balanceChange,
+            Transaction transaction)
+        {
+            _context.ChangeTracker.Clear();
+            var wallet = await _dbSet.SingleOrDefaultAsync(item => item.Id == walletId)
+                ?? throw new KeyNotFoundException($"Wallet with ID {walletId} not found.");
+
+            if (balanceChange >= 0)
+            {
+                wallet.Credit(balanceChange);
+            }
+            else
+            {
+                wallet.Debit(decimal.Abs(balanceChange));
+            }
+
+            var persistedTransaction = CopyTransaction(transaction);
+            await _context.Transactions.AddAsync(persistedTransaction);
+            await _context.SaveChangesAsync();
+            transaction.Id = persistedTransaction.Id;
+        }
+
         public async Task ExecuteTradeAsync(
             Wallet fromWallet,
             decimal amountFrom,

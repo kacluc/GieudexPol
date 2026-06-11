@@ -10,12 +10,17 @@ namespace GieudexPol.Infrastructure.Data
 {
     public static class DevelopmentDataSeeder
     {
-        private const string DevelopmentSourceCode = DevelopmentIdentity.RateSourceCode;
+        private const string DevelopmentSourceCodeA = DevelopmentIdentity.RateSourceCode;
+        private const string DevelopmentSourceCodeB = DevelopmentIdentity.RateSourceCodeB;
+        private const string DevelopmentSourceNameA = "Development Mock Bank A";
+        private const string DevelopmentSourceNameB = "Development Mock Bank B";
         public const string DevelopmentUserEmail = DevelopmentIdentity.UserEmail;
         public const string DevelopmentUserPassword = "DevPassword123!";
         public const string DemoUserPassword = "DemoPassword123!";
         private static readonly Guid DevelopmentUserAuthId = new("11111111-1111-1111-1111-111111111111");
         private static readonly Guid DevelopmentTransferFeeId = new("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        private static readonly Guid DevelopmentDepositFeeId = new("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        private static readonly Guid DevelopmentWithdrawalFeeId = new("dddddddd-dddd-dddd-dddd-dddddddddddd");
         private static readonly UserSeed[] SeedUsers =
         [
             new(
@@ -139,7 +144,8 @@ namespace GieudexPol.Infrastructure.Data
                 .GetRequiredService<ILoggerFactory>()
                 .CreateLogger(nameof(DevelopmentDataSeeder));
 
-            if (!await context.Database.CanConnectAsync())
+            if (context.Database.IsRelational() &&
+                !await context.Database.CanConnectAsync())
             {
                 logger.LogWarning("Development seed skipped because the database is not available.");
                 return;
@@ -149,8 +155,25 @@ namespace GieudexPol.Infrastructure.Data
             var addedUsers = await SeedUsersAsync(context);
             var addedWallets = await SeedWalletsAsync(context);
             var addedTransactionFees = await SeedTransactionFeesAsync(context);
-            var rateSource = await SeedRateSourceAsync(context);
-            var addedRates = await SeedExchangeRatesAsync(context, rateSource);
+            var rateSourceA = await SeedRateSourceAsync(
+                context,
+                DevelopmentSourceCodeA,
+                DevelopmentSourceNameA);
+            var rateSourceB = await SeedRateSourceAsync(
+                context,
+                DevelopmentSourceCodeB,
+                DevelopmentSourceNameB);
+            var addedRatesA = await SeedExchangeRatesAsync(
+                context,
+                rateSourceA,
+                randomSeed: 12345,
+                priceMultiplier: 1m);
+            var addedRatesB = await SeedExchangeRatesAsync(
+                context,
+                rateSourceB,
+                randomSeed: 67890,
+                priceMultiplier: 1.018m);
+            var addedRates = addedRatesA + addedRatesB;
 
             logger.LogInformation(
                 "Development seed completed. Added {CurrencyCount} currencies, {UserCount} users, {WalletCount} wallets, {TransactionFeeCount} transaction fees and {RateCount} exchange rates.",
@@ -315,20 +338,32 @@ namespace GieudexPol.Infrastructure.Data
             return walletsToAdd.Count + updatedWallets;
         }
 
-        private static async Task<RateSource> SeedRateSourceAsync(ApplicationDbContext context)
+        private static async Task<RateSource> SeedRateSourceAsync(
+            ApplicationDbContext context,
+            string code,
+            string name)
         {
             var rateSource = await context.RateSources
-                .FirstOrDefaultAsync(source => source.Code == DevelopmentSourceCode);
+                .FirstOrDefaultAsync(source => source.Code == code);
 
             if (rateSource != null)
             {
+                var requiresUpdate = rateSource.Name != name || !rateSource.IsActive;
+                rateSource.Name = name;
+                rateSource.IsActive = true;
+
+                if (requiresUpdate)
+                {
+                    await context.SaveChangesAsync();
+                }
+
                 return rateSource;
             }
 
             rateSource = new RateSource
             {
-                Code = DevelopmentSourceCode,
-                Name = "Development Mock Bank A",
+                Code = code,
+                Name = name,
                 IsActive = true
             };
 
@@ -340,31 +375,53 @@ namespace GieudexPol.Infrastructure.Data
 
         private static async Task<int> SeedTransactionFeesAsync(ApplicationDbContext context)
         {
-            var transferFee = await context.Set<TransactionFee>()
-                .FirstOrDefaultAsync(fee => fee.Type == "Transfer");
-
-            if (transferFee != null)
+            var definitions = new[]
             {
-                transferFee.FeePercentage = 0.25m;
-                transferFee.FlatFee = 0m;
-                transferFee.IsActive = true;
-                await context.SaveChangesAsync();
-                return 0;
+                new TransactionFee
+                {
+                    Id = DevelopmentTransferFeeId,
+                    Type = "Transfer"
+                },
+                new TransactionFee
+                {
+                    Id = DevelopmentDepositFeeId,
+                    Type = "Deposit"
+                },
+                new TransactionFee
+                {
+                    Id = DevelopmentWithdrawalFeeId,
+                    Type = "Withdrawal"
+                }
+            };
+            var types = definitions.Select(definition => definition.Type).ToList();
+            var existingFees = await context.Set<TransactionFee>()
+                .Where(fee => types.Contains(fee.Type))
+                .ToDictionaryAsync(fee => fee.Type);
+            var addedCount = 0;
+
+            foreach (var definition in definitions)
+            {
+                if (!existingFees.TryGetValue(definition.Type, out var fee))
+                {
+                    fee = definition;
+                    await context.Set<TransactionFee>().AddAsync(fee);
+                    addedCount++;
+                }
+
+                fee.FeePercentage = 0.5m;
+                fee.FlatFee = 10m;
+                fee.IsActive = true;
             }
 
-            await context.Set<TransactionFee>().AddAsync(new TransactionFee
-            {
-                Id = DevelopmentTransferFeeId,
-                Type = "Transfer",
-                FeePercentage = 0.25m,
-                FlatFee = 0m,
-                IsActive = true
-            });
             await context.SaveChangesAsync();
-            return 1;
+            return addedCount;
         }
 
-        private static async Task<int> SeedExchangeRatesAsync(ApplicationDbContext context, RateSource rateSource)
+        private static async Task<int> SeedExchangeRatesAsync(
+            ApplicationDbContext context,
+            RateSource rateSource,
+            int randomSeed,
+            decimal priceMultiplier)
         {
             var startDate = new DateTime(2026, 1, 1);
             var endDate = DateTime.Today;
@@ -411,7 +468,7 @@ namespace GieudexPol.Infrastructure.Data
                 .Select(rate => (rate.CurrencyId, Date: rate.EffectiveDate.Date))
                 .ToHashSet();
 
-            var random = new Random(12345);
+            var random = new Random(randomSeed);
             var ratesToAdd = new List<ExchangeRate>();
 
             foreach (var currencyModel in currencyModels)
@@ -421,20 +478,34 @@ namespace GieudexPol.Infrastructure.Data
                     continue;
                 }
 
-                var midPrice = currencyModel.StartMidPrice;
+                var adjustedStartMidPrice = currencyModel.StartMidPrice * priceMultiplier;
+                var adjustedDailyTrend = currencyModel.DailyTrend * priceMultiplier;
+                var adjustedBaseSpread = currencyModel.BaseSpread * priceMultiplier;
+                var midPrice = adjustedStartMidPrice;
                 var businessDayIndex = 0;
 
                 foreach (var date in EachBusinessDay(startDate, endDate))
                 {
-                    var wave = (decimal)Math.Sin(businessDayIndex / 12.0) * 0.012m;
-                    var randomMove = ((decimal)random.NextDouble() - 0.5m) * 0.018m;
+                    var wave =
+                        (decimal)Math.Sin(businessDayIndex / 12.0) *
+                        0.012m *
+                        priceMultiplier;
+                    var randomMove =
+                        ((decimal)random.NextDouble() - 0.5m) *
+                        0.018m *
+                        priceMultiplier;
 
-                    midPrice += currencyModel.DailyTrend + wave / 30m + randomMove;
-                    midPrice = Math.Max(midPrice, currencyModel.StartMidPrice - 0.25m);
-                    midPrice = Math.Min(midPrice, currencyModel.StartMidPrice + 0.25m);
+                    midPrice += adjustedDailyTrend + wave / 30m + randomMove;
+                    midPrice = Math.Max(midPrice, adjustedStartMidPrice - 0.25m * priceMultiplier);
+                    midPrice = Math.Min(midPrice, adjustedStartMidPrice + 0.25m * priceMultiplier);
 
-                    var spreadJitter = ((decimal)random.NextDouble() - 0.5m) * 0.010m;
-                    var spread = Math.Max(0.030m, currencyModel.BaseSpread + spreadJitter);
+                    var spreadJitter =
+                        ((decimal)random.NextDouble() - 0.5m) *
+                        0.010m *
+                        priceMultiplier;
+                    var spread = Math.Max(
+                        0.030m * priceMultiplier,
+                        adjustedBaseSpread + spreadJitter);
                     var buyPrice = Math.Round(midPrice - spread / 2m, 4);
                     var sellPrice = Math.Round(midPrice + spread / 2m, 4);
 
