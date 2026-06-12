@@ -54,7 +54,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   private refreshAlertIndicator(): void {
-    this.userAlertService.getMyAlerts().subscribe({
+    this.userAlertService.refreshAlertIndicator().subscribe({
       error: () => this.userAlertService.hasUnacknowledgedAlerts.set(false),
     });
   }

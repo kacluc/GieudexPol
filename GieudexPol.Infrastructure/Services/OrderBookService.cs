@@ -3,6 +3,7 @@ using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace GieudexPol.Infrastructure.Services
 {
@@ -10,24 +11,56 @@ namespace GieudexPol.Infrastructure.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IOrderMatchingService _matchingService;
+        private readonly ITradingAlertEvaluationService? _tradingAlertEvaluationService;
+        private readonly ILogger<OrderBookService>? _logger;
 
         public OrderBookService(
             ApplicationDbContext context,
-            IOrderMatchingService matchingService)
+            IOrderMatchingService matchingService,
+            ITradingAlertEvaluationService? tradingAlertEvaluationService = null,
+            ILogger<OrderBookService>? logger = null)
         {
             _context = context;
             _matchingService = matchingService;
+            _tradingAlertEvaluationService = tradingAlertEvaluationService;
+            _logger = logger;
         }
 
-        public Task<OrderDto> PlaceOrderAsync(
+        public async Task<OrderDto> PlaceOrderAsync(
             int userId,
             CreateOrderRequestDto request,
             CancellationToken cancellationToken = default)
         {
             ValidateRequest(request);
-            return ExecuteAtomicallyAsync(
+            var result = await ExecuteAtomicallyAsync(
                 () => PlaceOrderCoreAsync(userId, request, cancellationToken),
                 cancellationToken);
+
+            if (_tradingAlertEvaluationService != null)
+            {
+                try
+                {
+                    var pairId = await _context.Orders
+                        .AsNoTracking()
+                        .Where(order => order.Id == result.Id)
+                        .Select(order => order.TradingPairId)
+                        .SingleAsync(cancellationToken);
+                    await _tradingAlertEvaluationService.EvaluatePairAsync(
+                        pairId,
+                        cancellationToken);
+                }
+                catch (Exception exception) when (
+                    exception is not OperationCanceledException ||
+                    !cancellationToken.IsCancellationRequested)
+                {
+                    _logger?.LogError(
+                        exception,
+                        "Nie udalo sie ocenic alertow handlowych po zleceniu {OrderId}.",
+                        result.Id);
+                }
+            }
+
+            return result;
         }
 
         public async Task<IReadOnlyList<OrderDto>> GetMyOrdersAsync(

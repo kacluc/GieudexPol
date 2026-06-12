@@ -24,7 +24,18 @@ describe('AlertsComponent', () => {
           provide: UserAlertService,
           useValue: {
             getMyAlerts: () => of([]),
+            getMyTradingAlerts: () => of([]),
             getRateSources: () => of([]),
+            getTradingPairs: () => of([
+              {
+                id: 1,
+                pair: 'EUR/PLN',
+                baseCurrency: 'EUR',
+                quoteCurrency: 'PLN',
+                tickSize: 0.0001,
+                isActive: true,
+              },
+            ]),
           },
         },
       ],
@@ -52,5 +63,17 @@ describe('AlertsComponent', () => {
       'PLN - Polski zloty',
       'EUR - Euro',
     ]);
+  });
+
+  it('shows a separate trading alert form with a preselected pair', async () => {
+    const component = fixture.componentInstance;
+
+    component.setMode('trading');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(component.tradingAlertForm.controls.tradingPairId.value).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain('Handel w arkuszu');
+    expect(fixture.nativeElement.textContent).toContain('Wykonana transakcja');
   });
 });

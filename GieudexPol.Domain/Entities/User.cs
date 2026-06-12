@@ -13,6 +13,8 @@ namespace GieudexPol.Domain.Entities
         public string Role { get; set; } = string.Empty; // Admin/User
         public ICollection<Wallet> Wallets { get; set; } = new List<Wallet>();
         public ICollection<UserAlert> UserAlerts { get; set; } = new List<UserAlert>();
+        public ICollection<UserTradingAlert> UserTradingAlerts { get; set; } =
+            new List<UserTradingAlert>();
         public ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
         public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
         public ICollection<Transaction> SentTransactions { get; set; } = new List<Transaction>();

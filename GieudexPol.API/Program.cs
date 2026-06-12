@@ -155,6 +155,8 @@ builder.Services.AddScoped<ITransactionFeeCalculator, TransactionFeeCalculator>(
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IUserAlertService, UserAlertService>();
 builder.Services.AddScoped<IAlertEvaluationService, AlertEvaluationService>();
+builder.Services.AddScoped<IUserTradingAlertService, UserTradingAlertService>();
+builder.Services.AddScoped<ITradingAlertEvaluationService, TradingAlertEvaluationService>();
 builder.Services.AddScoped<IExchangeRateSyncService, ExchangeRateSyncService>();
 builder.Services.AddScoped<IWhaleRankingService, WhaleRankingService>();
 builder.Services.AddScoped<IOrderMatchingService, OrderMatchingService>();

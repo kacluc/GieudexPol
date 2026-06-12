@@ -11,5 +11,7 @@ namespace GieudexPol.Domain.Entities
         public decimal TickSize { get; set; }
         public ICollection<Order> Orders { get; set; } = new List<Order>();
         public ICollection<TradeExecution> TradeExecutions { get; set; } = new List<TradeExecution>();
+        public ICollection<UserTradingAlert> UserTradingAlerts { get; set; } =
+            new List<UserTradingAlert>();
     }
 }

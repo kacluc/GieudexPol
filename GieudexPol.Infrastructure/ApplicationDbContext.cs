@@ -16,6 +16,7 @@ namespace GieudexPol.Infrastructure
         public DbSet<RateSource> RateSources { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<UserAlert> UserAlerts { get; set; }
+        public DbSet<UserTradingAlert> UserTradingAlerts { get; set; }
         public DbSet<UserAlertEvaluationState> UserAlertEvaluationStates { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<FavoriteCurrency> FavoriteCurrencies { get; set; }
@@ -237,6 +238,34 @@ namespace GieudexPol.Infrastructure
             modelBuilder.Entity<UserAlertEvaluationState>()
                 .HasIndex(state => new { state.UserAlertId, state.RateSourceId })
                 .IsUnique();
+
+            modelBuilder.Entity<UserTradingAlert>()
+                .HasOne(alert => alert.User)
+                .WithMany(user => user.UserTradingAlerts)
+                .HasForeignKey(alert => alert.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserTradingAlert>()
+                .HasOne(alert => alert.TradingPair)
+                .WithMany(pair => pair.UserTradingAlerts)
+                .HasForeignKey(alert => alert.TradingPairId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<UserTradingAlert>()
+                .Property(alert => alert.TargetPrice)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<UserTradingAlert>()
+                .Property(alert => alert.MinimumAmount)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<UserTradingAlert>()
+                .HasIndex(alert => new
+                {
+                    alert.IsActive,
+                    alert.TradingPairId,
+                    alert.EventType
+                });
 
             modelBuilder.Entity<ExchangeRate>()
                 .HasOne(er => er.Currency)

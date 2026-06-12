@@ -66,3 +66,48 @@ export interface AlertRateSource {
   code: string;
   name: string;
 }
+
+export enum TradingAlertEvent {
+  BuyOrder = 'BuyOrder',
+  SellOrder = 'SellOrder',
+  TradeExecution = 'TradeExecution',
+}
+
+export interface TradingPairOption {
+  id: number;
+  pair: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  tickSize: number;
+  isActive: boolean;
+}
+
+export interface UserTradingAlertCreateDto {
+  tradingPairId: number;
+  eventType: TradingAlertEvent;
+  direction: ThresholdDirection;
+  targetPrice: number;
+  minimumAmount?: number | null;
+}
+
+export interface UserTradingAlertUpdateDto extends UserTradingAlertCreateDto {
+  id: number;
+  isActive: boolean;
+}
+
+export interface UserTradingAlertDto {
+  id: number;
+  tradingPairId: number;
+  pair: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  eventType: TradingAlertEvent;
+  direction: ThresholdDirection;
+  targetPrice: number;
+  minimumAmount?: number | null;
+  isActive: boolean;
+  createdDate: string;
+  triggeredDate?: string | null;
+  isAcknowledged: boolean;
+  acknowledgedDate?: string | null;
+}

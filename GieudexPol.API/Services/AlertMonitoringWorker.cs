@@ -31,12 +31,22 @@ namespace GieudexPol.API.Services
                     var service = scope.ServiceProvider
                         .GetRequiredService<IAlertEvaluationService>();
                     var result = await service.EvaluateAllActiveAlertsAsync(stoppingToken);
+                    var tradingService = scope.ServiceProvider
+                        .GetRequiredService<ITradingAlertEvaluationService>();
+                    var tradingResult = await tradingService
+                        .EvaluateAllActiveAlertsAsync(stoppingToken);
                     _logger.LogInformation(
-                        "Ewaluacja alertow zakonczona. Oceniono: {Evaluated}, " +
+                        "Ewaluacja alertow kursowych zakonczona. Oceniono: {Evaluated}, " +
                         "uruchomiono: {Triggered}, powiadomienia: {Notifications}.",
                         result.EvaluatedAlertsCount,
                         result.TriggeredAlertsCount,
                         result.NotificationsCreatedCount);
+                    _logger.LogInformation(
+                        "Ewaluacja alertow handlowych zakonczona. Oceniono: {Evaluated}, " +
+                        "uruchomiono: {Triggered}, powiadomienia: {Notifications}.",
+                        tradingResult.EvaluatedAlertsCount,
+                        tradingResult.TriggeredAlertsCount,
+                        tradingResult.NotificationsCreatedCount);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {

@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { CurrencyConverterComponent } from './currency-exchange/currency-converter/currency-converter';
 import { ExchangeRateDashboard } from './exchange-rate-dashboard/exchange-rate-dashboard';
-import { AlertsComponent } from './features/alerts/components/alerts/alerts.component';
 import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
 import { AuthGuard } from './features/auth/guards/auth.guard';
@@ -36,7 +35,12 @@ export const routes: Routes = [
             .then(module => module.OrderbookComponent),
       },
       { path: 'orderbook', redirectTo: 'order-book', pathMatch: 'full' },
-      { path: 'alerts', component: AlertsComponent },
+      {
+        path: 'alerts',
+        loadComponent: () =>
+          import('./features/alerts/components/alerts/alerts.component')
+            .then(module => module.AlertsComponent),
+      },
       { path: 'whale-ranking', component: WhaleRankingListComponent },
       {
         path: 'admin/users',
