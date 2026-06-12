@@ -49,10 +49,10 @@ export class DashboardComponent implements OnInit {
       status: 'Dostepne',
     },
     {
-      title: 'Order book',
-      description: 'Planowany podglad ofert kupna i sprzedazy.',
-      route: '/orderbook',
-      status: 'W przygotowaniu',
+      title: 'Arkusz zleceń',
+      description: 'Składanie zleceń oraz podgląd aktywnych ofert kupna i sprzedaży.',
+      route: '/order-book',
+      status: 'Dostępne',
     },
      {
        title: 'Alerty cenowe',

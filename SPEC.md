@@ -126,7 +126,7 @@ src/app/
 1.  **Authentication:** Full registration, login mechanism with server-side validation. Dashboard defaults to the login screen.
 2.  **Digital Wallet:** Display of current balance and available funds for trading.
 3.  **Order Placement:** Intuitive form for market buy/sell orders at prevailing rates.
-4.  **Orderbook:** Real-time display of active user bids and asks.
+4.  **Arkusz zleceń:** Podgląd aktywnych zleceń kupna i sprzedaży użytkowników.
 5.  **Interactive Charts:** Visualization tools for price trend analysis.
 6.  **Transaction History:** Comprehensive, auditable log of all operations (deposits, trades, transfers).
     *   **Cel:** Umożliwienie użytkownikom wglądu w pełną historię swoich transakcji finansowych w aplikacji, co pozwoli na monitorowanie przepływów środków, weryfikację operacji i analizę wydatków. Historia transakcji powinna być łatwo dostępna i czytelna, z możliwością filtrowania i wyszukiwania.

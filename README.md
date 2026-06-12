@@ -75,7 +75,7 @@ Funkcjonalności Użytkownika:
 
 - Składanie zleceń: Intuicyjny formularz kupna i sprzedaży aktywów po cenie rynkowej.
 
-- Arkusz zleceń (Orderbook): Podgląd wszystkich aktywnych ofert innych użytkowników w czasie rzeczywistym.
+- Arkusz zleceń: Podgląd aktywnych ofert kupna i sprzedaży składanych przez użytkowników.
 
 - Interaktywne wykresy: Analiza trendów cenowych za pomocą profesjonalnych narzędzi wizualnych.
 

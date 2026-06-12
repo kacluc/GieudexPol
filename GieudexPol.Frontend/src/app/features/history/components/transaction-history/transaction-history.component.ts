@@ -46,4 +46,13 @@ export class TransactionHistoryComponent implements OnInit {
       this.changeDetector.detectChanges();
     }
   }
+
+  transactionTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      OrderBookBuy: 'Kupno w arkuszu zleceń',
+      OrderBookSell: 'Sprzedaż w arkuszu zleceń',
+    };
+
+    return labels[type] ?? type;
+  }
 }

@@ -140,6 +140,15 @@ export class TransactionTransferComponent implements OnInit {
     this.loadUserTransactions(pageNumber, this.paginatedResult.pageSize);
   }
 
+  transactionTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      OrderBookBuy: 'Kupno w arkuszu zleceń',
+      OrderBookSell: 'Sprzedaż w arkuszu zleceń',
+    };
+
+    return labels[type] ?? type;
+  }
+
   onSubmit(): void {
     if (this.transferForm.valid && this.currentUserId) {
       this.errorMessage = '';

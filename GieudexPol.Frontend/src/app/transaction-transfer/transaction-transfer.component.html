@@ -136,7 +136,7 @@
                 <tbody>
                     <tr *ngFor="let transaction of transactions">
                         <td class="date-cell">{{ transaction.timestamp | date: 'short' }}</td>
-                        <td>{{ transaction.transactionType }}</td>
+                        <td>{{ transactionTypeLabel(transaction.transactionType) }}</td>
                         <td>{{ transaction.senderUsername }}</td>
                         <td>{{ transaction.receiverUsername }}</td>
                         <td class="amount-cell">{{ transaction.amount | number: '1.2-4' }}</td>
