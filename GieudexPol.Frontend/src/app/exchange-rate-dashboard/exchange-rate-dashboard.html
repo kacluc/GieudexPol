@@ -82,10 +82,10 @@
         }
       </div>
     </div>
-    @if (isDevelopmentUser) {
+    @if (canAccessTestSources) {
       <div class="fallback-note">
-        <strong>Fallback dev:</strong>
-        <span>MOCK_BANK_A zostaje lokalnie, a zrodla zewnetrzne pobieraja sie przez backend przy braku danych.</span>
+        <strong>Dane testowe:</strong>
+        <span>Administrator może przeglądać historię MOCK_BANK_A i MOCK_BANK_B.</span>
       </div>
     }
   </section>

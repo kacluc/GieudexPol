@@ -25,11 +25,23 @@
 }
 
 .nav-link {
+  position: relative;
   border-radius: 6px;
   color: #dbe4f1;
   padding: 9px 11px;
   font-size: 0.93rem;
   text-decoration: none;
+}
+
+.alert-dot {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f44336;
+  box-shadow: 0 0 0 2px #172033;
 }
 
 .nav-link:hover,

@@ -41,7 +41,7 @@ public class AdminTestExchangeRateServiceTests
         var result = await service.CreateRateAsync(new CreateTestExchangeRateDto
         {
             CurrencyCode = "USD",
-            EffectiveDate = new DateTime(2026, 6, 11),
+            EffectiveDate = DateTime.Today.AddDays(-1),
             BuyPrice = 3.90m,
             SellPrice = 4.10m
         });
@@ -71,7 +71,7 @@ public class AdminTestExchangeRateServiceTests
         {
             RateSourceCode = DevelopmentIdentity.RateSourceCodeB,
             CurrencyCode = "USD",
-            EffectiveDate = new DateTime(2026, 6, 11),
+            EffectiveDate = DateTime.Today.AddDays(-1),
             BuyPrice = 3.95m,
             SellPrice = 4.15m
         });
@@ -90,7 +90,7 @@ public class AdminTestExchangeRateServiceTests
         {
             RateSourceCode = "NBP",
             CurrencyCode = "USD",
-            EffectiveDate = new DateTime(2026, 6, 11),
+            EffectiveDate = DateTime.Today.AddDays(-1),
             BuyPrice = 3.95m,
             SellPrice = 4.15m
         });
@@ -109,14 +109,14 @@ public class AdminTestExchangeRateServiceTests
             data.DevelopmentRate.Id,
             new UpdateTestExchangeRateDto
             {
-                EffectiveDate = new DateTime(2026, 6, 12),
+                EffectiveDate = DateTime.Today.AddDays(-1),
                 BuyPrice = 4.20m,
                 SellPrice = 4.40m,
                 MidPrice = 4.31m
             });
 
         result.Should().NotBeNull();
-        result!.EffectiveDate.Should().Be(new DateTime(2026, 6, 12));
+        result!.EffectiveDate.Should().Be(DateTime.Today.AddDays(-1));
         result.MidPrice.Should().Be(4.31m);
     }
 
@@ -146,7 +146,7 @@ public class AdminTestExchangeRateServiceTests
             data.RealRate.Id,
             new UpdateTestExchangeRateDto
             {
-                EffectiveDate = new DateTime(2026, 6, 11),
+                EffectiveDate = DateTime.Today.AddDays(-1),
                 BuyPrice = 4.00m,
                 SellPrice = 4.20m
             });
@@ -176,13 +176,32 @@ public class AdminTestExchangeRateServiceTests
         var action = () => service.CreateRateAsync(new CreateTestExchangeRateDto
         {
             CurrencyCode = "USD",
-            EffectiveDate = new DateTime(2026, 6, 11),
+            EffectiveDate = DateTime.Today.AddDays(-1),
             BuyPrice = -1m,
             SellPrice = 4.10m
         });
 
         await action.Should().ThrowAsync<ArgumentException>()
             .WithMessage("*dodatnie*");
+    }
+
+    [Fact]
+    public async Task CreateRateAsync_RejectsTodayOrFutureDate()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var service = new AdminTestExchangeRateService(context);
+
+        var action = () => service.CreateRateAsync(new CreateTestExchangeRateDto
+        {
+            CurrencyCode = "USD",
+            EffectiveDate = DateTime.Today,
+            BuyPrice = 3.90m,
+            SellPrice = 4.10m
+        });
+
+        await action.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("*jeden dzien wstecz*");
     }
 
     [Fact]
@@ -195,7 +214,7 @@ public class AdminTestExchangeRateServiceTests
         var action = () => service.CreateRateAsync(new CreateTestExchangeRateDto
         {
             CurrencyCode = "XYZ",
-            EffectiveDate = new DateTime(2026, 6, 11),
+            EffectiveDate = DateTime.Today.AddDays(-1),
             BuyPrice = 1m,
             SellPrice = 1.10m
         });

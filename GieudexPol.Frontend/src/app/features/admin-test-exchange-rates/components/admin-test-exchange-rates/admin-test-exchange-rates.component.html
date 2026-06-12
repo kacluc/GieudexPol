@@ -3,7 +3,7 @@
     <div>
       <p class="eyebrow">Panel administratora</p>
       <h1>Testowe kursy walut</h1>
-      <p>Reczna edycja danych developmentowych bez ingerencji w kursy bankow centralnych.</p>
+      <p>Ręczna edycja danych testowych bez ingerencji w kursy banków centralnych.</p>
     </div>
     <a routerLink="/admin/users" class="secondary-link">Wroc do uzytkownikow</a>
   </header>
@@ -73,8 +73,12 @@
     <div class="section-heading">
       <div>
         <h2>{{ editingRate ? 'Edytuj kurs' : 'Dodaj testowy kurs' }}</h2>
-        <span>Do wyboru dostepne sa wylacznie developmentowe zrodla A i B.</span>
+        <span>Do wyboru dostępne są wyłącznie testowe źródła danych A i B.</span>
       </div>
+      <button type="button" class="secondary"
+        (click)="evaluateAlertsNow()" [disabled]="evaluatingAlerts || saving">
+        {{ evaluatingAlerts ? 'Sprawdzanie...' : 'Sprawdz alerty teraz' }}
+      </button>
     </div>
 
     <form class="rate-form" [formGroup]="rateForm" (ngSubmit)="saveRate()">
@@ -102,7 +106,7 @@
 
       <label>
         <span>Data kursu</span>
-        <input type="date" formControlName="effectiveDate">
+        <input type="date" formControlName="effectiveDate" [max]="maxEffectiveDate">
         @if (rateForm.controls.effectiveDate.touched && rateForm.controls.effectiveDate.invalid) {
           <small>Podaj date kursu.</small>
         }
@@ -135,6 +139,10 @@
       <div class="form-actions editor-actions">
         <button type="submit" [disabled]="saving">
           {{ editingRate ? 'Zapisz zmiany' : 'Dodaj kurs' }}
+        </button>
+        <button type="button" class="secondary"
+          (click)="saveRate(true)" [disabled]="saving || evaluatingAlerts">
+          Zapisz i sprawdz alerty
         </button>
         @if (editingRate) {
           <button type="button" class="secondary" (click)="cancelEditing()">Anuluj</button>

@@ -9,5 +9,8 @@ namespace GieudexPol.Domain.Entities
         public string Name { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public ICollection<ExchangeRate> ExchangeRates { get; set; } = new List<ExchangeRate>();
+        public ICollection<UserAlert> UserAlerts { get; set; } = new List<UserAlert>();
+        public ICollection<UserAlertEvaluationState> AlertEvaluationStates { get; set; } =
+            new List<UserAlertEvaluationState>();
     }
 }

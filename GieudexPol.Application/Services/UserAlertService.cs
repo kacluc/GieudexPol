@@ -9,11 +9,19 @@ namespace GieudexPol.Application.Services
     {
         private readonly IUserAlertRepository _userAlertRepository;
         private readonly INotificationService _notificationService;
+        private readonly ICurrencyRepository _currencyRepository;
+        private readonly IRateSourceRepository _rateSourceRepository;
 
-        public UserAlertService(IUserAlertRepository userAlertRepository, INotificationService notificationService)
+        public UserAlertService(
+            IUserAlertRepository userAlertRepository,
+            INotificationService notificationService,
+            ICurrencyRepository currencyRepository,
+            IRateSourceRepository rateSourceRepository)
         {
             _userAlertRepository = userAlertRepository;
             _notificationService = notificationService;
+            _currencyRepository = currencyRepository;
+            _rateSourceRepository = rateSourceRepository;
         }
 
         public async Task<UserAlert?> GetByIdAsync(int id)
@@ -46,15 +54,24 @@ namespace GieudexPol.Application.Services
             return await _userAlertRepository.GetUserAlertsByUserIdAsync(userId);
         }
 
+        public async Task<IReadOnlyList<RateSource>> GetActiveRateSourcesAsync()
+        {
+            return await _rateSourceRepository.GetActiveAsync();
+        }
+
         public async Task CreateUserAlertAsync(UserAlert userAlert)
         {
+            await ValidateAsync(userAlert);
             userAlert.CreatedDate = System.DateTime.UtcNow;
             userAlert.IsActive = true;
+            userAlert.IsAcknowledged = false;
+            userAlert.AcknowledgedDate = null;
             await _userAlertRepository.AddAsync(userAlert);
         }
 
         public async Task UpdateUserAlertAsync(UserAlert userAlert)
         {
+            await ValidateAsync(userAlert);
             await _userAlertRepository.UpdateAsync(userAlert);
         }
 
@@ -67,13 +84,35 @@ namespace GieudexPol.Application.Services
             }
         }
 
+        public async Task<bool> AcknowledgeAlertAsync(int userAlertId, int userId)
+        {
+            var userAlert = await _userAlertRepository.GetByIdAsync(userAlertId);
+            if (userAlert == null ||
+                userAlert.UserId != userId ||
+                !userAlert.TriggeredDate.HasValue)
+            {
+                return false;
+            }
+
+            if (!userAlert.IsAcknowledged)
+            {
+                userAlert.IsAcknowledged = true;
+                userAlert.AcknowledgedDate = DateTime.UtcNow;
+                await _userAlertRepository.UpdateAsync(userAlert);
+            }
+
+            return true;
+        }
+
         public async Task TriggerAlertAsync(int userAlertId, string message)
         {
             var userAlert = await _userAlertRepository.GetByIdAsync(userAlertId);
             if (userAlert != null)
             {
                 userAlert.TriggeredDate = System.DateTime.UtcNow;
-                userAlert.IsActive = false; // Deactivate alert after triggering
+                userAlert.IsActive = false;
+                userAlert.IsAcknowledged = false;
+                userAlert.AcknowledgedDate = null;
                 await _userAlertRepository.UpdateAsync(userAlert);
 
                 var notification = new Notification
@@ -85,6 +124,65 @@ namespace GieudexPol.Application.Services
                 };
                 await _notificationService.AddAsync(notification);
             }
+        }
+
+        private async Task ValidateAsync(UserAlert userAlert)
+        {
+            if (!Enum.IsDefined(userAlert.AlertType))
+            {
+                throw new ArgumentException("Nieprawidlowy typ alertu.");
+            }
+
+            if (!Enum.IsDefined(userAlert.PriceSide))
+            {
+                throw new ArgumentException("Nieprawidlowa monitorowana strona ceny.");
+            }
+
+            var currency = await _currencyRepository.GetByIdAsync(userAlert.CurrencyId);
+            if (currency == null)
+            {
+                throw new ArgumentException("Wybrana waluta nie istnieje.");
+            }
+
+            if (userAlert.RateSourceId.HasValue)
+            {
+                var source = await _rateSourceRepository.GetByIdAsync(userAlert.RateSourceId.Value);
+                if (source == null || !source.IsActive)
+                {
+                    throw new ArgumentException("Wybrane zrodlo kursu nie istnieje lub jest nieaktywne.");
+                }
+            }
+
+            if (userAlert.AlertType == AlertType.Threshold)
+            {
+                if (!userAlert.ThresholdValue.HasValue || userAlert.ThresholdValue <= 0)
+                {
+                    throw new ArgumentException("Alert progowy wymaga dodatniej wartosci progu.");
+                }
+
+                if (!userAlert.ThresholdDirection.HasValue ||
+                    !Enum.IsDefined(userAlert.ThresholdDirection.Value))
+                {
+                    throw new ArgumentException("Alert progowy wymaga prawidlowego kierunku progu.");
+                }
+
+                userAlert.PercentageChange = null;
+                userAlert.TimeFrameHours = null;
+                return;
+            }
+
+            if (!userAlert.PercentageChange.HasValue || userAlert.PercentageChange <= 0)
+            {
+                throw new ArgumentException("Alert zmiany ceny wymaga dodatniej zmiany procentowej.");
+            }
+
+            if (userAlert.TimeFrameHours.HasValue && userAlert.TimeFrameHours <= 0)
+            {
+                throw new ArgumentException("Okres alertu musi byc dodatni.");
+            }
+
+            userAlert.ThresholdValue = null;
+            userAlert.ThresholdDirection = null;
         }
     }
 }

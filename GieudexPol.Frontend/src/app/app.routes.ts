@@ -7,7 +7,6 @@ import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
 import { AuthGuard } from './features/auth/guards/auth.guard';
 import { TransactionHistoryComponent } from './features/history/components/transaction-history/transaction-history.component';
-import { OrderbookComponent } from './features/orderbook/components/orderbook/orderbook.component';
 import { WalletManagementComponent } from './features/wallet/components/wallet-management/wallet-management.component';
 import { MainLayoutComponent } from './layouts/main-layout/main-layout.component';
 import { TransactionTransferComponent } from './transaction-transfer/transaction-transfer.component';
@@ -30,7 +29,13 @@ export const routes: Routes = [
       { path: 'wallet', component: WalletManagementComponent },
       { path: 'transfer', component: TransactionTransferComponent },
       { path: 'history', component: TransactionHistoryComponent },
-      { path: 'orderbook', component: OrderbookComponent },
+      {
+        path: 'order-book',
+        loadComponent: () =>
+          import('./features/orderbook/components/orderbook/orderbook.component')
+            .then(module => module.OrderbookComponent),
+      },
+      { path: 'orderbook', redirectTo: 'order-book', pathMatch: 'full' },
       { path: 'alerts', component: AlertsComponent },
       { path: 'whale-ranking', component: WhaleRankingListComponent },
       {

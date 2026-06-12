@@ -9,6 +9,7 @@ import { CurrencyService } from '../../../../services/currency.service';
 import {
   AdminTestExchangeRate,
   AdminTestRateSource,
+  AlertEvaluationRequest,
   CreateTestExchangeRate,
   UpdateTestExchangeRate,
 } from '../../models/admin-test-exchange-rate.model';
@@ -29,6 +30,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
   editingRate: AdminTestExchangeRate | null = null;
   loading = false;
   saving = false;
+  evaluatingAlerts = false;
   errorMessage = '';
   successMessage = '';
 
@@ -67,6 +69,10 @@ export class AdminTestExchangeRatesComponent implements OnInit {
   get selectedSourceName(): string {
     const sourceCode = this.filterForm.controls.rateSourceCode.value;
     return this.sources.find(source => source.code === sourceCode)?.name ?? sourceCode ?? '';
+  }
+
+  get maxEffectiveDate(): string {
+    return this.toDateInput(this.yesterday());
   }
 
   loadRates(): void {
@@ -118,7 +124,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
     this.rateForm.reset({
       rateSourceCode: selectedSourceCode,
       currencyId: null,
-      effectiveDate: this.toDateInput(new Date().toISOString()),
+      effectiveDate: this.toDateInput(this.yesterday()),
       buyPrice: null,
       sellPrice: null,
       midPrice: null,
@@ -145,7 +151,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
     this.startAdding();
   }
 
-  saveRate(): void {
+  saveRate(evaluateAfterSave = false): void {
     if (this.rateForm.invalid) {
       this.rateForm.markAllAsTouched();
       return;
@@ -174,6 +180,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
       this.finishSave(
         this.adminRatesService.updateTestExchangeRate(this.editingRate.id, request),
         'Testowy kurs zostal zaktualizowany.',
+        evaluateAfterSave,
       );
       return;
     }
@@ -195,7 +202,21 @@ export class AdminTestExchangeRatesComponent implements OnInit {
     this.finishSave(
       this.adminRatesService.createTestExchangeRate(request),
       'Testowy kurs zostal dodany.',
+      evaluateAfterSave,
     );
+  }
+
+  evaluateAlertsNow(): void {
+    const formValue = this.rateForm.getRawValue();
+    const currency = this.currencies.find(item => item.id === formValue.currencyId);
+    const request: AlertEvaluationRequest = {
+      currencyCode: currency?.symbol,
+      rateSourceCode:
+        formValue.rateSourceCode ??
+        this.filterForm.controls.rateSourceCode.value ??
+        undefined,
+    };
+    this.runAlertEvaluation(request);
   }
 
   deleteRate(rate: AdminTestExchangeRate): void {
@@ -252,14 +273,21 @@ export class AdminTestExchangeRatesComponent implements OnInit {
   private finishSave(
     request: Observable<AdminTestExchangeRate>,
     successMessage: string,
+    evaluateAfterSave: boolean,
   ): void {
     request.subscribe({
-      next: () => {
+      next: savedRate => {
         this.successMessage = successMessage;
         this.saving = false;
         this.startAdding();
         this.successMessage = successMessage;
         this.loadRates();
+        if (evaluateAfterSave) {
+          this.runAlertEvaluation({
+            currencyCode: savedRate.currencyCode,
+            rateSourceCode: savedRate.rateSourceCode,
+          });
+        }
       },
       error: error => this.handleError(error),
     });
@@ -273,6 +301,7 @@ export class AdminTestExchangeRatesComponent implements OnInit {
   private handleError(error: HttpErrorResponse): void {
     this.loading = false;
     this.saving = false;
+    this.evaluatingAlerts = false;
 
     if (error.status === 401 || error.status === 403) {
       this.errorMessage = 'Brak uprawnien administratora lub operacja dotyczy chronionego zrodla.';
@@ -287,6 +316,22 @@ export class AdminTestExchangeRatesComponent implements OnInit {
     }
 
     this.changeDetector.markForCheck();
+  }
+
+  private runAlertEvaluation(request: AlertEvaluationRequest): void {
+    this.evaluatingAlerts = true;
+    this.clearMessages();
+    this.adminRatesService.evaluateAlerts(request).subscribe({
+      next: result => {
+        this.evaluatingAlerts = false;
+        this.successMessage =
+          `Sprawdzono ${result.evaluatedAlertsCount} alertow, ` +
+          `odpalono ${result.triggeredAlertsCount}, ` +
+          `utworzono ${result.notificationsCreatedCount} powiadomien.`;
+        this.changeDetector.markForCheck();
+      },
+      error: error => this.handleError(error),
+    });
   }
 
   private readErrorMessage(error: HttpErrorResponse): string | null {
@@ -304,5 +349,14 @@ export class AdminTestExchangeRatesComponent implements OnInit {
 
   private toDateInput(value: string): string {
     return value.slice(0, 10);
+  }
+
+  private yesterday(): string {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

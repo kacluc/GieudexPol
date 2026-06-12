@@ -13,7 +13,17 @@ namespace GieudexPol.Infrastructure.Repositories
 
         public async Task<RateSource?> GetByCodeAsync(string code)
         {
-            return await _dbSet.FirstOrDefaultAsync(rs => rs.Code == code);
+            var normalizedCode = code.Trim().ToUpperInvariant();
+            return await _dbSet.FirstOrDefaultAsync(rs => rs.Code == normalizedCode);
+        }
+
+        public async Task<IReadOnlyList<RateSource>> GetActiveAsync()
+        {
+            return await _dbSet
+                .AsNoTracking()
+                .Where(source => source.IsActive)
+                .OrderBy(source => source.Code)
+                .ToListAsync();
         }
     }
 }

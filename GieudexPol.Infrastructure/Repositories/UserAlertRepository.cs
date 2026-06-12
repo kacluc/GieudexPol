@@ -18,6 +18,7 @@ namespace GieudexPol.Infrastructure.Repositories
             return await _context.UserAlerts
                                  .Where(a => a.IsActive)
                                  .Include(a => a.Currency)
+                                 .Include(a => a.RateSource)
                                  .ToListAsync();
         }
 
@@ -26,6 +27,8 @@ namespace GieudexPol.Infrastructure.Repositories
             return await _context.UserAlerts
                                  .Where(a => a.UserId == userId)
                                  .Include(a => a.Currency)
+                                 .Include(a => a.RateSource)
+                                 .OrderByDescending(a => a.CreatedDate)
                                  .ToListAsync();
         }
     }

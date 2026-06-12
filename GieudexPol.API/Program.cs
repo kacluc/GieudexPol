@@ -51,6 +51,8 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.Configure<ExchangeRateSettings>(
     builder.Configuration.GetSection(ExchangeRateSettings.SectionName));
+builder.Services.Configure<AlertMonitoringSettings>(
+    builder.Configuration.GetSection(AlertMonitoringSettings.SectionName));
 
 // Add DbContext for production
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -152,8 +154,11 @@ builder.Services.AddScoped<ITransactionService, GieudexPol.Application.Services.
 builder.Services.AddScoped<ITransactionFeeCalculator, TransactionFeeCalculator>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IUserAlertService, UserAlertService>();
+builder.Services.AddScoped<IAlertEvaluationService, AlertEvaluationService>();
 builder.Services.AddScoped<IExchangeRateSyncService, ExchangeRateSyncService>();
 builder.Services.AddScoped<IWhaleRankingService, WhaleRankingService>();
+builder.Services.AddScoped<IOrderMatchingService, OrderMatchingService>();
+builder.Services.AddScoped<IOrderBookService, OrderBookService>();
 
 builder.Services.AddHttpClient<NbpExchangeRateClient>(client =>
 {
@@ -280,6 +285,7 @@ builder.Services.AddTransient<IExternalExchangeRateClient>(serviceProvider =>
     serviceProvider.GetRequiredService<BnrExchangeRateClient>());
 
 builder.Services.AddHostedService<ExchangeRateStartupSyncService>();
+builder.Services.AddHostedService<AlertMonitoringWorker>();
 
 // Add repositories
 builder.Services.AddScoped<ICurrencyRepository, CurrencyRepository>();

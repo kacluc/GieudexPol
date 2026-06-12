@@ -173,6 +173,8 @@ namespace GieudexPol.API.Controllers
         public int UserId { get; set; }
         public int CurrencyId { get; set; }
         public decimal Balance { get; set; }
+        public decimal ReservedBalance { get; set; }
+        public decimal AvailableBalance { get; set; }
         public WalletCurrencyResponse? Currency { get; set; }
 
         public static WalletResponse FromWallet(Wallet wallet)
@@ -183,6 +185,8 @@ namespace GieudexPol.API.Controllers
                 UserId = wallet.UserId,
                 CurrencyId = wallet.CurrencyId,
                 Balance = wallet.Balance,
+                ReservedBalance = wallet.ReservedBalance,
+                AvailableBalance = wallet.AvailableBalance,
                 Currency = wallet.Currency == null ? null : WalletCurrencyResponse.FromCurrency(wallet.Currency)
             };
         }

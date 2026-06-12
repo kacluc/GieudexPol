@@ -49,12 +49,9 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("UserId1")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId1");
+                    b.HasIndex("UserId");
 
                     b.ToTable("AuditLog");
                 });
@@ -150,11 +147,13 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.Notification", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("int");
 
-                    b.Property<DateTime>("CreatedAt")
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("IsRead")
@@ -164,17 +163,64 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("UserId1")
+                    b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId1");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("Notification");
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.Order", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("OriginalAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("RemainingAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TradingPairId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TradingPairId", "Status", "Side", "Price", "CreatedAt");
+
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.RateSource", b =>
@@ -202,6 +248,76 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("RateSources");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.TradeExecution", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("BuyOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ExecutedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("SellOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TradingPairId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyOrderId");
+
+                    b.HasIndex("SellOrderId");
+
+                    b.HasIndex("TradingPairId");
+
+                    b.ToTable("TradeExecutions");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.TradingPair", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BaseCurrencyId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("QuoteCurrencyId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TickSize")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuoteCurrencyId");
+
+                    b.HasIndex("BaseCurrencyId", "QuoteCurrencyId")
+                        .IsUnique();
+
+                    b.ToTable("TradingPairs");
                 });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.Transaction", b =>
@@ -315,9 +431,6 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AuthId")
-                        .IsUnique();
-
                     b.HasIndex("Username")
                         .IsUnique();
 
@@ -332,6 +445,9 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("AcknowledgedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("AlertType")
                         .HasColumnType("int");
 
@@ -341,12 +457,24 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     b.Property<int>("CurrencyId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsAcknowledged")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
                     b.Property<decimal?>("PercentageChange")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("PriceSide")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RateSourceId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ThresholdDirection")
+                        .HasColumnType("int");
 
                     b.Property<decimal?>("ThresholdValue")
                         .HasPrecision(18, 4)
@@ -365,9 +493,38 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     b.HasIndex("CurrencyId");
 
+                    b.HasIndex("RateSourceId");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("UserAlerts");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.UserAlertEvaluationState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("LastEvaluatedEffectiveDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RateSourceId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserAlertId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RateSourceId");
+
+                    b.HasIndex("UserAlertId", "RateSourceId")
+                        .IsUnique();
+
+                    b.ToTable("UserAlertEvaluationStates");
                 });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.Wallet", b =>
@@ -379,10 +536,15 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("Balance")
-                        .HasColumnType("decimal(18,2)");
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("CurrencyId")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("ReservedBalance")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -391,7 +553,8 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     b.HasIndex("CurrencyId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "CurrencyId")
+                        .IsUnique();
 
                     b.ToTable("Wallets");
                 });
@@ -428,7 +591,8 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                 {
                     b.HasOne("GieudexPol.Domain.Entities.User", "User")
                         .WithMany("AuditLogs")
-                        .HasForeignKey("UserId1")
+                        .HasForeignKey("UserId")
+                        .HasPrincipalKey("AuthId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -458,11 +622,76 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                 {
                     b.HasOne("GieudexPol.Domain.Entities.User", "User")
                         .WithMany("Notifications")
-                        .HasForeignKey("UserId1")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.Order", b =>
+                {
+                    b.HasOne("GieudexPol.Domain.Entities.TradingPair", "TradingPair")
+                        .WithMany("Orders")
+                        .HasForeignKey("TradingPairId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GieudexPol.Domain.Entities.User", "User")
+                        .WithMany("Orders")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TradingPair");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.TradeExecution", b =>
+                {
+                    b.HasOne("GieudexPol.Domain.Entities.Order", "BuyOrder")
+                        .WithMany("BuyExecutions")
+                        .HasForeignKey("BuyOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GieudexPol.Domain.Entities.Order", "SellOrder")
+                        .WithMany("SellExecutions")
+                        .HasForeignKey("SellOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GieudexPol.Domain.Entities.TradingPair", "TradingPair")
+                        .WithMany("TradeExecutions")
+                        .HasForeignKey("TradingPairId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BuyOrder");
+
+                    b.Navigation("SellOrder");
+
+                    b.Navigation("TradingPair");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.TradingPair", b =>
+                {
+                    b.HasOne("GieudexPol.Domain.Entities.Currency", "BaseCurrency")
+                        .WithMany("BaseTradingPairs")
+                        .HasForeignKey("BaseCurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GieudexPol.Domain.Entities.Currency", "QuoteCurrency")
+                        .WithMany("QuoteTradingPairs")
+                        .HasForeignKey("QuoteCurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BaseCurrency");
+
+                    b.Navigation("QuoteCurrency");
                 });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.Transaction", b =>
@@ -506,6 +735,11 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("GieudexPol.Domain.Entities.RateSource", "RateSource")
+                        .WithMany("UserAlerts")
+                        .HasForeignKey("RateSourceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GieudexPol.Domain.Entities.User", "User")
                         .WithMany("UserAlerts")
                         .HasForeignKey("UserId")
@@ -514,7 +748,28 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     b.Navigation("Currency");
 
+                    b.Navigation("RateSource");
+
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.UserAlertEvaluationState", b =>
+                {
+                    b.HasOne("GieudexPol.Domain.Entities.RateSource", "RateSource")
+                        .WithMany("AlertEvaluationStates")
+                        .HasForeignKey("RateSourceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GieudexPol.Domain.Entities.UserAlert", "UserAlert")
+                        .WithMany("EvaluationStates")
+                        .HasForeignKey("UserAlertId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RateSource");
+
+                    b.Navigation("UserAlert");
                 });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.Wallet", b =>
@@ -549,7 +804,11 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.Currency", b =>
                 {
+                    b.Navigation("BaseTradingPairs");
+
                     b.Navigation("ExchangeRates");
+
+                    b.Navigation("QuoteTradingPairs");
 
                     b.Navigation("Transactions");
 
@@ -558,9 +817,27 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     b.Navigation("Wallets");
                 });
 
+            modelBuilder.Entity("GieudexPol.Domain.Entities.Order", b =>
+                {
+                    b.Navigation("BuyExecutions");
+
+                    b.Navigation("SellExecutions");
+                });
+
             modelBuilder.Entity("GieudexPol.Domain.Entities.RateSource", b =>
                 {
+                    b.Navigation("AlertEvaluationStates");
+
                     b.Navigation("ExchangeRates");
+
+                    b.Navigation("UserAlerts");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.TradingPair", b =>
+                {
+                    b.Navigation("Orders");
+
+                    b.Navigation("TradeExecutions");
                 });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.User", b =>
@@ -569,6 +846,8 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     b.Navigation("Notifications");
 
+                    b.Navigation("Orders");
+
                     b.Navigation("ReceivedTransactions");
 
                     b.Navigation("SentTransactions");
@@ -576,6 +855,11 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     b.Navigation("UserAlerts");
 
                     b.Navigation("Wallets");
+                });
+
+            modelBuilder.Entity("GieudexPol.Domain.Entities.UserAlert", b =>
+                {
+                    b.Navigation("EvaluationStates");
                 });
 #pragma warning restore 612, 618
         }

@@ -157,9 +157,17 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var identity = new ClaimsIdentity(
-            new[] { new Claim(ClaimTypes.NameIdentifier, "test-user") },
-            AuthenticationScheme);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, "test-user")
+        };
+        if (Request.Headers.TryGetValue("X-Test-Role", out var role) &&
+            !string.IsNullOrWhiteSpace(role))
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role.ToString()));
+        }
+
+        var identity = new ClaimsIdentity(claims, AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, AuthenticationScheme);
 

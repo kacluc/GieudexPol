@@ -1,21 +1,254 @@
 <section class="orderbook-page">
-  <header>
-    <p class="eyebrow">Handel</p>
-    <h1>Order book</h1>
-    <p>Podglad aktywnych ofert kupna i sprzedazy opisany w specyfikacji projektu.</p>
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Handel użytkowników</p>
+      <h1>Arkusz zleceń</h1>
+      <p>Aktywne zlecenia kupna i sprzedaży składane w GieudexPol.</p>
+    </div>
   </header>
 
-  <article class="status-panel">
-    <span class="badge">W przygotowaniu</span>
-    <h2>Modul nie ma jeszcze zrodla danych</h2>
-    <p>
-      W obecnym API sa kursy walut, portfel, transfery i alerty, ale nie ma
-      endpointu ani encji zlecen dla arkusza ofert. Widok zostal wlaczony do
-      panelu glownego jako miejsce dla planowanej funkcji.
-    </p>
-    <div class="actions">
-      <a routerLink="/rates">Przejdz do kursow</a>
-      <a class="secondary" routerLink="/wallet">Przejdz do portfela</a>
+  @if (message) {
+    <p class="feedback success">{{ message }}</p>
+  }
+  @if (error) {
+    <p class="feedback error">{{ error }}</p>
+  }
+
+  <div class="top-workspace">
+    <section class="order-form-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="section-label">Nowe zlecenie limit</p>
+          <h2>Złóż zlecenie</h2>
+        </div>
+        <span class="pair-badge">{{ selectedPair?.pair ?? 'Ładowanie pary...' }}</span>
+      </div>
+
+      <form (ngSubmit)="submitOrder()">
+        <label class="pair-field">
+          Para walutowa
+          <select
+            name="pair"
+            [value]="selectedPair?.id ?? ''"
+            [disabled]="pairs.length === 0"
+            (change)="selectPair($any($event.target).value)"
+          >
+            @for (pair of pairs; track pair.id) {
+              <option [value]="pair.id">{{ pair.pair }}</option>
+            }
+          </select>
+        </label>
+
+        <div class="side-toggle" role="group" aria-label="Strona zlecenia">
+          <button
+            type="button"
+            [class.active-buy]="side === 'Buy'"
+            (click)="side = 'Buy'"
+          >
+            Kupno
+          </button>
+          <button
+            type="button"
+            [class.active-sell]="side === 'Sell'"
+            (click)="side = 'Sell'"
+          >
+            Sprzedaż
+          </button>
+        </div>
+
+        <p class="order-description">{{ orderDescription }}</p>
+
+        <div class="form-grid">
+          <label>
+            Cena za 1 {{ selectedPair?.baseCurrency }}
+            <div class="input-with-unit">
+              <input
+                type="number"
+                name="price"
+                [(ngModel)]="price"
+                [step]="selectedPair?.tickSize ?? 0.0001"
+                min="0"
+                required
+              />
+              <span>{{ selectedPair?.quoteCurrency }}</span>
+            </div>
+          </label>
+
+          <label>
+            Ilość
+            <div class="input-with-unit">
+              <input
+                type="number"
+                name="amount"
+                [(ngModel)]="amount"
+                step="0.0001"
+                min="0"
+                required
+              />
+              <span>{{ selectedPair?.baseCurrency }}</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="order-submit-row">
+          <p class="order-value">
+            Wartość:
+            <strong>
+              {{ ((price ?? 0) * (amount ?? 0)) | number:'1.2-4' }}
+              {{ selectedPair?.quoteCurrency }}
+            </strong>
+          </p>
+
+          <button type="submit" class="primary-button" [disabled]="submitting || !selectedPair">
+            {{ submitting ? 'Składanie...' : (side === 'Buy' ? 'Złóż zlecenie kupna' : 'Złóż zlecenie sprzedaży') }}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="wallet-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="section-label">Stan konta</p>
+          <h2>Portfel</h2>
+        </div>
+        <span class="live-indicator">Aktualny</span>
+      </div>
+
+      <div class="wallet-values">
+        @for (wallet of wallets; track wallet.id) {
+          <article class="wallet-value">
+            <span>{{ wallet.currency?.symbol }}</span>
+            <strong>{{ wallet.balance | number:'1.2-4' }}</strong>
+            <small>Dostępne: {{ wallet.availableBalance | number:'1.2-4' }}</small>
+            @if (wallet.reservedBalance > 0) {
+              <small>Zablokowane: {{ wallet.reservedBalance | number:'1.2-4' }}</small>
+            }
+          </article>
+        } @empty {
+          <p class="empty wallet-empty">Brak danych portfela.</p>
+        }
+      </div>
+    </aside>
+  </div>
+
+  <section class="my-orders">
+    <div class="book-heading">
+      <div>
+        <p class="section-label">Twoje środki w arkuszu</p>
+        <h2>Moje aktywne zlecenia</h2>
+      </div>
     </div>
-  </article>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Para</th>
+            <th>Strona</th>
+            <th>Cena</th>
+            <th>Pozostało</th>
+            <th>Status</th>
+            <th>Utworzono</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (order of activeOrders; track order.id) {
+            <tr>
+              <td>{{ order.pair }}</td>
+              <td [class.buy-price]="order.side === 'Buy'" [class.sell-price]="order.side === 'Sell'">
+                {{ sideLabel(order.side) }}
+              </td>
+              <td>{{ order.price | number:'1.4-4' }}</td>
+              <td>{{ order.remainingAmount | number:'1.2-4' }} {{ order.baseCurrency }}</td>
+              <td>{{ statusLabel(order.status) }}</td>
+              <td>{{ order.createdAt | date:'dd.MM.yyyy HH:mm' }}</td>
+              <td>
+                <button type="button" class="cancel-button" (click)="cancelOrder(order)">
+                  Anuluj
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="7" class="empty">Nie masz aktywnych zleceń.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="book-panel">
+    <div class="book-heading">
+      <div>
+        <p class="section-label">Aktywne oferty użytkowników</p>
+        <h2>{{ orderBook?.pair ?? selectedPair?.pair ?? 'Arkusz' }}</h2>
+      </div>
+      <button type="button" class="secondary-button" [disabled]="refreshing" (click)="refresh()">
+        {{ refreshing ? 'Odświeżanie...' : 'Odśwież' }}
+      </button>
+    </div>
+
+    <div class="book-columns">
+      <article>
+        <h3 class="buy-title">Kupno</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cena</th>
+                <th>Ilość</th>
+                <th>Suma</th>
+                <th>Zlecenia</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (level of orderBook?.buyOrders ?? []; track level.price) {
+                <tr>
+                  <td class="buy-price">{{ level.price | number:'1.4-4' }}</td>
+                  <td>{{ level.amount | number:'1.2-4' }}</td>
+                  <td>{{ level.total | number:'1.2-4' }}</td>
+                  <td>{{ level.ordersCount }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="4" class="empty">Brak zleceń kupna</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article>
+        <h3 class="sell-title">Sprzedaż</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cena</th>
+                <th>Ilość</th>
+                <th>Suma</th>
+                <th>Zlecenia</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (level of orderBook?.sellOrders ?? []; track level.price) {
+                <tr>
+                  <td class="sell-price">{{ level.price | number:'1.4-4' }}</td>
+                  <td>{{ level.amount | number:'1.2-4' }}</td>
+                  <td>{{ level.total | number:'1.2-4' }}</td>
+                  <td>{{ level.ordersCount }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="4" class="empty">Brak zleceń sprzedaży</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  @if (loading) {
+    <div class="loading-overlay">Ładowanie arkusza...</div>
+  }
 </section>

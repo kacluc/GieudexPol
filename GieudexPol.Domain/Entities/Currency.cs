@@ -12,5 +12,7 @@ namespace GieudexPol.Domain.Entities
         public ICollection<ExchangeRate> ExchangeRates { get; set; } = new List<ExchangeRate>();
         public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
         public ICollection<UserAlert> UserAlerts { get; set; } = new List<UserAlert>();
+        public ICollection<TradingPair> BaseTradingPairs { get; set; } = new List<TradingPair>();
+        public ICollection<TradingPair> QuoteTradingPairs { get; set; } = new List<TradingPair>();
     }
 }

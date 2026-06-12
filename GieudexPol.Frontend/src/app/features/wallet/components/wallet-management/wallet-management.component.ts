@@ -1,7 +1,7 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../auth/services/auth.service';
 import { WalletService } from '../../services/wallet.service';
@@ -14,7 +14,7 @@ import { DepositRequest, TradeRequest, WalletCurrency, WalletDto, WithdrawReques
   templateUrl: './wallet-management.component.html',
   styleUrls: ['./wallet-management.component.scss']
 })
-export class WalletManagementComponent implements OnInit {
+export class WalletManagementComponent implements OnInit, OnDestroy {
   private readonly developmentUserId = 1;
   private currentUserId = this.developmentUserId;
 
@@ -34,6 +34,7 @@ export class WalletManagementComponent implements OnInit {
   isLoading = false;
   tradeMessage: string | null = null;
   activeTab: 'exchange' | 'deposit' | 'withdraw' = 'exchange';
+  private readonly subscriptions = new Subscription();
 
   constructor(
     private walletService: WalletService,
@@ -47,43 +48,40 @@ export class WalletManagementComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    this.authService.user$.subscribe(user => {
-      if (user?.id) {
-        this.currentUserId = user.id;
-      }
-    });
+    this.subscriptions.add(
+      this.authService.user$.subscribe(user => {
+        if (user?.id) {
+          this.currentUserId = user.id;
+        }
+      }),
+    );
+    this.subscriptions.add(
+      this.walletService.wallets$.subscribe(wallets => {
+        if (wallets.length > 0) {
+          this.applyWallets(wallets);
+          this.changeDetector.detectChanges();
+        }
+      }),
+    );
 
     await this.initializeBalance();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   async initializeBalance(): Promise<void> {
     this.isLoading = true;
 
     try {
-      [this.wallets, this.addableCurrencies] = await Promise.all([
-        firstValueFrom(this.walletService.getUserWallets(this.currentUserId)),
-        firstValueFrom(this.walletService.getAvailableCurrencies(this.currentUserId))
-      ]);
-      this.currentBalance = {};
-      this.availableCurrencies = this.wallets
-        .map(wallet => wallet.currency?.symbol)
-        .filter((symbol): symbol is string => !!symbol)
-        .sort();
+      const wallets = await firstValueFrom(this.walletService.getUserWallets(this.currentUserId));
+      this.applyWallets(wallets);
+      this.changeDetector.detectChanges();
 
-      for (const wallet of this.wallets) {
-        const symbol = wallet.currency?.symbol;
-        if (symbol) {
-          this.currentBalance[symbol] = wallet.balance;
-        }
-      }
-
-      this.fromCurrency = this.ensureSelectedCurrency(this.fromCurrency);
-      this.toCurrency = this.ensureSelectedCurrency(
-        this.toCurrency,
-        this.availableCurrencies.find(symbol => symbol !== this.fromCurrency) ?? this.fromCurrency
+      this.addableCurrencies = await firstValueFrom(
+        this.walletService.getAvailableCurrencies(this.currentUserId),
       );
-      this.depositCurrency = this.ensureSelectedCurrency(this.depositCurrency);
-      this.withdrawCurrency = this.ensureSelectedCurrency(this.withdrawCurrency);
       this.newCurrencyId = this.addableCurrencies[0]?.id ?? null;
     } catch (error) {
       console.error('Nie udalo sie zaladowac salda:', error);
@@ -238,6 +236,30 @@ export class WalletManagementComponent implements OnInit {
 
   private findWallet(symbol: string): WalletDto | undefined {
     return this.wallets.find(wallet => wallet.currency?.symbol === symbol);
+  }
+
+  private applyWallets(wallets: WalletDto[]): void {
+    this.wallets = wallets;
+    this.currentBalance = {};
+    this.availableCurrencies = wallets
+      .map(wallet => wallet.currency?.symbol)
+      .filter((symbol): symbol is string => !!symbol)
+      .sort();
+
+    for (const wallet of wallets) {
+      const symbol = wallet.currency?.symbol;
+      if (symbol) {
+        this.currentBalance[symbol] = wallet.availableBalance ?? wallet.balance;
+      }
+    }
+
+    this.fromCurrency = this.ensureSelectedCurrency(this.fromCurrency);
+    this.toCurrency = this.ensureSelectedCurrency(
+      this.toCurrency,
+      this.availableCurrencies.find(symbol => symbol !== this.fromCurrency) ?? this.fromCurrency,
+    );
+    this.depositCurrency = this.ensureSelectedCurrency(this.depositCurrency);
+    this.withdrawCurrency = this.ensureSelectedCurrency(this.withdrawCurrency);
   }
 
   private ensureSelectedCurrency(value: string, fallback?: string): string {

@@ -162,7 +162,9 @@ namespace GieudexPol.Infrastructure.Services
                 Email = user.Username,
                 Username = user.Username,
                 DisplayName = user.DisplayName,
-                Role = user.Role
+                Role = UserRoles.IsValid(user.Role)
+                    ? UserRoles.Normalize(user.Role)
+                    : UserRoles.User
             };
         }
     }

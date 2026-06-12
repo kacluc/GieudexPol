@@ -221,7 +221,7 @@ namespace GieudexPol.Application.Services
             var fee = await _transactionFeeCalculator.CalculateAsync("Withdrawal", currencyId, amount);
             var totalDebit = amount + fee.FeeAmount;
 
-            if (wallet.Balance < totalDebit)
+            if (wallet.AvailableBalance < totalDebit)
             {
                 throw new InvalidOperationException(
                     "Niewystarczajace srodki na wyplate wraz z prowizja.");

@@ -338,6 +338,12 @@ namespace GieudexPol.Infrastructure.Services
                 throw new ArgumentException("Data kursu jest wymagana.");
             }
 
+            if (effectiveDate.Date >= DateTime.Today)
+            {
+                throw new ArgumentException(
+                    "Data testowego kursu musi byc co najmniej jeden dzien wstecz.");
+            }
+
             if (buyPrice <= 0 || sellPrice <= 0 || (midPrice.HasValue && midPrice.Value <= 0))
             {
                 throw new ArgumentException("Wszystkie podane ceny musza byc dodatnie.");

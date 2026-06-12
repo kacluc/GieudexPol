@@ -1,91 +1,177 @@
-<div class="alerts-container">
-  <h2>Zarządzanie Alertami</h2>
+<main class="alerts-container">
+  <header class="alerts-header">
+    <h1>Alerty walutowe</h1>
+    <p>Alerty są sprawdzane automatycznie, także gdy nie jesteś zalogowany.</p>
+  </header>
 
-  <form [formGroup]="alertForm" (ngSubmit)="onSubmit()" class="alert-form">
-    <div class="form-group">
-      <label for="currency">Waluta:</label>
-      <select id="currency" formControlName="currencyId" class="form-control">
-        <option value="">Wybierz walutę</option>
-        <option *ngFor="let currency of currencies()" [value]="currency.id">{{ currency.symbol }}</option>
-      </select>
-      <div *ngIf="alertForm.get('currencyId')?.invalid && alertForm.get('currencyId')?.touched" class="error-message">
-        Wybór waluty jest wymagany.
+  @if (errorMessage) {
+    <div class="error-message page-error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <div class="alerts-top-grid">
+    <section class="panel">
+      <h2>{{ editingAlert ? 'Edytuj alert' : 'Utwórz alert' }}</h2>
+
+      <form [formGroup]="alertForm" (ngSubmit)="onSubmit()" class="alert-form">
+        <div class="form-group">
+          <label for="currency">Waluta</label>
+          <select id="currency" formControlName="currencyId" class="form-control">
+            <option [ngValue]="null">Wybierz walutę</option>
+            @for (currency of currencies(); track currency.id) {
+              <option [ngValue]="currency.id">{{ currency.symbol }} - {{ currency.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="alertType">Typ alertu</label>
+          <select id="alertType" formControlName="alertType" class="form-control">
+            <option [ngValue]="null">Wybierz typ alertu</option>
+            @for (type of alertTypes; track type) {
+              <option [ngValue]="type">{{ alertTypeLabel(type) }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="priceSide">Monitorowana cena</label>
+          <select id="priceSide" formControlName="priceSide" class="form-control">
+            @for (side of priceSides; track side) {
+              <option [ngValue]="side">{{ priceSideLabel(side) }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="rateSourceId">Źródło kursu</label>
+          <select id="rateSourceId" formControlName="rateSourceId" class="form-control">
+            <option [ngValue]="null">Wszystkie aktywne źródła</option>
+            @for (source of rateSources(); track source.id) {
+              <option [ngValue]="source.id">{{ source.code }} - {{ source.name }}</option>
+            }
+          </select>
+        </div>
+
+        @if (alertForm.controls.alertType.value === AlertType.Threshold) {
+          <div class="form-group">
+            <label for="thresholdValue">Wartość progu</label>
+            <input id="thresholdValue" type="number" step="0.0001"
+              formControlName="thresholdValue" class="form-control">
+          </div>
+          <div class="form-group">
+            <label for="thresholdDirection">Kierunek</label>
+            <select id="thresholdDirection" formControlName="thresholdDirection" class="form-control">
+              <option [ngValue]="null">Wybierz kierunek</option>
+              <option [ngValue]="ThresholdDirection.AboveOrEqual">&gt;= wartość progu</option>
+              <option [ngValue]="ThresholdDirection.BelowOrEqual">&lt;= wartość progu</option>
+            </select>
+          </div>
+        }
+
+        @if (
+          alertForm.controls.alertType.value === AlertType.PriceDrop ||
+          alertForm.controls.alertType.value === AlertType.PriceIncrease
+        ) {
+          <div class="form-group">
+            <label for="percentageChange">Zmiana procentowa (%)</label>
+            <input id="percentageChange" type="number" step="0.01"
+              formControlName="percentageChange" class="form-control">
+          </div>
+          <div class="form-group">
+            <label for="timeFrameHours">Okres odniesienia</label>
+            <select id="timeFrameHours" formControlName="timeFrameHours" class="form-control">
+              <option [ngValue]="24">24h / poprzedni kurs dzienny</option>
+              <option [ngValue]="48">48h</option>
+              <option [ngValue]="168">7 dni</option>
+            </select>
+          </div>
+        }
+
+        <div class="form-actions">
+          <button type="submit" [disabled]="alertForm.invalid" class="btn btn-primary">
+            {{ editingAlert ? 'Zapisz zmiany' : 'Utwórz alert' }}
+          </button>
+          <button type="button" (click)="resetForm()" class="btn btn-secondary">Anuluj</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel recent-panel">
+      <h2>Ostatnie alerty</h2>
+      <div class="recent-list">
+        @for (alert of recentAlerts; track alert.id) {
+          <article class="recent-alert">
+            <div>
+              <strong>{{ alert.currencySymbol }}</strong>
+              <span>{{ alertTypeLabel(alert.alertType) }}</span>
+            </div>
+            <span
+              class="status-badge"
+              [class.active]="!alert.triggeredDate"
+              [class.fulfilled]="alert.triggeredDate && !alert.isAcknowledged"
+              [class.accepted]="alert.isAcknowledged"
+            >
+              {{ statusLabel(alert) }}
+            </span>
+            @if (alert.triggeredDate && !alert.isAcknowledged) {
+              <button (click)="acknowledgeAlert(alert.id)" class="btn btn-success btn-sm">
+                Potwierdź
+              </button>
+            }
+          </article>
+        } @empty {
+          <div class="no-alerts-message">Brak ostatnich alertów.</div>
+        }
       </div>
-    </div>
-
-    <div class="form-group">
-      <label for="alertType">Typ alertu:</label>
-      <select id="alertType" formControlName="alertType" class="form-control">
-        <option value="">Wybierz typ alertu</option>
-        <option *ngFor="let type of alertTypes" [value]="type">{{ type }}</option>
-      </select>
-      <div *ngIf="alertForm.get('alertType')?.invalid && alertForm.get('alertType')?.touched" class="error-message">
-        Typ alertu jest wymagany.
-      </div>
-    </div>
-
-<div class="form-group" *ngIf="alertForm.get('alertType')?.value === 'Threshold'">
-      <label for="thresholdValue">Wartość progowa:</label>
-      <input id="thresholdValue" type="number" formControlName="thresholdValue" class="form-control" placeholder="np. 4.50">
-      <div *ngIf="alertForm.get('thresholdValue')?.invalid && alertForm.get('thresholdValue')?.touched" class="error-message">
-        Wartość progowa jest wymagana i musi być liczbą dodatnią.
-      </div>
-    </div>
-
-<div class="form-group" *ngIf="alertForm.get('alertType')?.value === 'PriceDrop' || alertForm.get('alertType')?.value === 'PriceIncrease'">
-      <label for="percentageChange">Zmiana procentowa (%):</label>
-      <input id="percentageChange" type="number" formControlName="percentageChange" class="form-control" placeholder="np. 2 (dla 2%)">
-      <div *ngIf="alertForm.get('percentageChange')?.invalid && alertForm.get('percentageChange')?.touched" class="error-message">
-        Zmiana procentowa jest wymagana i musi być liczbą między 0.01 a 100.
-      </div>
-    </div>
-
-    <div class="form-group" *ngIf="alertForm.get('alertType')?.value === AlertType.PriceDrop || alertForm.get('alertType')?.value === AlertType.PriceIncrease">
-      <label for="timeFrameHours">Ramy czasowe (godziny):</label>
-      <input id="timeFrameHours" type="number" formControlName="timeFrameHours" class="form-control" placeholder="np. 24">
-      <div *ngIf="alertForm.get('timeFrameHours')?.invalid && alertForm.get('timeFrameHours')?.touched" class="error-message">
-        Ramy czasowe są wymagane i muszą być liczbą całkowitą dodatnią.
-      </div>
-    </div>
-
-    <div class="form-group" *ngIf="editingAlert">
-      <label for="isActive">Aktywny:</label>
-      <input id="isActive" type="checkbox" formControlName="isActive">
-    </div>
-
-    <div class="form-actions">
-      <button type="submit" [disabled]="!alertForm.valid" class="btn btn-primary">
-        {{ editingAlert ? 'Zapisz zmiany' : 'Utwórz alert' }}
-      </button>
-      <button type="button" (click)="resetForm()" class="btn btn-secondary">
-        Anuluj
-      </button>
-    </div>
-  </form>
-
-  <h3>Moje Alerty</h3>
-  <div *ngIf="alerts().length === 0" class="no-alerts-message">
-    Brak aktywnych alertów. Utwórz nowy alert, aby monitorować zmiany cen walut.
+    </section>
   </div>
-  <ul class="alerts-list">
-    <li *ngFor="let alert of alerts()" class="alert-item">
-      <div class="alert-details">
-        <strong>Waluta:</strong> {{ alert.currencySymbol }}<br>
-        <strong>Typ:</strong> {{ alert.alertType }}
-<ng-container *ngIf="alert.alertType === 'Threshold'">
-          - próg: {{ alert.thresholdValue }}
-        </ng-container>
-<ng-container *ngIf="alert.alertType === 'PriceDrop' || alert.alertType === 'PriceIncrease'">
-          - zmiana: {{ alert.percentageChange }}% w ciągu {{ alert.timeFrameHours }}h
-        </ng-container>
-        <br>
-        <strong>Status:</strong> <span [class.active]="alert.isActive" [class.inactive]="!alert.isActive">{{ alert.isActive ? 'Aktywny' : 'Nieaktywny' }}</span><br>
-        <span *ngIf="alert.triggeredDate"><strong>Wyzwalono:</strong> {{ alert.triggeredDate | date:'short' }}</span>
-      </div>
-      <div class="alert-actions">
-        <button (click)="editAlert(alert)" class="btn btn-info btn-sm">Edytuj</button>
-        <button (click)="deleteAlert(alert.id)" class="btn btn-danger btn-sm">Usuń</button>
-      </div>
-    </li>
-  </ul>
-</div>
+
+  <section class="panel all-alerts-panel">
+    <h2>Wszystkie alerty konta</h2>
+    @if (alerts().length === 0) {
+      <div class="no-alerts-message">Nie masz jeszcze alertów walutowych.</div>
+    }
+
+    <ul class="alerts-list">
+      @for (alert of alerts(); track alert.id) {
+        <li class="alert-item">
+          <div class="alert-details">
+            <strong>{{ alert.currencySymbol }} - {{ alertTypeLabel(alert.alertType) }}</strong><br>
+            <span>Monitorowana cena: {{ priceSideLabel(alert.priceSide) }}</span><br>
+            <span>Źródło: {{ alert.appliesToAllRateSources ? 'Wszystkie aktywne źródła' : (alert.rateSourceCode + ' - ' + alert.rateSourceName) }}</span><br>
+            @if (alert.alertType === AlertType.Threshold) {
+              <span>Próg: {{ directionLabel(alert.thresholdDirection) }} {{ alert.thresholdValue }}</span><br>
+            } @else {
+              <span>Zmiana: {{ alert.percentageChange }}% / {{ alert.timeFrameHours ?? 24 }}h</span><br>
+            }
+            <strong>Status:</strong>
+            <span
+              [class.active]="!alert.triggeredDate"
+              [class.inactive]="alert.triggeredDate && !alert.isAcknowledged"
+              [class.acknowledged]="alert.isAcknowledged"
+            >
+              {{ statusLabel(alert) }}
+            </span>
+            @if (alert.triggeredDate) {
+              <br><span>Spełniono: {{ alert.triggeredDate | date:'short' }}</span>
+            }
+            @if (alert.acknowledgedDate) {
+              <br><span>Przyjęto: {{ alert.acknowledgedDate | date:'short' }}</span>
+            }
+          </div>
+          <div class="alert-actions">
+            @if (!alert.triggeredDate) {
+              <button (click)="editAlert(alert)" class="btn btn-info btn-sm">Edytuj</button>
+            }
+            @if (alert.triggeredDate && !alert.isAcknowledged) {
+              <button (click)="acknowledgeAlert(alert.id)" class="btn btn-success btn-sm">
+                Potwierdź
+              </button>
+            }
+            <button (click)="deleteAlert(alert.id)" class="btn btn-danger btn-sm">Usuń</button>
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+</main>

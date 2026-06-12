@@ -1,10 +1,11 @@
 .orderbook-page {
-  width: min(860px, calc(100% - 32px));
+  width: min(1320px, calc(100% - 32px));
   margin: 0 auto;
   padding: 34px 0 48px;
+  position: relative;
 }
 
-header {
+.page-header {
   margin-bottom: 24px;
 }
 
@@ -22,55 +23,356 @@ h1 {
   color: #172033;
 }
 
-header p:last-child {
+.page-header p:last-child {
   margin: 0;
   color: #5b6b84;
 }
 
-.status-panel {
-  border: 1px solid #d9e0ea;
-  border-radius: 10px;
-  background: #fff;
-  padding: 28px;
+.top-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.75fr);
+  gap: 20px;
 }
 
-.badge {
-  display: inline-block;
+.book-panel,
+.order-form-panel,
+.wallet-panel,
+.my-orders {
+  border: 1px solid #d9e0ea;
+  border-radius: 12px;
+  background: #fff;
+  padding: 22px;
+  box-shadow: 0 8px 30px rgb(31 55 91 / 6%);
+}
+
+.panel-heading,
+.book-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.section-label {
+  margin: 0 0 5px;
+  color: #6d7b91;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h2 {
+  margin: 0;
+  color: #172033;
+}
+
+.pair-badge,
+.live-indicator {
   border-radius: 999px;
-  background: #fff4df;
-  color: #945b00;
-  padding: 6px 10px;
+  background: #e9f0ff;
+  color: #2857a3;
+  padding: 7px 11px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.live-indicator {
+  background: #e3f7ef;
+  color: #08734d;
+}
+
+.order-form-panel form {
+  display: grid;
+  gap: 16px;
+}
+
+.order-form-panel label {
+  display: grid;
+  gap: 7px;
+  color: #394861;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+select,
+input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e3;
+  border-radius: 8px;
+  background: #fff;
+  color: #172033;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.pair-field select {
+  min-height: 42px;
+}
+
+.side-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.side-toggle button {
+  background: #eef2f7;
+  color: #536178;
+  padding: 10px;
+}
+
+.side-toggle .active-buy {
+  background: #dff6ed;
+  color: #087c52;
+}
+
+.side-toggle .active-sell {
+  background: #fde9eb;
+  color: #b52f3b;
+}
+
+.order-description {
+  margin: -4px 0 0;
+  color: #5d6c83;
+  font-size: 0.9rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.input-with-unit {
+  position: relative;
+}
+
+.input-with-unit input {
+  padding-right: 56px;
+}
+
+.input-with-unit span {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: #77849a;
+  transform: translateY(-50%);
+}
+
+.order-submit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.order-value {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: #5d6c83;
+}
+
+.order-value strong {
+  color: #172033;
+  font-size: 1.08rem;
+}
+
+.primary-button {
+  min-width: 220px;
+  background: #2357b7;
+  color: #fff;
+  padding: 12px 16px;
+}
+
+.wallet-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wallet-value {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #e3e9f1;
+  border-radius: 9px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.wallet-value span {
+  color: #68778e;
   font-size: 0.78rem;
   font-weight: 700;
 }
 
-h2 {
-  margin: 18px 0 10px;
+.wallet-value strong {
   color: #172033;
+  font-size: 1.05rem;
 }
 
-.status-panel p {
-  color: #5b6b84;
-  line-height: 1.55;
+.wallet-value small {
+  color: #748198;
+  font-size: 0.72rem;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 22px;
+.wallet-empty {
+  grid-column: 1 / -1;
 }
 
-.actions a {
-  border-radius: 7px;
-  background: #2357b7;
-  color: #fff;
-  padding: 11px 16px;
+.my-orders,
+.book-panel {
+  margin-top: 20px;
+}
+
+.book-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.book-columns h3 {
+  margin: 0 0 10px;
+}
+
+.buy-title,
+.buy-price {
+  color: #087c52;
   font-weight: 700;
-  text-decoration: none;
 }
 
-.actions a.secondary {
-  background: #eff3f9;
-  color: #2357b7;
+.sell-title,
+.sell-price {
+  color: #c3414b;
+  font-weight: 700;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e8edf4;
+  padding: 10px 9px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+th:first-child,
+td:first-child,
+.my-orders th,
+.my-orders td {
+  text-align: left;
+}
+
+th {
+  color: #718098;
+  font-size: 0.73rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+td {
+  color: #34425a;
+  font-size: 0.88rem;
+}
+
+.empty {
+  padding: 26px 10px;
+  color: #7d899b;
+  text-align: center !important;
+}
+
+.secondary-button,
+.cancel-button {
+  background: #eef3fa;
+  color: #2857a3;
+  padding: 9px 12px;
+}
+
+.cancel-button {
+  color: #a3333d;
+}
+
+.feedback {
+  margin: 0 0 16px;
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-weight: 600;
+}
+
+.feedback.success {
+  background: #e3f7ef;
+  color: #08734d;
+}
+
+.feedback.error {
+  background: #fdebed;
+  color: #a52d38;
+}
+
+.loading-overlay {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  border: 1px solid #d3dce9;
+  border-radius: 8px;
+  background: #fff;
+  color: #526078;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgb(31 55 91 / 14%);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 980px) {
+  .top-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .book-columns,
+  .form-grid,
+  .wallet-values {
+    grid-template-columns: 1fr;
+  }
+
+  .order-submit-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primary-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .book-panel,
+  .order-form-panel,
+  .wallet-panel,
+  .my-orders {
+    padding: 16px;
+  }
 }

@@ -50,10 +50,16 @@ namespace GieudexPol.Tests
             int notificationId = 1;
 
             // Act
-            await _notificationService.MarkNotificationAsReadAsync(notificationId);
+            _mockNotificationRepository
+                .Setup(repository => repository.MarkNotificationAsReadAsync(notificationId, 2))
+                .ReturnsAsync(true);
+            var result = await _notificationService.MarkNotificationAsReadAsync(notificationId, 2);
 
             // Assert
-            _mockNotificationRepository.Verify(r => r.MarkNotificationAsReadAsync(notificationId), Times.Once);
+            Assert.True(result);
+            _mockNotificationRepository.Verify(
+                r => r.MarkNotificationAsReadAsync(notificationId, 2),
+                Times.Once);
         }
 
         [Fact]

@@ -1,65 +1,83 @@
-import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { UserAlertService } from '../../services/user-alert.service';
-import { AlertType, UserAlertCreateDto, UserAlertUpdateDto, UserAlertDto } from '../../../../shared/models/user-alert.model';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, OnInit, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { CurrencyDto } from '../../../../models/currency.dto';
 import { CurrencyService } from '../../../../services/currency.service';
-import { Currency } from '../../../../models/currency.model';
+import {
+  AlertPriceSide,
+  AlertRateSource,
+  AlertType,
+  ThresholdDirection,
+  UserAlertCreateDto,
+  UserAlertDto,
+  UserAlertUpdateDto,
+} from '../../../../shared/models/user-alert.model';
 import { AuthService } from '../../../auth/services/auth.service';
+import { UserAlertService } from '../../services/user-alert.service';
 
 @Component({
   selector: 'app-alerts',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './alerts.component.html',
-  styleUrls: ['./alerts.component.css']
+  styleUrls: ['./alerts.component.css'],
 })
 export class AlertsComponent implements OnInit {
-  AlertType = AlertType; // Expose AlertType enum to the template
+  readonly AlertType = AlertType;
+  readonly AlertPriceSide = AlertPriceSide;
+  readonly ThresholdDirection = ThresholdDirection;
+  readonly alertTypes = Object.values(AlertType);
+  readonly priceSides = Object.values(AlertPriceSide);
   readonly alerts = signal<UserAlertDto[]>([]);
-  alertForm: FormGroup;
-  alertTypes = Object.values(AlertType);
-  readonly currencies = signal<Currency[]>([]);
-  currentUserId: number | null = null;
+  readonly currencies = signal<CurrencyDto[]>([]);
+  readonly rateSources = signal<AlertRateSource[]>([]);
   editingAlert: UserAlertDto | null = null;
+  errorMessage = '';
+
+  readonly alertForm;
 
   constructor(
-    private userAlertService: UserAlertService,
-    private fb: FormBuilder,
-    private currencyService: CurrencyService,
-    private authService: AuthService
+    private readonly userAlertService: UserAlertService,
+    private readonly formBuilder: FormBuilder,
+    private readonly currencyService: CurrencyService,
+    private readonly authService: AuthService,
   ) {
-    this.alertForm = this.fb.group({
-      currencyId: ['', Validators.required],
-      alertType: ['', Validators.required],
-      thresholdValue: [null],
-      percentageChange: [null],
-      timeFrameHours: [null],
-      isActive: [true, Validators.required]
+    this.alertForm = this.formBuilder.group({
+      currencyId: [null as number | null, Validators.required],
+      alertType: [null as AlertType | null, Validators.required],
+      priceSide: [AlertPriceSide.UserBuysCurrency, Validators.required],
+      rateSourceId: [null as number | null],
+      thresholdValue: [null as number | null],
+      thresholdDirection: [null as ThresholdDirection | null],
+      percentageChange: [null as number | null],
+      timeFrameHours: [24 as number | null],
+      isActive: [true, Validators.required],
     });
   }
 
   ngOnInit(): void {
     this.authService.user$.subscribe(user => {
-      this.currentUserId = user ? user.id : null;
-      // this.currentUserId = userId; // This line is no longer needed
-      if (this.currentUserId) {
+      if (user) {
         this.loadAlerts();
         this.loadCurrencies();
+        this.loadRateSources();
       }
     });
 
-    this.alertForm.get('alertType')?.valueChanges.subscribe(type => {
+    this.alertForm.controls.alertType.valueChanges.subscribe(type => {
       this.updateValidators(type);
     });
   }
 
   loadAlerts(): void {
-    if (this.currentUserId) {
-      this.userAlertService.getUserAlerts(this.currentUserId).subscribe(alerts => {
-        this.alerts.set(alerts);
-      });
-    }
+    this.userAlertService.getMyAlerts().subscribe({
+      next: alerts => this.alerts.set(alerts),
+      error: () => this.errorMessage = 'Nie udalo sie pobrac alertow.',
+    });
+  }
+
+  get recentAlerts(): UserAlertDto[] {
+    return this.alerts().slice(0, 3);
   }
 
   loadCurrencies(): void {
@@ -68,104 +86,184 @@ export class AlertsComponent implements OnInit {
     });
   }
 
-  updateValidators(alertType: AlertType): void {
-    const thresholdValueControl = this.alertForm.get('thresholdValue');
-    const percentageChangeControl = this.alertForm.get('percentageChange');
-    const timeFrameHoursControl = this.alertForm.get('timeFrameHours');
+  loadRateSources(): void {
+    this.userAlertService.getRateSources().subscribe(sources => {
+      this.rateSources.set(sources);
+    });
+  }
 
-    thresholdValueControl?.clearValidators();
-    percentageChangeControl?.clearValidators();
-    timeFrameHoursControl?.clearValidators();
+  updateValidators(alertType: AlertType | null): void {
+    const thresholdValue = this.alertForm.controls.thresholdValue;
+    const thresholdDirection = this.alertForm.controls.thresholdDirection;
+    const percentageChange = this.alertForm.controls.percentageChange;
+    const timeFrameHours = this.alertForm.controls.timeFrameHours;
 
-    switch (alertType) {
-      case AlertType.Threshold:
-        thresholdValueControl?.setValidators([Validators.required, Validators.min(0)]);
-        break;
-      case AlertType.PriceDrop:
-      case AlertType.PriceIncrease:
-        percentageChangeControl?.setValidators([Validators.required, Validators.min(0.01), Validators.max(100)]);
-        timeFrameHoursControl?.setValidators([Validators.required, Validators.min(1)]);
-        break;
+    thresholdValue.clearValidators();
+    thresholdDirection.clearValidators();
+    percentageChange.clearValidators();
+    timeFrameHours.clearValidators();
+
+    if (alertType === AlertType.Threshold) {
+      thresholdValue.setValidators([Validators.required, Validators.min(0.0001)]);
+      thresholdDirection.setValidators(Validators.required);
+    } else if (
+      alertType === AlertType.PriceDrop ||
+      alertType === AlertType.PriceIncrease
+    ) {
+      percentageChange.setValidators([
+        Validators.required,
+        Validators.min(0.0001),
+      ]);
+      timeFrameHours.setValidators([Validators.required, Validators.min(1)]);
     }
 
-    thresholdValueControl?.updateValueAndValidity();
-    percentageChangeControl?.updateValueAndValidity();
-    timeFrameHoursControl?.updateValueAndValidity();
+    thresholdValue.updateValueAndValidity();
+    thresholdDirection.updateValueAndValidity();
+    percentageChange.updateValueAndValidity();
+    timeFrameHours.updateValueAndValidity();
   }
 
   onSubmit(): void {
-    if (this.alertForm.valid && this.currentUserId) {
-      if (this.editingAlert) {
-        // Update existing alert
-        const updateDto: UserAlertUpdateDto = {
-          id: this.editingAlert.id,
-          currencyId: this.alertForm.value.currencyId,
-          alertType: this.alertForm.value.alertType,
-          thresholdValue: this.alertForm.value.thresholdValue,
-          percentageChange: this.alertForm.value.percentageChange,
-          timeFrameHours: this.alertForm.value.timeFrameHours,
-          isActive: this.alertForm.value.isActive
-        };
-        this.userAlertService.updateUserAlert(updateDto.id, updateDto).subscribe(() => {
-          this.loadAlerts();
-          this.resetForm();
-        });
-      } else {
-        // Create new alert
-        const createDto: UserAlertCreateDto = {
-          currencyId: this.alertForm.value.currencyId,
-          alertType: this.alertForm.value.alertType,
-          thresholdValue: this.alertForm.value.thresholdValue,
-          percentageChange: this.alertForm.value.percentageChange,
-          timeFrameHours: this.alertForm.value.timeFrameHours
-        };
-        this.userAlertService.createUserAlert(createDto).subscribe(() => {
-          this.loadAlerts();
-          this.resetForm();
-        });
-      }
+    if (this.alertForm.invalid) {
+      this.alertForm.markAllAsTouched();
+      return;
     }
+
+    const value = this.alertForm.getRawValue();
+    if (value.currencyId == null || value.alertType == null || value.priceSide == null) {
+      return;
+    }
+
+    const common = {
+      currencyId: value.currencyId,
+      alertType: value.alertType,
+      priceSide: value.priceSide,
+      rateSourceId: value.rateSourceId,
+      thresholdValue:
+        value.alertType === AlertType.Threshold ? value.thresholdValue : null,
+      thresholdDirection:
+        value.alertType === AlertType.Threshold ? value.thresholdDirection : null,
+      percentageChange:
+        value.alertType === AlertType.Threshold ? null : value.percentageChange,
+      timeFrameHours:
+        value.alertType === AlertType.Threshold ? null : value.timeFrameHours,
+    };
+
+    this.errorMessage = '';
+    if (this.editingAlert) {
+      const request: UserAlertUpdateDto = {
+        id: this.editingAlert.id,
+        ...common,
+        isActive: value.isActive ?? true,
+      };
+      this.userAlertService.updateUserAlert(request.id, request).subscribe({
+        next: () => {
+          this.loadAlerts();
+          this.resetForm();
+        },
+        error: error => this.handleError(error),
+      });
+      return;
+    }
+
+    const request: UserAlertCreateDto = common;
+    this.userAlertService.createUserAlert(request).subscribe({
+      next: () => {
+        this.loadAlerts();
+        this.resetForm();
+      },
+      error: error => this.handleError(error),
+    });
   }
 
   editAlert(alert: UserAlertDto): void {
     this.editingAlert = alert;
-    // The UserAlertDto does not have currencyId directly, it has currencySymbol.
-    // We need to find the currencyId based on the currencySymbol.
-    const selectedCurrency = this.currencies().find(c => c.symbol === alert.currencySymbol);
-    this.alertForm.patchValue({
-      currencyId: selectedCurrency ? selectedCurrency.id : 
-      null,
+    this.alertForm.reset({
+      currencyId: alert.currencyId,
       alertType: alert.alertType,
-      thresholdValue: alert.thresholdValue,
-      percentageChange: alert.percentageChange,
-      timeFrameHours: alert.timeFrameHours,
-      isActive: alert.isActive
+      priceSide: alert.priceSide,
+      rateSourceId: alert.rateSourceId ?? null,
+      thresholdValue: alert.thresholdValue ?? null,
+      thresholdDirection: alert.thresholdDirection ?? null,
+      percentageChange: alert.percentageChange ?? null,
+      timeFrameHours: alert.timeFrameHours ?? 24,
+      isActive: alert.isActive,
     });
     this.updateValidators(alert.alertType);
   }
 
   deleteAlert(id: number): void {
-    if (confirm('Are you sure you want to delete this alert?')) {
-      this.userAlertService.deleteUserAlert(id).subscribe(() => {
-        this.loadAlerts();
-      });
+    if (!confirm('Czy na pewno usunac ten alert?')) {
+      return;
     }
+
+    this.userAlertService.deleteUserAlert(id).subscribe({
+      next: () => this.loadAlerts(),
+      error: error => this.handleError(error),
+    });
+  }
+
+  acknowledgeAlert(id: number): void {
+    this.userAlertService.acknowledgeAlert(id).subscribe({
+      next: () => this.loadAlerts(),
+      error: error => this.handleError(
+        error,
+        'Nie udało się potwierdzić alertu.',
+      ),
+    });
   }
 
   resetForm(): void {
     this.editingAlert = null;
+    this.errorMessage = '';
     this.alertForm.reset({
-      isActive: true
+      currencyId: null,
+      alertType: null,
+      priceSide: AlertPriceSide.UserBuysCurrency,
+      rateSourceId: null,
+      thresholdValue: null,
+      thresholdDirection: null,
+      percentageChange: null,
+      timeFrameHours: 24,
+      isActive: true,
     });
-    this.alertForm.get('alertType')?.clearValidators(); // Clear validators when resetting
-    this.alertForm.get('thresholdValue')?.clearValidators();
-    this.alertForm.get('percentageChange')?.clearValidators();
-    this.alertForm.get('timeFrameHours')?.clearValidators();
-    this.alertForm.get('alertType')?.updateValueAndValidity();
-    this.alertForm.get('thresholdValue')?.updateValueAndValidity();
-    this.alertForm.get('percentageChange')?.updateValueAndValidity();
-    this.alertForm.get('timeFrameHours')?.updateValueAndValidity();
+  }
 
+  alertTypeLabel(type: AlertType): string {
+    return {
+      [AlertType.PriceIncrease]: 'Wzrost ceny',
+      [AlertType.PriceDrop]: 'Spadek ceny',
+      [AlertType.Threshold]: 'Próg cenowy',
+    }[type];
+  }
 
+  priceSideLabel(side: AlertPriceSide): string {
+    return {
+      [AlertPriceSide.UserBuysCurrency]: 'Kupna',
+      [AlertPriceSide.UserSellsCurrency]: 'Sprzedaży',
+      [AlertPriceSide.MidPrice]: 'Kurs średni',
+    }[side];
+  }
+
+  directionLabel(direction?: ThresholdDirection | null): string {
+    return direction === ThresholdDirection.AboveOrEqual
+      ? '>='
+      : '<=';
+  }
+
+  statusLabel(alert: UserAlertDto): string {
+    if (alert.isAcknowledged) {
+      return 'Przyjęty';
+    }
+
+    return alert.triggeredDate ? 'Spełniony' : 'Aktywny';
+  }
+
+  private handleError(
+    error: { error?: { message?: string } },
+    fallback = 'Nie udało się zapisać alertu.',
+  ): void {
+    this.errorMessage =
+      error.error?.message ?? fallback;
   }
 }

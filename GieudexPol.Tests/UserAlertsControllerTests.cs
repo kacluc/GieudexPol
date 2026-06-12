@@ -62,6 +62,7 @@ public class UserAlertsControllerTests
         {
             CurrencyId = 2,
             AlertType = AlertType.PriceIncrease,
+            PriceSide = AlertPriceSide.UserBuysCurrency,
             PercentageChange = 5m,
             TimeFrameHours = 24
         };
@@ -76,7 +77,8 @@ public class UserAlertsControllerTests
             It.Is<UserAlert>(alert =>
                 alert.UserId == 3 &&
                 alert.CurrencyId == 2 &&
-                alert.AlertType == AlertType.PriceIncrease)),
+                alert.AlertType == AlertType.PriceIncrease &&
+                alert.PriceSide == AlertPriceSide.UserBuysCurrency)),
             Times.Once);
     }
 
@@ -94,6 +96,21 @@ public class UserAlertsControllerTests
 
         result.Should().BeOfType<ForbidResult>();
         alertService.Verify(service => service.DeleteUserAlertAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AcknowledgeAlert_ForAuthenticatedOwner_ReturnsNoContent()
+    {
+        var alertService = new Mock<IUserAlertService>();
+        var userRepository = CreateUserRepository(userId: 3);
+        alertService.Setup(service => service.AcknowledgeAlertAsync(7, 3))
+            .ReturnsAsync(true);
+        var controller = CreateController(alertService.Object, userRepository.Object);
+
+        var result = await controller.AcknowledgeAlert(7);
+
+        result.Should().BeOfType<NoContentResult>();
+        alertService.Verify(service => service.AcknowledgeAlertAsync(7, 3), Times.Once);
     }
 
     [Fact]

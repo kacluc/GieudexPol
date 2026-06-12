@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   AdminUser,
@@ -13,7 +13,7 @@ import { AdminUsersService } from '../../services/admin-users.service';
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink],
   templateUrl: './admin-users.component.html',
   styleUrl: './admin-users.component.scss',
 })
@@ -54,9 +54,12 @@ export class AdminUsersComponent implements OnInit {
     this.errorMessage = '';
     this.adminUsersService.getUsers().subscribe({
       next: users => {
-        this.users = users;
+        this.users = users.map(user => ({
+          ...user,
+          role: this.normalizeRole(user.role),
+        }));
         this.roleDrafts = Object.fromEntries(
-          users.map(user => [user.id, user.role]),
+          this.users.map(user => [user.id, user.role]),
         );
         this.loading = false;
         this.changeDetector.markForCheck();
@@ -89,6 +92,10 @@ export class AdminUsersComponent implements OnInit {
     if (role === 'Admin' || role === 'User') {
       this.roleDrafts[userId] = role;
     }
+  }
+
+  private normalizeRole(role: string): AdminUserRole {
+    return role?.trim().toLowerCase() === 'admin' ? 'Admin' : 'User';
   }
 
   updateRole(user: AdminUser): void {

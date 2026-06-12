@@ -7,6 +7,6 @@ namespace GieudexPol.Application.Interfaces
     public interface INotificationRepository : IRepository<Notification>
     {
         Task<IEnumerable<Notification>> GetUserNotificationsAsync(int userId);
-        Task MarkNotificationAsReadAsync(int notificationId);
+        Task<bool> MarkNotificationAsReadAsync(int notificationId, int userId);
     }
 }

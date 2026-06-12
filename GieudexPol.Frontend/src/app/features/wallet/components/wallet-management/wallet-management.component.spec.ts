@@ -11,6 +11,10 @@ describe('WalletManagementComponent', () => {
   let fixture: ComponentFixture<WalletManagementComponent>;
 
   const walletService = {
+    wallets$: of([
+      { id: 1, currencyId: 1, balance: 100, currency: { id: 1, symbol: 'PLN' } },
+      { id: 2, currencyId: 2, balance: 0, currency: { id: 2, symbol: 'EUR' } },
+    ]),
     getUserWallets: vi.fn(),
     getAvailableCurrencies: vi.fn(),
     executeTrade: vi.fn(),

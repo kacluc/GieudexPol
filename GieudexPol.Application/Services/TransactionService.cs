@@ -83,7 +83,7 @@ namespace GieudexPol.Application.Services
             decimal totalAmountToDeduct = request.Amount + calculatedFee;
 
             var senderWallet = await _walletRepository.GetUserWalletAsync(senderId, request.CurrencyId);
-            if (senderWallet == null || senderWallet.Balance < totalAmountToDeduct)
+            if (senderWallet == null || senderWallet.AvailableBalance < totalAmountToDeduct)
             {
                 throw new InvalidOperationException("Insufficient funds or wallet not found for sender.");
             }

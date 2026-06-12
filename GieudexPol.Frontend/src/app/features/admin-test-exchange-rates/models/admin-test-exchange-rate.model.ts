@@ -41,3 +41,16 @@ export interface UpdateTestExchangeRate {
   sellPrice: number;
   midPrice?: number;
 }
+
+export interface AlertEvaluationRequest {
+  alertId?: number;
+  currencyCode?: string;
+  rateSourceCode?: string;
+}
+
+export interface AlertEvaluationResult {
+  evaluatedAlertsCount: number;
+  triggeredAlertsCount: number;
+  notificationsCreatedCount: number;
+  details: string[];
+}

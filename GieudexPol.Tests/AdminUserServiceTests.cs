@@ -35,6 +35,25 @@ public class AdminUserServiceTests
     }
 
     [Fact]
+    public async Task GetUsersAsync_NormalizesStoredRoleForRoleSelector()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new UserEntity
+        {
+            AuthId = Guid.NewGuid(),
+            Username = "admin@example.com",
+            PasswordHash = "hash",
+            Role = "admin"
+        });
+        await context.SaveChangesAsync();
+        var service = new AdminUserService(context);
+
+        var result = await service.GetUsersAsync();
+
+        result.Single().Role.Should().Be(UserRoles.Admin);
+    }
+
+    [Fact]
     public async Task CreateUserAsync_CreatesUserWithHashedPassword()
     {
         await using var context = CreateContext();

@@ -10,7 +10,7 @@
   <a class="admin-tool-card" routerLink="/admin/test-exchange-rates">
     <div>
       <strong>Testowe kursy walut</strong>
-      <span>Zarzadzaj kursami z Development Mock Bank A.</span>
+      <span>Zarządzaj testowymi danymi kursowymi dla źródeł A i B.</span>
     </div>
     <span class="admin-tool-action">Otworz panel</span>
   </a>
@@ -91,8 +91,8 @@
               <td>
                 <div class="role-editor">
                   <select
-                    [value]="roleDrafts[user.id]"
-                    (change)="setRoleDraft(user.id, $any($event.target).value)"
+                    [(ngModel)]="roleDrafts[user.id]"
+                    [ngModelOptions]="{ standalone: true }"
                   >
                     @for (role of roles; track role) {
                       <option [value]="role">{{ role }}</option>

@@ -1,5 +1,6 @@
 using System;
 using System.Security.Claims;
+using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
@@ -194,12 +195,16 @@ namespace GieudexPol.API.Controllers
         public async Task<IActionResult> GetAllExchangeRates()
         {
             var exchangeRates = await _exchangeRateService.GetAllAsync();
-            if (!IsDevelopmentUser())
+            if (!IsDevelopmentUser() && !User.IsInRole(UserRoles.Admin))
             {
                 exchangeRates = exchangeRates.Where(rate =>
                     !string.Equals(
                         rate.RateSource.Code,
                         DevelopmentIdentity.RateSourceCode,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(
+                        rate.RateSource.Code,
+                        DevelopmentIdentity.RateSourceCodeB,
                         StringComparison.OrdinalIgnoreCase));
             }
 
@@ -394,10 +399,18 @@ namespace GieudexPol.API.Controllers
 
         private bool CanAccessSource(string sourceCode)
         {
-            return !string.Equals(
-                       sourceCode,
-                       DevelopmentIdentity.RateSourceCode,
-                       StringComparison.OrdinalIgnoreCase) ||
+            var isDevelopmentSource =
+                string.Equals(
+                    sourceCode,
+                    DevelopmentIdentity.RateSourceCode,
+                    StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(
+                    sourceCode,
+                    DevelopmentIdentity.RateSourceCodeB,
+                    StringComparison.OrdinalIgnoreCase);
+
+            return !isDevelopmentSource ||
+                   User.IsInRole(UserRoles.Admin) ||
                    IsDevelopmentUser();
         }
 

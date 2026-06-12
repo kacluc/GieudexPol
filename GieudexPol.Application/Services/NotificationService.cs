@@ -44,9 +44,9 @@ namespace GieudexPol.Application.Services
             return await _notificationRepository.GetUserNotificationsAsync(userId);
         }
 
-        public async Task MarkNotificationAsReadAsync(int notificationId)
+        public async Task<bool> MarkNotificationAsReadAsync(int notificationId, int userId)
         {
-            await _notificationRepository.MarkNotificationAsReadAsync(notificationId);
+            return await _notificationRepository.MarkNotificationAsReadAsync(notificationId, userId);
         }
     }
 }

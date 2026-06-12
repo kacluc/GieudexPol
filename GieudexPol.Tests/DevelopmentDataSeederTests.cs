@@ -27,6 +27,22 @@ public class DevelopmentDataSeederTests
 
         await RunSeederAsync(serviceProvider);
         var countsAfterFirstRun = await GetDevelopmentDataCountsAsync(serviceProvider);
+
+        await using (var modificationScope = serviceProvider.CreateAsyncScope())
+        {
+            var modificationContext = modificationScope.ServiceProvider
+                .GetRequiredService<ApplicationDbContext>();
+            var eurPln = await modificationContext.TradingPairs
+                .Include(pair => pair.BaseCurrency)
+                .Include(pair => pair.QuoteCurrency)
+                .SingleAsync(pair =>
+                    pair.BaseCurrency.Symbol == "EUR" &&
+                    pair.QuoteCurrency.Symbol == "PLN");
+            eurPln.IsActive = false;
+            eurPln.TickSize = 0m;
+            await modificationContext.SaveChangesAsync();
+        }
+
         await RunSeederAsync(serviceProvider);
 
         await using var verificationScope = serviceProvider.CreateAsyncScope();
@@ -83,6 +99,22 @@ public class DevelopmentDataSeederTests
             rate.CurrencyId == comparableRateA.CurrencyId &&
             rate.EffectiveDate == comparableRateA.EffectiveDate);
         comparableRateB.MidPrice.Should().NotBe(comparableRateA.MidPrice);
+
+        var activeCurrenciesExceptPln = await context.Currencies.CountAsync(currency =>
+            currency.IsActive && currency.Symbol != "PLN");
+        var plnPairs = await context.TradingPairs
+            .Include(pair => pair.BaseCurrency)
+            .Include(pair => pair.QuoteCurrency)
+            .Where(pair => pair.QuoteCurrency.Symbol == "PLN")
+            .ToListAsync();
+        plnPairs.Should().HaveCount(activeCurrenciesExceptPln);
+        plnPairs.Should().OnlyContain(pair =>
+            pair.IsActive &&
+            pair.TickSize == 0.0001m &&
+            pair.BaseCurrency.Symbol != "PLN");
+        plnPairs.Should().ContainSingle(pair =>
+            pair.BaseCurrency.Symbol == "EUR" &&
+            pair.QuoteCurrency.Symbol == "PLN");
     }
 
     private static async Task RunSeederAsync(ServiceProvider serviceProvider)

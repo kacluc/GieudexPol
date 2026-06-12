@@ -5,6 +5,8 @@ import {
   AdminTestExchangeRate,
   AdminTestExchangeRateFilters,
   AdminTestRateSource,
+  AlertEvaluationRequest,
+  AlertEvaluationResult,
   CreateTestExchangeRate,
   UpdateTestExchangeRate,
 } from '../models/admin-test-exchange-rate.model';
@@ -64,5 +66,14 @@ export class AdminTestExchangeRatesService {
 
   deleteTestExchangeRate(id: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  evaluateAlerts(
+    request: AlertEvaluationRequest = {},
+  ): Observable<AlertEvaluationResult> {
+    return this.http.post<AlertEvaluationResult>(
+      '/api/admin/alerts/evaluate',
+      request,
+    );
   }
 }

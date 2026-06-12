@@ -12,8 +12,8 @@ export class NotificationService {
 
   constructor(private http: HttpClient) { }
 
-  getUserNotifications(userId: number): Observable<NotificationDto[]> {
-    return this.http.get<NotificationDto[]>(`${this.apiUrl}/user/${userId}`);
+  getMyNotifications(): Observable<NotificationDto[]> {
+    return this.http.get<NotificationDto[]>(`${this.apiUrl}/me`);
   }
 
   markNotificationAsRead(id: number): Observable<any> {

@@ -21,14 +21,18 @@ namespace GieudexPol.Infrastructure.Repositories
                                  .ToListAsync();
         }
 
-        public async Task MarkNotificationAsReadAsync(int notificationId)
+        public async Task<bool> MarkNotificationAsReadAsync(int notificationId, int userId)
         {
-            var notification = await _context.Notifications.FindAsync(notificationId);
-            if (notification != null)
+            var notification = await _context.Notifications
+                .FirstOrDefaultAsync(item => item.Id == notificationId && item.UserId == userId);
+            if (notification == null)
             {
-                notification.IsRead = true;
-                await _context.SaveChangesAsync();
+                return false;
             }
+
+            notification.IsRead = true;
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

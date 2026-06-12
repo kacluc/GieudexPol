@@ -152,6 +152,7 @@ namespace GieudexPol.Infrastructure.Data
             }
 
             var addedCurrencies = await SeedCurrenciesAsync(context);
+            var addedTradingPairs = await SeedTradingPairsAsync(context);
             var addedUsers = await SeedUsersAsync(context);
             var addedWallets = await SeedWalletsAsync(context);
             var addedTransactionFees = await SeedTransactionFeesAsync(context);
@@ -176,8 +177,9 @@ namespace GieudexPol.Infrastructure.Data
             var addedRates = addedRatesA + addedRatesB;
 
             logger.LogInformation(
-                "Development seed completed. Added {CurrencyCount} currencies, {UserCount} users, {WalletCount} wallets, {TransactionFeeCount} transaction fees and {RateCount} exchange rates.",
+                "Development seed completed. Added {CurrencyCount} currencies, {TradingPairCount} trading pairs, {UserCount} users, {WalletCount} wallets, {TransactionFeeCount} transaction fees and {RateCount} exchange rates.",
                 addedCurrencies,
+                addedTradingPairs,
                 addedUsers,
                 addedWallets,
                 addedTransactionFees,
@@ -267,6 +269,51 @@ namespace GieudexPol.Infrastructure.Data
             await context.SaveChangesAsync();
 
             return currenciesToAdd.Count;
+        }
+
+        private static async Task<int> SeedTradingPairsAsync(ApplicationDbContext context)
+        {
+            var currencies = await context.Currencies
+                .Where(currency => currency.IsActive)
+                .ToListAsync();
+            var pln = currencies.SingleOrDefault(currency => currency.Symbol == "PLN");
+            if (pln == null)
+            {
+                return 0;
+            }
+
+            var existingPairs = await context.TradingPairs
+                .Where(pair => pair.QuoteCurrencyId == pln.Id)
+                .ToListAsync();
+
+            var pairsToAdd = new List<TradingPair>();
+            foreach (var currency in currencies.Where(currency => currency.Id != pln.Id))
+            {
+                var existingPair = existingPairs.SingleOrDefault(pair =>
+                    pair.BaseCurrencyId == currency.Id);
+                if (existingPair != null)
+                {
+                    existingPair.IsActive = true;
+                    existingPair.TickSize = 0.0001m;
+                    continue;
+                }
+
+                pairsToAdd.Add(new TradingPair
+                {
+                    BaseCurrencyId = currency.Id,
+                    QuoteCurrencyId = pln.Id,
+                    IsActive = true,
+                    TickSize = 0.0001m
+                });
+            }
+
+            if (pairsToAdd.Count > 0)
+            {
+                await context.TradingPairs.AddRangeAsync(pairsToAdd);
+            }
+
+            await context.SaveChangesAsync();
+            return pairsToAdd.Count;
         }
 
         private static async Task<int> SeedWalletsAsync(ApplicationDbContext context)
@@ -424,7 +471,18 @@ namespace GieudexPol.Infrastructure.Data
             decimal priceMultiplier)
         {
             var startDate = new DateTime(2026, 1, 1);
-            var endDate = DateTime.Today;
+            var endDate = DateTime.Today.AddDays(-1);
+
+            var currentOrFutureRates = await context.ExchangeRates
+                .Where(rate =>
+                    rate.RateSourceId == rateSource.Id &&
+                    rate.EffectiveDate >= DateTime.Today)
+                .ToListAsync();
+            if (currentOrFutureRates.Count > 0)
+            {
+                context.ExchangeRates.RemoveRange(currentOrFutureRates);
+                await context.SaveChangesAsync();
+            }
 
             if (endDate < startDate)
             {

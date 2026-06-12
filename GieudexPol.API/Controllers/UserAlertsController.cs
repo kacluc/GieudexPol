@@ -46,6 +46,31 @@ namespace GieudexPol.API.Controllers
             return Ok(userAlertDtos);
         }
 
+        [HttpGet("me")]
+        public async Task<ActionResult<IEnumerable<UserAlertDto>>> GetMyAlerts()
+        {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var userAlerts = await _userAlertService.GetUserAlertsByUserIdAsync(currentUser.Id);
+            return Ok(userAlerts.Select(MapToDto));
+        }
+
+        [HttpGet("rate-sources")]
+        public async Task<ActionResult<IEnumerable<AlertRateSourceDto>>> GetRateSources()
+        {
+            var sources = await _userAlertService.GetActiveRateSourcesAsync();
+            return Ok(sources.Select(source => new AlertRateSourceDto
+            {
+                Id = source.Id,
+                Code = source.Code,
+                Name = source.Name
+            }));
+        }
+
         [HttpPost]
         public async Task<ActionResult<UserAlertDto>> CreateUserAlert([FromBody] UserAlertCreateDto userAlertCreateDto)
         {
@@ -60,16 +85,26 @@ namespace GieudexPol.API.Controllers
                 UserId = currentUser.Id,
                 CurrencyId = userAlertCreateDto.CurrencyId,
                 AlertType = userAlertCreateDto.AlertType,
+                PriceSide = userAlertCreateDto.PriceSide,
+                ThresholdDirection = userAlertCreateDto.ThresholdDirection,
+                RateSourceId = userAlertCreateDto.RateSourceId,
                 ThresholdValue = userAlertCreateDto.ThresholdValue,
                 PercentageChange = userAlertCreateDto.PercentageChange,
                 TimeFrameHours = userAlertCreateDto.TimeFrameHours
             };
 
-            await _userAlertService.CreateUserAlertAsync(userAlert);
+            try
+            {
+                await _userAlertService.CreateUserAlertAsync(userAlert);
+            }
+            catch (ArgumentException exception)
+            {
+                return BadRequest(new { message = exception.Message });
+            }
 
             return CreatedAtAction(
-                nameof(GetUserAlertsByUserId),
-                new { userId = userAlert.UserId },
+                nameof(GetMyAlerts),
+                routeValues: null,
                 MapToDto(userAlert));
         }
 
@@ -100,12 +135,22 @@ namespace GieudexPol.API.Controllers
 
             existingUserAlert.CurrencyId = userAlertUpdateDto.CurrencyId;
             existingUserAlert.AlertType = userAlertUpdateDto.AlertType;
+            existingUserAlert.PriceSide = userAlertUpdateDto.PriceSide;
+            existingUserAlert.ThresholdDirection = userAlertUpdateDto.ThresholdDirection;
+            existingUserAlert.RateSourceId = userAlertUpdateDto.RateSourceId;
             existingUserAlert.ThresholdValue = userAlertUpdateDto.ThresholdValue;
             existingUserAlert.PercentageChange = userAlertUpdateDto.PercentageChange;
             existingUserAlert.TimeFrameHours = userAlertUpdateDto.TimeFrameHours;
             existingUserAlert.IsActive = userAlertUpdateDto.IsActive;
 
-            await _userAlertService.UpdateUserAlertAsync(existingUserAlert);
+            try
+            {
+                await _userAlertService.UpdateUserAlertAsync(existingUserAlert);
+            }
+            catch (ArgumentException exception)
+            {
+                return BadRequest(new { message = exception.Message });
+            }
 
             return NoContent();
         }
@@ -134,6 +179,21 @@ namespace GieudexPol.API.Controllers
             return NoContent();
         }
 
+        [HttpPut("{id}/acknowledge")]
+        public async Task<IActionResult> AcknowledgeAlert(int id)
+        {
+            var currentUser = await GetAuthenticatedUserAsync();
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var acknowledged = await _userAlertService.AcknowledgeAlertAsync(
+                id,
+                currentUser.Id);
+            return acknowledged ? NoContent() : NotFound();
+        }
+
         private async Task<User?> GetAuthenticatedUserAsync()
         {
             var authIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -151,14 +211,22 @@ namespace GieudexPol.API.Controllers
             {
                 Id = userAlert.Id,
                 UserId = userAlert.UserId,
+                CurrencyId = userAlert.CurrencyId,
                 CurrencySymbol = userAlert.Currency?.Symbol ?? string.Empty,
                 AlertType = userAlert.AlertType,
+                PriceSide = userAlert.PriceSide,
+                ThresholdDirection = userAlert.ThresholdDirection,
+                RateSourceId = userAlert.RateSourceId,
+                RateSourceCode = userAlert.RateSource?.Code,
+                RateSourceName = userAlert.RateSource?.Name,
                 ThresholdValue = userAlert.ThresholdValue,
                 PercentageChange = userAlert.PercentageChange,
                 TimeFrameHours = userAlert.TimeFrameHours,
                 IsActive = userAlert.IsActive,
                 CreatedDate = userAlert.CreatedDate,
-                TriggeredDate = userAlert.TriggeredDate
+                TriggeredDate = userAlert.TriggeredDate,
+                IsAcknowledged = userAlert.IsAcknowledged,
+                AcknowledgedDate = userAlert.AcknowledgedDate
             };
         }
     }

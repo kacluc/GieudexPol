@@ -14,15 +14,32 @@ namespace GieudexPol.Tests
     {
         private readonly Mock<IUserAlertRepository> _mockUserAlertRepository;
         private readonly Mock<INotificationService> _mockNotificationService;
+        private readonly Mock<ICurrencyRepository> _mockCurrencyRepository;
+        private readonly Mock<IRateSourceRepository> _mockRateSourceRepository;
         private readonly UserAlertService _userAlertService;
 
         public UserAlertServiceTests()
         {
             _mockUserAlertRepository = new Mock<IUserAlertRepository>();
             _mockNotificationService = new Mock<INotificationService>();
+            _mockCurrencyRepository = new Mock<ICurrencyRepository>();
+            _mockRateSourceRepository = new Mock<IRateSourceRepository>();
+            _mockCurrencyRepository
+                .Setup(repository => repository.GetByIdAsync(It.IsAny<int>()))
+                .ReturnsAsync((int id) => new Currency { Id = id, Symbol = "EUR", IsActive = true });
+            _mockRateSourceRepository
+                .Setup(repository => repository.GetByIdAsync(It.IsAny<int>()))
+                .ReturnsAsync((int id) => new RateSource
+                {
+                    Id = id,
+                    Code = "MOCK_BANK_A",
+                    IsActive = true
+                });
             _userAlertService = new UserAlertService(
                 _mockUserAlertRepository.Object,
-                _mockNotificationService.Object
+                _mockNotificationService.Object,
+                _mockCurrencyRepository.Object,
+                _mockRateSourceRepository.Object
             );
         }
 
@@ -52,7 +69,15 @@ namespace GieudexPol.Tests
         public async Task CreateUserAlertAsync_ShouldAddUserAlertAndSetDefaults()
         {
             // Arrange
-            var userAlert = new UserAlert { UserId = 1, CurrencyId = 1, AlertType = AlertType.Threshold, ThresholdValue = 1.2M };
+            var userAlert = new UserAlert
+            {
+                UserId = 1,
+                CurrencyId = 1,
+                AlertType = AlertType.Threshold,
+                PriceSide = AlertPriceSide.UserBuysCurrency,
+                ThresholdValue = 1.2M,
+                ThresholdDirection = ThresholdDirection.BelowOrEqual
+            };
 
             // Act
             await _userAlertService.CreateUserAlertAsync(userAlert);
@@ -65,7 +90,17 @@ namespace GieudexPol.Tests
         public async Task UpdateUserAlertAsync_ShouldUpdateUserAlert()
         {
             // Arrange
-            var userAlert = new UserAlert { Id = 1, UserId = 1, CurrencyId = 1, AlertType = AlertType.PriceDrop, IsActive = true, CreatedDate = DateTime.UtcNow };
+            var userAlert = new UserAlert
+            {
+                Id = 1,
+                UserId = 1,
+                CurrencyId = 1,
+                AlertType = AlertType.PriceDrop,
+                PriceSide = AlertPriceSide.UserBuysCurrency,
+                PercentageChange = 2m,
+                IsActive = true,
+                CreatedDate = DateTime.UtcNow
+            };
 
             // Act
             await _userAlertService.UpdateUserAlertAsync(userAlert);
@@ -135,6 +170,138 @@ namespace GieudexPol.Tests
             // Assert
             _mockUserAlertRepository.Verify(r => r.UpdateAsync(It.IsAny<UserAlert>()), Times.Never);
             _mockNotificationService.Verify(s => s.AddAsync(It.IsAny<Notification>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AcknowledgeAlertAsync_WhenTriggeredAndOwned_SetsAcknowledgement()
+        {
+            var alert = new UserAlert
+            {
+                Id = 4,
+                UserId = 7,
+                IsActive = false,
+                TriggeredDate = DateTime.UtcNow
+            };
+            _mockUserAlertRepository.Setup(repository => repository.GetByIdAsync(4))
+                .ReturnsAsync(alert);
+
+            var result = await _userAlertService.AcknowledgeAlertAsync(4, 7);
+
+            Assert.True(result);
+            Assert.True(alert.IsAcknowledged);
+            Assert.NotNull(alert.AcknowledgedDate);
+            _mockUserAlertRepository.Verify(repository => repository.UpdateAsync(alert), Times.Once);
+        }
+
+        [Fact]
+        public async Task AcknowledgeAlertAsync_WhenOwnedByAnotherUser_DoesNotUpdate()
+        {
+            _mockUserAlertRepository.Setup(repository => repository.GetByIdAsync(4))
+                .ReturnsAsync(new UserAlert
+                {
+                    Id = 4,
+                    UserId = 8,
+                    TriggeredDate = DateTime.UtcNow
+                });
+
+            var result = await _userAlertService.AcknowledgeAlertAsync(4, 7);
+
+            Assert.False(result);
+            _mockUserAlertRepository.Verify(
+                repository => repository.UpdateAsync(It.IsAny<UserAlert>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateThresholdWithoutValue_ShouldFailValidation()
+        {
+            var alert = ValidThresholdAlert();
+            alert.ThresholdValue = null;
+
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => _userAlertService.CreateUserAlertAsync(alert));
+        }
+
+        [Fact]
+        public async Task CreateThresholdWithoutDirection_ShouldFailValidation()
+        {
+            var alert = ValidThresholdAlert();
+            alert.ThresholdDirection = null;
+
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => _userAlertService.CreateUserAlertAsync(alert));
+        }
+
+        [Theory]
+        [InlineData(AlertType.PriceIncrease)]
+        [InlineData(AlertType.PriceDrop)]
+        public async Task CreatePercentageAlertWithoutPercentage_ShouldFailValidation(
+            AlertType alertType)
+        {
+            var alert = new UserAlert
+            {
+                CurrencyId = 1,
+                AlertType = alertType,
+                PriceSide = AlertPriceSide.UserBuysCurrency
+            };
+
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => _userAlertService.CreateUserAlertAsync(alert));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public async Task CreatePercentageAlertWithNonPositivePercentage_ShouldFailValidation(
+            decimal percentage)
+        {
+            var alert = new UserAlert
+            {
+                CurrencyId = 1,
+                AlertType = AlertType.PriceIncrease,
+                PriceSide = AlertPriceSide.UserBuysCurrency,
+                PercentageChange = percentage
+            };
+
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => _userAlertService.CreateUserAlertAsync(alert));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        public async Task CreateThresholdWithNonPositiveValue_ShouldFailValidation(decimal value)
+        {
+            var alert = ValidThresholdAlert();
+            alert.ThresholdValue = value;
+
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => _userAlertService.CreateUserAlertAsync(alert));
+        }
+
+        [Fact]
+        public async Task CreateWithInactiveRateSource_ShouldFailValidation()
+        {
+            _mockRateSourceRepository
+                .Setup(repository => repository.GetByIdAsync(7))
+                .ReturnsAsync(new RateSource { Id = 7, IsActive = false });
+            var alert = ValidThresholdAlert();
+            alert.RateSourceId = 7;
+
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => _userAlertService.CreateUserAlertAsync(alert));
+        }
+
+        private static UserAlert ValidThresholdAlert()
+        {
+            return new UserAlert
+            {
+                CurrencyId = 1,
+                AlertType = AlertType.Threshold,
+                PriceSide = AlertPriceSide.UserBuysCurrency,
+                ThresholdValue = 4.2m,
+                ThresholdDirection = ThresholdDirection.BelowOrEqual
+            };
         }
     }
 }

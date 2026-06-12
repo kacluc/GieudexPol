@@ -10,6 +10,12 @@
         [routerLinkActiveOptions]="{ exact: item.path === '/' }"
       >
         {{ item.label }}
+        @if (
+          item.path === '/alerts' &&
+          userAlertService.hasUnacknowledgedAlerts()
+        ) {
+          <span class="alert-dot" aria-label="Niepotwierdzony spełniony alert"></span>
+        }
       </a>
     }
     @if (isAdmin) {

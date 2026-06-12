@@ -16,6 +16,8 @@ export interface WalletDto {
   currencyId: number;
   currency?: WalletCurrency;
   balance: number;
+  reservedBalance: number;
+  availableBalance: number;
 }
 
 export interface TradeRequest {

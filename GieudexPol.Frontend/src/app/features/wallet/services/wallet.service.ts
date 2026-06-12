@@ -1,19 +1,85 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { firstValueFrom } from 'rxjs';
+import { BehaviorSubject, Observable, finalize, firstValueFrom, map, of, shareReplay, switchMap, tap, timeout } from 'rxjs';
 import { TradeRequest, TradeResponse, WalletCurrency, WalletDto, DepositRequest, WithdrawRequest } from '../models/wallet-models';
+import { AuthService } from '../../auth/services/auth.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class WalletService {
+  private static readonly requestTimeoutMs = 12_000;
   private apiUrl = '/api/Wallets';
+  private readonly walletsSubject = new BehaviorSubject<WalletDto[]>([]);
+  private loadedUserId: number | null = null;
+  private loadingUserId: number | null = null;
+  private activeUserId: number | null = null;
+  private walletsRequest?: Observable<WalletDto[]>;
 
-  constructor(private http: HttpClient) {}
+  readonly wallets$ = this.walletsSubject.asObservable();
 
-  getUserWallets(userId: number): Observable<WalletDto[]> {
-    return this.http.get<WalletDto[]>(`${this.apiUrl}/user/${userId}`);
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService,
+  ) {
+    this.authService.user$.subscribe(user => {
+      this.activeUserId = user?.id ?? null;
+      if (!user) {
+        this.clearWalletState();
+        return;
+      }
+
+      if (this.loadedUserId !== user.id && this.loadingUserId !== user.id) {
+        this.refreshWallets(user.id).subscribe({ error: () => undefined });
+      }
+    });
+  }
+
+  initialize(): void {
+    // Instantiating this root service starts wallet preloading from the auth stream.
+  }
+
+  get walletSnapshot(): WalletDto[] {
+    return this.walletsSubject.value;
+  }
+
+  getUserWallets(userId: number, forceRefresh = false): Observable<WalletDto[]> {
+    if (!forceRefresh && this.loadedUserId === userId) {
+      return of(this.walletsSubject.value);
+    }
+
+    if (this.loadingUserId === userId && this.walletsRequest) {
+      return this.walletsRequest;
+    }
+
+    this.loadingUserId = userId;
+    const request = this.http.get<WalletDto[]>(`${this.apiUrl}/user/${userId}`).pipe(
+      timeout(WalletService.requestTimeoutMs),
+      tap(wallets => {
+        if (this.activeUserId === userId) {
+          this.loadedUserId = userId;
+          this.walletsSubject.next(wallets);
+        }
+      }),
+      finalize(() => {
+        if (this.loadingUserId === userId) {
+          this.loadingUserId = null;
+          this.walletsRequest = undefined;
+        }
+      }),
+      shareReplay({ bufferSize: 1, refCount: false }),
+    );
+
+    this.walletsRequest = request;
+    return request;
+  }
+
+  refreshWallets(userId = this.loadedUserId ?? this.currentUserId()): Observable<WalletDto[]> {
+    if (!userId) {
+      return of([]);
+    }
+
+    return this.getUserWallets(userId, true);
   }
 
   getAvailableCurrencies(userId: number): Observable<WalletCurrency[]> {
@@ -21,7 +87,9 @@ export class WalletService {
   }
 
   addCurrencyWallet(userId: number, currencyId: number): Observable<WalletDto> {
-    return this.http.post<WalletDto>(`${this.apiUrl}/user/${userId}/currencies/${currencyId}`, {});
+    return this.http.post<WalletDto>(`${this.apiUrl}/user/${userId}/currencies/${currencyId}`, {}).pipe(
+      switchMap(wallet => this.refreshWallets(userId).pipe(map(() => wallet))),
+    );
   }
 
   async getBalance(userId: number): Promise<{ [key: string]: number }> {
@@ -41,7 +109,9 @@ export class WalletService {
       'Content-Type': 'application/json',
     });
 
-    return this.http.post<TradeResponse>(`${this.apiUrl}/trade?userId=${userId}`, request, { headers });
+    return this.http.post<TradeResponse>(`${this.apiUrl}/trade?userId=${userId}`, request, { headers }).pipe(
+      switchMap(response => this.refreshWallets(userId).pipe(map(() => response))),
+    );
   }
 
   deposit(userId: number, request: DepositRequest): Observable<TradeResponse> {
@@ -49,7 +119,9 @@ export class WalletService {
       'Content-Type': 'application/json',
     });
 
-    return this.http.post<TradeResponse>(`${this.apiUrl}/deposit?userId=${userId}`, request, { headers });
+    return this.http.post<TradeResponse>(`${this.apiUrl}/deposit?userId=${userId}`, request, { headers }).pipe(
+      switchMap(response => this.refreshWallets(userId).pipe(map(() => response))),
+    );
   }
 
   withdraw(userId: number, request: WithdrawRequest): Observable<TradeResponse> {
@@ -57,6 +129,20 @@ export class WalletService {
       'Content-Type': 'application/json',
     });
 
-    return this.http.post<TradeResponse>(`${this.apiUrl}/withdraw?userId=${userId}`, request, { headers });
+    return this.http.post<TradeResponse>(`${this.apiUrl}/withdraw?userId=${userId}`, request, { headers }).pipe(
+      switchMap(response => this.refreshWallets(userId).pipe(map(() => response))),
+    );
+  }
+
+  private currentUserId(): number | null {
+    const userId = Number(localStorage.getItem('userId'));
+    return Number.isInteger(userId) && userId > 0 ? userId : null;
+  }
+
+  private clearWalletState(): void {
+    this.loadedUserId = null;
+    this.loadingUserId = null;
+    this.walletsRequest = undefined;
+    this.walletsSubject.next([]);
   }
 }

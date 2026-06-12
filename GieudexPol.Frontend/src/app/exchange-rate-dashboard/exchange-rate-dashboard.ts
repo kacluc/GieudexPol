@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
+import { AuthService } from '../features/auth/services/auth.service';
 import {
   ExchangeRateChartPoint,
   ExchangeRateTableRow,
@@ -26,6 +27,7 @@ export class ExchangeRateDashboard implements OnInit {
   private readonly norgesSourceCode = 'NORGES';
   private readonly bnrSourceCode = 'BNR';
   private readonly mockSourceCode = 'MOCK_BANK_A';
+  private readonly mockSourceCodeB = 'MOCK_BANK_B';
   private readonly nbpBuySellCurrencyCodes = new Set([
     'AUD',
     'CAD',
@@ -171,7 +173,11 @@ export class ExchangeRateDashboard implements OnInit {
   private readonly availableSources = [
     {
       code: 'MOCK_BANK_A',
-      label: 'MOCK_BANK_A - fallback dev',
+      label: 'MOCK_BANK_A - dane testowe',
+    },
+    {
+      code: 'MOCK_BANK_B',
+      label: 'MOCK_BANK_B - dane testowe',
     },
     {
       code: 'NBP',
@@ -211,10 +217,18 @@ export class ExchangeRateDashboard implements OnInit {
     return localStorage.getItem('userEmail')?.toLowerCase() === this.developmentUserEmail;
   }
 
+  get canAccessTestSources(): boolean {
+    return this.isDevelopmentUser || this.authService.isAdmin();
+  }
+
   get sources(): Array<{ code: string; label: string }> {
-    return this.isDevelopmentUser
+    return this.canAccessTestSources
       ? this.availableSources
-      : this.availableSources.filter((source) => source.code !== this.mockSourceCode);
+      : this.availableSources.filter(
+          source =>
+            source.code !== this.mockSourceCode &&
+            source.code !== this.mockSourceCodeB,
+        );
   }
   readonly rangePresets = [
     { label: '7D', days: 7 },
@@ -253,6 +267,7 @@ export class ExchangeRateDashboard implements OnInit {
   constructor(
     private readonly exchangeRateApi: ExchangeRateApiService,
     private readonly changeDetector: ChangeDetectorRef,
+    private readonly authService: AuthService,
   ) {}
 
   ngOnInit(): void {
@@ -503,7 +518,10 @@ export class ExchangeRateDashboard implements OnInit {
   }
 
   isCurrencyAvailableForSource(currencyCode: string, sourceCode: string = this.source): boolean {
-    if (sourceCode === this.mockSourceCode) {
+    if (
+      sourceCode === this.mockSourceCode ||
+      sourceCode === this.mockSourceCodeB
+    ) {
       return true;
     }
 
