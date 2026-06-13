@@ -11,6 +11,10 @@ namespace GieudexPol.Domain.Entities
         public TradingPair TradingPair { get; set; } = null!;
         public decimal Price { get; set; }
         public decimal Amount { get; set; }
+        public decimal BuyerFee { get; set; }
+        public decimal SellerFee { get; set; }
+        public int? FeeCurrencyId { get; set; }
+        public Currency? FeeCurrency { get; set; }
         public DateTime ExecutedAt { get; set; }
         public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
     }

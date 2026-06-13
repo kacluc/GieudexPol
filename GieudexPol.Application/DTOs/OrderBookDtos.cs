@@ -11,6 +11,11 @@ namespace GieudexPol.Application.DTOs
         public decimal Amount { get; set; }
     }
 
+    public class CreateRateSourceOrderRequestDto : CreateOrderRequestDto
+    {
+        public string RateSourceCode { get; set; } = string.Empty;
+    }
+
     public class OrderDto
     {
         public int Id { get; set; }

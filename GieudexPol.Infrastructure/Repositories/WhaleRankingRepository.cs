@@ -23,7 +23,10 @@ namespace GieudexPol.Infrastructure.Repositories
             return await _context.WhaleRankings
                 .AsNoTracking()
                 .Include(wr => wr.User)
-                .Where(wr => wr.User.Username != DevelopmentIdentity.UserEmail)
+                .Where(wr =>
+                    wr.User.Username != DevelopmentIdentity.UserEmail &&
+                    wr.User.AccountType != AccountType.RateSourceSystem &&
+                    wr.User.AccountType != AccountType.PlatformTreasury)
                 .OrderBy(wr => wr.Rank)
                 .ToListAsync();
         }
@@ -35,7 +38,9 @@ namespace GieudexPol.Infrastructure.Repositories
                 .Include(wr => wr.User)
                 .FirstOrDefaultAsync(wr =>
                     wr.Id == id &&
-                    wr.User.Username != DevelopmentIdentity.UserEmail);
+                    wr.User.Username != DevelopmentIdentity.UserEmail &&
+                    wr.User.AccountType != AccountType.RateSourceSystem &&
+                    wr.User.AccountType != AccountType.PlatformTreasury);
         }
 
         public async Task<WhaleRanking?> GetByUserIdAsync(int userId)
@@ -45,7 +50,9 @@ namespace GieudexPol.Infrastructure.Repositories
                 .Include(wr => wr.User)
                 .FirstOrDefaultAsync(wr =>
                     wr.UserId == userId &&
-                    wr.User.Username != DevelopmentIdentity.UserEmail);
+                    wr.User.Username != DevelopmentIdentity.UserEmail &&
+                    wr.User.AccountType != AccountType.RateSourceSystem &&
+                    wr.User.AccountType != AccountType.PlatformTreasury);
         }
 
         public async Task AddAsync(WhaleRanking entity)
@@ -71,7 +78,10 @@ namespace GieudexPol.Infrastructure.Repositories
             return await _context.WhaleRankings
                 .AsNoTracking()
                 .Include(wr => wr.User)
-                .Where(wr => wr.User.Username != DevelopmentIdentity.UserEmail)
+                .Where(wr =>
+                    wr.User.Username != DevelopmentIdentity.UserEmail &&
+                    wr.User.AccountType != AccountType.RateSourceSystem &&
+                    wr.User.AccountType != AccountType.PlatformTreasury)
                 .OrderByDescending(wr => wr.TotalPortfolioValue)
                 .Take(topN)
                 .ToListAsync();
@@ -80,7 +90,10 @@ namespace GieudexPol.Infrastructure.Repositories
         public async Task RefreshRankingAsync()
         {
             var users = await _context.Users
-                .Where(user => user.Username != DevelopmentIdentity.UserEmail)
+                .Where(user =>
+                    user.Username != DevelopmentIdentity.UserEmail &&
+                    user.AccountType != AccountType.RateSourceSystem &&
+                    user.AccountType != AccountType.PlatformTreasury)
                 .ToListAsync();
             var whaleRankings = new List<WhaleRanking>();
 

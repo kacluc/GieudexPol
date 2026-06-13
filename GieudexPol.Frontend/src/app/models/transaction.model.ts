@@ -15,5 +15,10 @@ export interface Transaction {
     tradingPair?: string;
     executionPrice?: number;
     executionAmount?: number;
+    exchangeExecutionId?: number;
+    exchangePair?: string;
+    rateSource?: string;
+    exchangeRate?: number;
+    feeCurrency?: string;
     timestamp: Date;
 }

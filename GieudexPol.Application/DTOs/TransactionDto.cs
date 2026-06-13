@@ -15,6 +15,11 @@ namespace GieudexPol.Application.DTOs
         public string? TradingPair { get; set; }
         public decimal? ExecutionPrice { get; set; }
         public decimal? ExecutionAmount { get; set; }
+        public int? ExchangeExecutionId { get; set; }
+        public string? ExchangePair { get; set; }
+        public string? RateSource { get; set; }
+        public decimal? ExchangeRate { get; set; }
+        public string? FeeCurrency { get; set; }
         public DateTime Timestamp { get; set; }
     }
 }

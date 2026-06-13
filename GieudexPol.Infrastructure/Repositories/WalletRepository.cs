@@ -12,11 +12,15 @@ namespace GieudexPol.Infrastructure.Repositories
     {
         private readonly ApplicationDbContext _context; 
         private readonly DbSet<Wallet> _dbSet;
+        private readonly ISystemAccountService? _systemAccounts;
 
-        public WalletRepository(ApplicationDbContext context)
+        public WalletRepository(
+            ApplicationDbContext context,
+            ISystemAccountService? systemAccounts = null)
         {
             _context = context;
             _dbSet = _context.Set<Wallet>();
+            _systemAccounts = systemAccounts;
         }
 
         public async Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId)
@@ -73,6 +77,9 @@ namespace GieudexPol.Infrastructure.Repositories
 
             var persistedTransaction = CopyTransaction(transaction);
             await _context.Transactions.AddAsync(persistedTransaction);
+            await CreditTreasuryFeeAsync(
+                transaction.CurrencyId,
+                transaction.AppliedFee);
             await _context.SaveChangesAsync();
             transaction.Id = persistedTransaction.Id;
         }
@@ -85,12 +92,9 @@ namespace GieudexPol.Infrastructure.Repositories
             Transaction sellTransaction,
             Transaction buyTransaction)
         {
-            var executionStrategy = _context.Database.CreateExecutionStrategy();
-
-            await executionStrategy.ExecuteAsync(async () =>
+            await ExecuteAtomicallyAsync(async () =>
             {
                 _context.ChangeTracker.Clear();
-                await using var transaction = await _context.Database.BeginTransactionAsync();
 
                 var persistedFromWallet = await _dbSet.SingleAsync(wallet => wallet.Id == fromWallet.Id);
                 var persistedToWallet = await _dbSet.SingleAsync(wallet => wallet.Id == toWallet.Id);
@@ -101,7 +105,6 @@ namespace GieudexPol.Infrastructure.Repositories
                     CopyTransaction(sellTransaction),
                     CopyTransaction(buyTransaction));
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
             });
         }
 
@@ -113,12 +116,9 @@ namespace GieudexPol.Infrastructure.Repositories
             decimal fee,
             Transaction transaction)
         {
-            var executionStrategy = _context.Database.CreateExecutionStrategy();
-
-            await executionStrategy.ExecuteAsync(async () =>
+            await ExecuteAtomicallyAsync(async () =>
             {
                 _context.ChangeTracker.Clear();
-                await using var databaseTransaction = await _context.Database.BeginTransactionAsync();
 
                 var senderWallet = await _dbSet.SingleOrDefaultAsync(wallet =>
                     wallet.Id == senderWalletId && wallet.CurrencyId == currencyId);
@@ -142,11 +142,11 @@ namespace GieudexPol.Infrastructure.Repositories
 
                 senderWallet.Debit(amount + fee);
                 receiverWallet.Credit(amount);
+                await CreditTreasuryFeeAsync(currencyId, fee);
 
                 var persistedTransaction = CopyTransaction(transaction);
                 await _context.Transactions.AddAsync(persistedTransaction);
                 await _context.SaveChangesAsync();
-                await databaseTransaction.CommitAsync();
 
                 transaction.Id = persistedTransaction.Id;
             });
@@ -191,8 +191,71 @@ namespace GieudexPol.Infrastructure.Repositories
                 Status = transaction.Status,
                 Timestamp = transaction.Timestamp,
                 TransactionFeeId = transaction.TransactionFeeId,
-                TradeExecutionId = transaction.TradeExecutionId
+                TradeExecutionId = transaction.TradeExecutionId,
+                ExchangeExecutionId = transaction.ExchangeExecutionId
             };
+        }
+
+        private async Task CreditTreasuryFeeAsync(
+            int currencyId,
+            decimal fee)
+        {
+            if (fee <= 0)
+            {
+                return;
+            }
+
+            var treasury = _systemAccounts != null
+                ? await _systemAccounts.GetPlatformTreasuryAsync()
+                : await _context.Users.SingleOrDefaultAsync(user =>
+                    user.AccountType == AccountType.PlatformTreasury)
+                  ?? throw new InvalidOperationException(
+                      "Konto PlatformTreasury nie zostalo skonfigurowane.");
+            var wallet = _systemAccounts != null
+                ? await _systemAccounts.GetOrCreateWalletAsync(
+                    treasury.Id,
+                    currencyId)
+                : await GetOrCreateWalletAsync(treasury.Id, currencyId);
+            wallet.Credit(fee);
+        }
+
+        private async Task<Wallet> GetOrCreateWalletAsync(
+            int userId,
+            int currencyId)
+        {
+            var wallet = await _dbSet.SingleOrDefaultAsync(item =>
+                item.UserId == userId && item.CurrencyId == currencyId);
+            if (wallet != null)
+            {
+                return wallet;
+            }
+
+            wallet = new Wallet
+            {
+                UserId = userId,
+                CurrencyId = currencyId,
+                Balance = 0m
+            };
+            await _dbSet.AddAsync(wallet);
+            return wallet;
+        }
+
+        private async Task ExecuteAtomicallyAsync(Func<Task> operation)
+        {
+            if (!_context.Database.IsRelational())
+            {
+                await operation();
+                return;
+            }
+
+            var executionStrategy = _context.Database.CreateExecutionStrategy();
+            await executionStrategy.ExecuteAsync(async () =>
+            {
+                await using var databaseTransaction =
+                    await _context.Database.BeginTransactionAsync();
+                await operation();
+                await databaseTransaction.CommitAsync();
+            });
         }
     }
 }

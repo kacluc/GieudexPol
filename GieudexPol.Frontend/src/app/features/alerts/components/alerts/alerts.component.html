@@ -68,7 +68,7 @@
           <div class="form-group">
             <label for="rateSourceId">Źródło kursu</label>
             <select id="rateSourceId" formControlName="rateSourceId" class="form-control">
-              <option [ngValue]="null">Wszystkie aktywne źródła</option>
+              <option [ngValue]="null">Wszystkie dostępne źródła</option>
               @for (source of rateSources(); track source.id) {
                 <option [ngValue]="source.id">{{ source.code }} - {{ source.name }}</option>
               }
@@ -251,7 +251,7 @@
             <div class="alert-details">
               <strong>{{ alert.currencySymbol }} - {{ alertTypeLabel(alert.alertType) }}</strong><br>
               <span>Monitorowana cena: {{ priceSideLabel(alert.priceSide) }}</span><br>
-              <span>Źródło: {{ alert.appliesToAllRateSources ? 'Wszystkie aktywne źródła' : (alert.rateSourceCode + ' - ' + alert.rateSourceName) }}</span><br>
+              <span>Źródło: {{ alert.appliesToAllRateSources ? 'Wszystkie dostępne źródła' : (alert.rateSourceCode + ' - ' + alert.rateSourceName) }}</span><br>
               @if (alert.alertType === AlertType.Threshold) {
                 <span>Próg: {{ directionLabel(alert.thresholdDirection) }} {{ alert.thresholdValue }}</span><br>
               } @else {

@@ -234,6 +234,40 @@ namespace GieudexPol.Tests
         }
 
         [Fact]
+        public async Task GetAllAsync_DoesNotReturnSystemAccounts()
+        {
+            var regular = new User
+            {
+                Id = 1,
+                Username = "regular@test.local",
+                AccountType = AccountType.RegularUser
+            };
+            var source = new User
+            {
+                Id = 2,
+                Username = "system_ecb",
+                AccountType = AccountType.RateSourceSystem
+            };
+            var treasury = new User
+            {
+                Id = 3,
+                Username = "system_platform_treasury",
+                AccountType = AccountType.PlatformTreasury
+            };
+            await _context.Users.AddRangeAsync(regular, source, treasury);
+            await _context.WhaleRankings.AddRangeAsync(
+                new WhaleRanking { User = regular, Rank = 3, TotalPortfolioValue = 1m },
+                new WhaleRanking { User = source, Rank = 2, TotalPortfolioValue = 2m },
+                new WhaleRanking { User = treasury, Rank = 1, TotalPortfolioValue = 3m });
+            await _context.SaveChangesAsync();
+
+            var result = (await _repository.GetAllAsync()).ToList();
+
+            var ranking = Assert.Single(result);
+            Assert.Equal(regular.Id, ranking.UserId);
+        }
+
+        [Fact]
         public async Task RefreshRankingAsync_RefreshesRanking()
         {
             // Arrange

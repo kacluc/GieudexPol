@@ -19,6 +19,8 @@ namespace GieudexPol.Domain.Entities
         public TransactionFee? TransactionFee { get; set; }
         public int? TradeExecutionId { get; set; }
         public TradeExecution? TradeExecution { get; set; }
+        public int? ExchangeExecutionId { get; set; }
+        public ExchangeExecution? ExchangeExecution { get; set; }
         public DateTime Timestamp { get; set; }
     }
 }

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using GieudexPol.Domain;
+using GieudexPol.Domain.Entities;
 using GieudexPol.Infrastructure;
 using GieudexPol.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +48,17 @@ public class DevelopmentDataSeederTests
 
         await using var verificationScope = serviceProvider.CreateAsyncScope();
         var context = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var administrators = await context.Users
+            .Where(user => user.Role == "Admin")
+            .ToListAsync();
+        administrators.Should().Contain(user =>
+            user.Username == DevelopmentDataSeeder.DevelopmentUserEmail);
+        administrators.Should().Contain(user =>
+            user.Username == DevelopmentDataSeeder.SecondAdminEmail &&
+            user.DisplayName == "Development Admin 2");
+        administrators.Should().OnlyContain(user =>
+            user.AccountType == AccountType.AdminUser);
+
         var sources = await context.RateSources
             .Where(source =>
                 source.Code == DevelopmentIdentity.RateSourceCode ||
@@ -62,6 +74,24 @@ public class DevelopmentDataSeederTests
             source.Code == DevelopmentIdentity.RateSourceCodeB &&
             source.Name == "Development Mock Bank B" &&
             source.IsActive);
+        sources.Should().OnlyContain(source => source.SystemUserId.HasValue);
+
+        var treasury = await context.Users.SingleAsync(user =>
+            user.AccountType == AccountType.PlatformTreasury);
+        var systemAccounts = await context.Users
+            .Where(user => user.AccountType == AccountType.RateSourceSystem)
+            .ToListAsync();
+        systemAccounts.Should().HaveCount(sources.Count);
+        var activeCurrencyCount = await context.Currencies.CountAsync(currency =>
+            currency.IsActive);
+        (await context.Wallets.CountAsync(wallet => wallet.UserId == treasury.Id))
+            .Should().Be(activeCurrencyCount);
+        foreach (var systemAccount in systemAccounts)
+        {
+            (await context.Wallets.CountAsync(wallet =>
+                wallet.UserId == systemAccount.Id))
+                .Should().Be(activeCurrencyCount);
+        }
 
         var sourceA = sources.Single(source =>
             source.Code == DevelopmentIdentity.RateSourceCode);

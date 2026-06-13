@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Data;
 using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -96,6 +97,7 @@ namespace GieudexPol.Infrastructure.Services
             }
 
             var alertsQuery = _context.UserAlerts
+                .Include(alert => alert.User)
                 .Include(alert => alert.Currency)
                 .Include(alert => alert.RateSource)
                 .Include(alert => alert.EvaluationStates)
@@ -149,6 +151,16 @@ namespace GieudexPol.Infrastructure.Services
                 .Where(rate =>
                     rate.CurrencyId == alert.CurrencyId &&
                     rate.RateSource.IsActive);
+
+            if (!string.Equals(
+                    alert.User.Role,
+                    UserRoles.Admin,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                ratesQuery = ratesQuery.Where(rate =>
+                    rate.RateSource.Code != DevelopmentIdentity.RateSourceCode &&
+                    rate.RateSource.Code != DevelopmentIdentity.RateSourceCodeB);
+            }
 
             if (requestedSourceId.HasValue)
             {

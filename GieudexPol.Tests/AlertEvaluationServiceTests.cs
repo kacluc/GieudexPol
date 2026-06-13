@@ -271,6 +271,39 @@ public class AlertEvaluationServiceTests
     }
 
     [Fact]
+    public async Task NonAdminAlertAcrossAllSources_IgnoresMockBanks()
+    {
+        await using var context = CreateContext();
+        var data = SeedBase(context);
+        data.User.Role = "User";
+        var realSource = new RateSource
+        {
+            Id = 3,
+            Code = "NBP",
+            Name = "Narodowy Bank Polski",
+            IsActive = true
+        };
+        context.RateSources.Add(realSource);
+        AddRate(context, data, data.SourceA, 4.80m, 4.90m, new DateTime(2026, 6, 11));
+        AddRate(context, data, realSource, 4.20m, 4.30m, new DateTime(2026, 6, 11));
+        var alert = AddAlert(
+            context,
+            data,
+            AlertType.Threshold,
+            AlertPriceSide.UserSellsCurrency,
+            threshold: 4.50m,
+            direction: ThresholdDirection.AboveOrEqual);
+        await context.SaveChangesAsync();
+
+        var result = await CreateService(context).EvaluateAllActiveAlertsAsync();
+
+        result.TriggeredAlertsCount.Should().Be(0);
+        alert.Status.Should().Be(AlertStatus.Active);
+        context.AlertLogs.Should().BeEmpty();
+        context.Notifications.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task PercentageAlertWithoutPreviousRate_DoesNotFailOrTrigger()
     {
         await using var context = CreateContext();
@@ -302,7 +335,12 @@ public class AlertEvaluationServiceTests
 
     private static TestData SeedBase(ApplicationDbContext context)
     {
-        var user = new User { Id = 1, Username = "user@example.com" };
+        var user = new User
+        {
+            Id = 1,
+            Username = "user@example.com",
+            Role = "Admin"
+        };
         var currency = new Currency { Id = 1, Symbol = "EUR", Name = "Euro", IsActive = true };
         var sourceA = new RateSource
         {

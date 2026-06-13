@@ -58,6 +58,12 @@ export class TransactionHistoryComponent implements OnInit {
 
   executionDetails(transaction: Transaction): string {
     if (!transaction.tradeExecutionId || !transaction.tradingPair) {
+      if (transaction.exchangeExecutionId && transaction.exchangePair) {
+        return `#${transaction.exchangeExecutionId}, ${transaction.exchangePair}, kurs ${
+          transaction.exchangeRate?.toFixed(4) ?? '-'
+        }, źródło ${transaction.rateSource ?? '-'}`;
+      }
+
       return '-';
     }
 

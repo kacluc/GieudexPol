@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../../auth/services/auth.service';
 import { WalletService } from '../../services/wallet.service';
@@ -18,6 +18,7 @@ describe('WalletManagementComponent', () => {
     getUserWallets: vi.fn(),
     getAvailableCurrencies: vi.fn(),
     executeTrade: vi.fn(),
+    previewExchange: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -31,6 +32,20 @@ describe('WalletManagementComponent', () => {
       sellRateSource: 'PLN',
       buyRateSource: 'NBP',
       effectiveDate: '2026-05-25T00:00:00',
+    }));
+    walletService.previewExchange.mockReturnValue(of({
+      fromCurrencyCode: 'PLN',
+      toCurrencyCode: 'EUR',
+      inputAmount: 100,
+      estimatedOutputAmount: 23.81,
+      rate: 0.2381,
+      feeAmount: 10,
+      feeCurrencyCode: 'PLN',
+      totalDebitAmount: 110,
+      rateDate: '2026-05-25T00:00:00',
+      hasSufficientFunds: false,
+      isPreview: true,
+      message: 'To jest tylko symulacja.',
     }));
 
     await TestBed.configureTestingModule({
@@ -73,5 +88,55 @@ describe('WalletManagementComponent', () => {
       toCurrencyId: 2,
     });
     expect(component.tradeMessage).toContain('Sukces');
+  });
+
+  it('does not request preview for invalid amount', async () => {
+    component.simulatorAmount = 0;
+
+    await component.calculateExchangePreview();
+
+    expect(walletService.previewExchange).not.toHaveBeenCalled();
+    expect(component.simulatorError).toContain('większa od zera');
+  });
+
+  it('does not request preview for the same currency', async () => {
+    component.simulatorFromCurrency = 'PLN';
+    component.simulatorToCurrency = 'PLN';
+    component.simulatorAmount = 100;
+
+    await component.calculateExchangePreview();
+
+    expect(walletService.previewExchange).not.toHaveBeenCalled();
+    expect(component.simulatorError).toContain('muszą być różne');
+  });
+
+  it('shows preview result without executing real exchange', async () => {
+    component.simulatorFromCurrency = 'PLN';
+    component.simulatorToCurrency = 'EUR';
+    component.simulatorAmount = 100;
+
+    await component.calculateExchangePreview();
+
+    expect(walletService.previewExchange).toHaveBeenCalledWith({
+      fromCurrencyId: 1,
+      toCurrencyId: 2,
+      amount: 100,
+    });
+    expect(walletService.executeTrade).not.toHaveBeenCalled();
+    expect(component.simulatorResult?.estimatedOutputAmount).toBe(23.81);
+  });
+
+  it('shows backend preview error', async () => {
+    walletService.previewExchange.mockReturnValueOnce(throwError(() => ({
+      error: { message: 'Brak źródła z wystarczającą płynnością.' },
+    })));
+    component.simulatorFromCurrency = 'PLN';
+    component.simulatorToCurrency = 'EUR';
+    component.simulatorAmount = 100;
+
+    await component.calculateExchangePreview();
+
+    expect(component.simulatorResult).toBeNull();
+    expect(component.simulatorError).toContain('płynnością');
   });
 });

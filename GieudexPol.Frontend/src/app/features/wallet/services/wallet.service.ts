@@ -1,7 +1,16 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, finalize, firstValueFrom, map, of, shareReplay, switchMap, tap, timeout } from 'rxjs';
-import { TradeRequest, TradeResponse, WalletCurrency, WalletDto, DepositRequest, WithdrawRequest } from '../models/wallet-models';
+import {
+  DepositRequest,
+  ExchangePreviewRequest,
+  ExchangePreviewResult,
+  TradeRequest,
+  TradeResponse,
+  WalletCurrency,
+  WalletDto,
+  WithdrawRequest,
+} from '../models/wallet-models';
 import { AuthService } from '../../auth/services/auth.service';
 
 @Injectable({
@@ -111,6 +120,13 @@ export class WalletService {
 
     return this.http.post<TradeResponse>(`${this.apiUrl}/trade?userId=${userId}`, request, { headers }).pipe(
       switchMap(response => this.refreshWallets(userId).pipe(map(() => response))),
+    );
+  }
+
+  previewExchange(request: ExchangePreviewRequest): Observable<ExchangePreviewResult> {
+    return this.http.post<ExchangePreviewResult>(
+      '/api/wallet/exchange/preview',
+      request,
     );
   }
 

@@ -1,11 +1,19 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../auth/services/auth.service';
 import { WalletService } from '../../services/wallet.service';
-import { DepositRequest, TradeRequest, WalletCurrency, WalletDto, WithdrawRequest } from '../../models/wallet-models';
+import {
+  DepositRequest,
+  ExchangePreviewResult,
+  TradeRequest,
+  WalletCurrency,
+  WalletDto,
+  WithdrawRequest,
+} from '../../models/wallet-models';
 
 @Component({
   selector: 'app-wallet-management',
@@ -26,6 +34,12 @@ export class WalletManagementComponent implements OnInit, OnDestroy {
   withdrawCurrency = 'PLN';
   withdrawAmount: number | null = null;
   newCurrencyId: number | null = null;
+  simulatorFromCurrency = 'PLN';
+  simulatorToCurrency = 'EUR';
+  simulatorAmount: number | null = null;
+  simulatorResult: ExchangePreviewResult | null = null;
+  simulatorError = '';
+  simulatorLoading = false;
 
   availableCurrencies: string[] = [];
   addableCurrencies: WalletCurrency[] = [];
@@ -83,6 +97,7 @@ export class WalletManagementComponent implements OnInit, OnDestroy {
         this.walletService.getAvailableCurrencies(this.currentUserId),
       );
       this.newCurrencyId = this.addableCurrencies[0]?.id ?? null;
+      this.ensureSimulatorCurrencies();
     } catch (error) {
       console.error('Nie udalo sie zaladowac salda:', error);
       this.tradeMessage = 'Blad: Nie mozna zaladowac danych portfela.';
@@ -150,10 +165,11 @@ export class WalletManagementComponent implements OnInit, OnDestroy {
       const response = await firstValueFrom(this.walletService.executeTrade(this.currentUserId, tradeRequest));
       const amountTo = response.amountTo ?? 0;
       const rateDate = response.effectiveDate?.slice(0, 10) ?? 'brak daty';
+      const fee = response.feeAmount ?? 0;
+      const feeCurrency = response.feeCurrency ?? fromCurrency;
       this.tradeMessage =
         `Sukces: wymieniono ${amount.toFixed(2)} ${fromCurrency} na ${amountTo.toFixed(2)} ${toCurrency} ` +
-        `(sprzedaz: ${response.sellRateSource ?? 'PLN'}, zakup: ${response.buyRateSource ?? 'PLN'}, ` +
-        `kursy z ${rateDate}).`;
+        `(prowizja: ${fee.toFixed(2)} ${feeCurrency}, kurs z ${rateDate}).`;
       this.amount = null;
       await this.initializeBalance();
     } catch (error) {
@@ -234,6 +250,60 @@ export class WalletManagementComponent implements OnInit, OnDestroy {
     this.router.navigate(['/transfer']);
   }
 
+  get simulatorCurrencies(): WalletCurrency[] {
+    const currencies = [
+      ...this.wallets
+        .map(wallet => wallet.currency)
+        .filter((currency): currency is WalletCurrency => !!currency),
+      ...this.addableCurrencies,
+    ];
+
+    return Array.from(
+      new Map(currencies.map(currency => [currency.id, currency])).values(),
+    ).sort((left, right) => left.symbol.localeCompare(right.symbol));
+  }
+
+  async calculateExchangePreview(): Promise<void> {
+    this.simulatorError = '';
+    this.simulatorResult = null;
+
+    if (this.simulatorAmount === null || this.simulatorAmount <= 0) {
+      this.simulatorError = 'Kwota musi być większa od zera.';
+      return;
+    }
+
+    if (this.simulatorFromCurrency === this.simulatorToCurrency) {
+      this.simulatorError = 'Waluta źródłowa i docelowa muszą być różne.';
+      return;
+    }
+
+    const fromCurrency = this.findSimulatorCurrency(this.simulatorFromCurrency);
+    const toCurrency = this.findSimulatorCurrency(this.simulatorToCurrency);
+    if (!fromCurrency || !toCurrency) {
+      this.simulatorError = 'Nie znaleziono wybranej waluty.';
+      return;
+    }
+
+    this.simulatorLoading = true;
+    try {
+      this.simulatorResult = await firstValueFrom(
+        this.walletService.previewExchange({
+          fromCurrencyId: fromCurrency.id,
+          toCurrencyId: toCurrency.id,
+          amount: this.simulatorAmount,
+        }),
+      );
+    } catch (error) {
+      const httpError = error as HttpErrorResponse;
+      this.simulatorError =
+        httpError.error?.message ??
+        'Nie udało się obliczyć symulacji. Sprawdź dostępność kursu i płynności.';
+    } finally {
+      this.simulatorLoading = false;
+      this.changeDetector.detectChanges();
+    }
+  }
+
   private findWallet(symbol: string): WalletDto | undefined {
     return this.wallets.find(wallet => wallet.currency?.symbol === symbol);
   }
@@ -260,6 +330,24 @@ export class WalletManagementComponent implements OnInit, OnDestroy {
     );
     this.depositCurrency = this.ensureSelectedCurrency(this.depositCurrency);
     this.withdrawCurrency = this.ensureSelectedCurrency(this.withdrawCurrency);
+    this.ensureSimulatorCurrencies();
+  }
+
+  private ensureSimulatorCurrencies(): void {
+    const symbols = this.simulatorCurrencies.map(currency => currency.symbol);
+    this.simulatorFromCurrency = symbols.includes(this.simulatorFromCurrency)
+      ? this.simulatorFromCurrency
+      : (symbols[0] ?? '');
+    this.simulatorToCurrency =
+      symbols.includes(this.simulatorToCurrency) &&
+      this.simulatorToCurrency !== this.simulatorFromCurrency
+        ? this.simulatorToCurrency
+        : (symbols.find(symbol => symbol !== this.simulatorFromCurrency) ??
+          this.simulatorFromCurrency);
+  }
+
+  private findSimulatorCurrency(symbol: string): WalletCurrency | undefined {
+    return this.simulatorCurrencies.find(currency => currency.symbol === symbol);
   }
 
   private ensureSelectedCurrency(value: string, fallback?: string): string {

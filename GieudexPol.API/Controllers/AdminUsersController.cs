@@ -97,6 +97,10 @@ namespace GieudexPol.API.Controllers
             {
                 return BadRequest(new { message = exception.Message });
             }
+            catch (InvalidOperationException exception)
+            {
+                return BadRequest(new { message = exception.Message });
+            }
         }
     }
 }

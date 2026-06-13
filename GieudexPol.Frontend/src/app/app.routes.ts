@@ -55,6 +55,14 @@ export const routes: Routes = [
           ).then(module => module.AdminTestExchangeRatesComponent),
         canActivate: [AdminGuard],
       },
+      {
+        path: 'admin/system-accounts',
+        loadComponent: () =>
+          import(
+            './features/admin-system-accounts/components/admin-system-accounts/admin-system-accounts.component'
+          ).then(module => module.AdminSystemAccountsComponent),
+        canActivate: [AdminGuard],
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using System.Text;
 using AuthUser = GieudexPol.Domain.Auth.User;
 
 namespace GieudexPol.Infrastructure.Data
@@ -16,11 +18,16 @@ namespace GieudexPol.Infrastructure.Data
         private const string DevelopmentSourceNameB = "Development Mock Bank B";
         public const string DevelopmentUserEmail = DevelopmentIdentity.UserEmail;
         public const string DevelopmentUserPassword = "DevPassword123!";
+        public const string SecondAdminEmail = "admin2@gieudexpol.local";
+        public const string SecondAdminPassword = "AdminPassword123!";
         public const string DemoUserPassword = "DemoPassword123!";
         private static readonly Guid DevelopmentUserAuthId = new("11111111-1111-1111-1111-111111111111");
         private static readonly Guid DevelopmentTransferFeeId = new("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         private static readonly Guid DevelopmentDepositFeeId = new("cccccccc-cccc-cccc-cccc-cccccccccccc");
         private static readonly Guid DevelopmentWithdrawalFeeId = new("dddddddd-dddd-dddd-dddd-dddddddddddd");
+        private static readonly Guid DevelopmentOrderBookFeeId = new("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+        private static readonly Guid DevelopmentInstantExchangeFeeId = new("ffffffff-ffff-ffff-ffff-ffffffffffff");
+        private const string PlatformTreasuryUsername = "system_platform_treasury";
         private static readonly UserSeed[] SeedUsers =
         [
             new(
@@ -35,7 +42,22 @@ namespace GieudexPol.Infrastructure.Data
                     ["USD"] = 1_000m,
                     ["CHF"] = 500m,
                     ["GBP"] = 500m
-                }),
+                },
+                "Admin"),
+            new(
+                new Guid("12121212-1212-1212-1212-121212121212"),
+                SecondAdminEmail,
+                "Development Admin 2",
+                SecondAdminPassword,
+                new Dictionary<string, decimal>
+                {
+                    ["PLN"] = 50_000m,
+                    ["EUR"] = 5_000m,
+                    ["USD"] = 5_000m,
+                    ["CHF"] = 2_500m,
+                    ["GBP"] = 2_500m
+                },
+                "Admin"),
             new(
                 new Guid("22222222-2222-2222-2222-222222222222"),
                 "zbigniew.stonoga@gieudexpol.local",
@@ -164,6 +186,9 @@ namespace GieudexPol.Infrastructure.Data
                 context,
                 DevelopmentSourceCodeB,
                 DevelopmentSourceNameB);
+            var addedSystemAccounts = await SeedSystemAccountsCoreAsync(
+                context,
+                initializeLiquidity: true);
             var addedRatesA = await SeedExchangeRatesAsync(
                 context,
                 rateSourceA,
@@ -177,13 +202,24 @@ namespace GieudexPol.Infrastructure.Data
             var addedRates = addedRatesA + addedRatesB;
 
             logger.LogInformation(
-                "Development seed completed. Added {CurrencyCount} currencies, {TradingPairCount} trading pairs, {UserCount} users, {WalletCount} wallets, {TransactionFeeCount} transaction fees and {RateCount} exchange rates.",
+                "Development seed completed. Added {CurrencyCount} currencies, {TradingPairCount} trading pairs, {UserCount} users, {WalletCount} wallets, {TransactionFeeCount} transaction fees, {SystemAccountCount} system accounts and {RateCount} exchange rates.",
                 addedCurrencies,
                 addedTradingPairs,
                 addedUsers,
                 addedWallets,
                 addedTransactionFees,
+                addedSystemAccounts,
                 addedRates);
+        }
+
+        public static async Task<int> SeedSystemAccountsAsync(
+            IServiceProvider serviceProvider,
+            bool initializeLiquidity)
+        {
+            var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
+            return await SeedSystemAccountsCoreAsync(
+                context,
+                initializeLiquidity);
         }
 
         private static async Task<int> SeedUsersAsync(ApplicationDbContext context)
@@ -201,10 +237,8 @@ namespace GieudexPol.Infrastructure.Data
                 if (existingUsersByEmail.TryGetValue(seed.Email, out var existingUser))
                 {
                     existingUser.DisplayName = seed.DisplayName;
-                    if (seed.Email == DevelopmentUserEmail)
-                    {
-                        existingUser.Role = "Admin";
-                    }
+                    existingUser.Role = seed.Role;
+                    existingUser.AccountType = ResolveAccountType(seed.Role);
                     continue;
                 }
 
@@ -215,7 +249,8 @@ namespace GieudexPol.Infrastructure.Data
                     Username = seed.Email,
                     DisplayName = seed.DisplayName,
                     PasswordHash = passwordHasher.HashPassword(authUser, seed.Password),
-                    Role = seed.Email == DevelopmentUserEmail ? "Admin" : "User"
+                    Role = seed.Role,
+                    AccountType = ResolveAccountType(seed.Role)
                 });
             }
 
@@ -438,6 +473,16 @@ namespace GieudexPol.Infrastructure.Data
                 {
                     Id = DevelopmentWithdrawalFeeId,
                     Type = "Withdrawal"
+                },
+                new TransactionFee
+                {
+                    Id = DevelopmentOrderBookFeeId,
+                    Type = "OrderBook"
+                },
+                new TransactionFee
+                {
+                    Id = DevelopmentInstantExchangeFeeId,
+                    Type = "InstantExchange"
                 }
             };
             var types = definitions.Select(definition => definition.Type).ToList();
@@ -462,6 +507,170 @@ namespace GieudexPol.Infrastructure.Data
 
             await context.SaveChangesAsync();
             return addedCount;
+        }
+
+        private static async Task<int> SeedSystemAccountsCoreAsync(
+            ApplicationDbContext context,
+            bool initializeLiquidity)
+        {
+            var currencies = await context.Currencies
+                .Where(currency => currency.IsActive)
+                .ToListAsync();
+            var rateSources = await context.RateSources
+                .Where(source => source.IsActive)
+                .ToListAsync();
+            var usersToAdd = new List<User>();
+            var addedAccounts = 0;
+
+            var treasury = await context.Users.SingleOrDefaultAsync(user =>
+                user.AccountType == AccountType.PlatformTreasury ||
+                user.Username == PlatformTreasuryUsername);
+            if (treasury == null)
+            {
+                treasury = CreateSystemUser(
+                    PlatformTreasuryUsername,
+                    "Platform Treasury",
+                    AccountType.PlatformTreasury);
+                usersToAdd.Add(treasury);
+                addedAccounts++;
+            }
+            else
+            {
+                treasury.AccountType = AccountType.PlatformTreasury;
+                treasury.Role = "System";
+            }
+
+            foreach (var source in rateSources)
+            {
+                var username = GetRateSourceSystemUsername(source.Code);
+                var systemUser = source.SystemUserId.HasValue
+                    ? await context.Users.FindAsync(source.SystemUserId.Value)
+                    : await context.Users.SingleOrDefaultAsync(user =>
+                        user.Username == username);
+
+                if (systemUser == null)
+                {
+                    systemUser = CreateSystemUser(
+                        username,
+                        $"System liquidity: {source.Code}",
+                        AccountType.RateSourceSystem);
+                    usersToAdd.Add(systemUser);
+                    addedAccounts++;
+                }
+                else
+                {
+                    systemUser.AccountType = AccountType.RateSourceSystem;
+                    systemUser.Role = "System";
+                }
+
+                source.SystemUser = systemUser;
+            }
+
+            if (usersToAdd.Count > 0)
+            {
+                await context.Users.AddRangeAsync(usersToAdd);
+            }
+
+            await context.SaveChangesAsync();
+
+            var systemUsers = await context.Users
+                .Where(user =>
+                    user.AccountType == AccountType.RateSourceSystem ||
+                    user.AccountType == AccountType.PlatformTreasury)
+                .ToListAsync();
+            var userIds = systemUsers.Select(user => user.Id).ToList();
+            var existingWallets = await context.Wallets
+                .Where(wallet => userIds.Contains(wallet.UserId))
+                .Select(wallet => new { wallet.UserId, wallet.CurrencyId })
+                .ToListAsync();
+            var walletKeys = existingWallets
+                .Select(wallet => (wallet.UserId, wallet.CurrencyId))
+                .ToHashSet();
+            var walletsToAdd = new List<Wallet>();
+
+            foreach (var user in systemUsers)
+            {
+                foreach (var currency in currencies)
+                {
+                    if (walletKeys.Contains((user.Id, currency.Id)))
+                    {
+                        continue;
+                    }
+
+                    walletsToAdd.Add(new Wallet
+                    {
+                        UserId = user.Id,
+                        CurrencyId = currency.Id,
+                        Balance = user.AccountType == AccountType.PlatformTreasury ||
+                                  !initializeLiquidity
+                            ? 0m
+                            : GetSystemLiquidityBalance(currency.Symbol),
+                        ReservedBalance = 0m
+                    });
+                }
+            }
+
+            if (walletsToAdd.Count > 0)
+            {
+                await context.Wallets.AddRangeAsync(walletsToAdd);
+                await context.SaveChangesAsync();
+            }
+
+            return addedAccounts;
+        }
+
+        private static User CreateSystemUser(
+            string username,
+            string displayName,
+            AccountType accountType)
+        {
+            return new User
+            {
+                AuthId = CreateDeterministicGuid(username),
+                Username = username,
+                DisplayName = displayName,
+                PasswordHash = "!SYSTEM_ACCOUNT_NO_LOGIN!",
+                Role = "System",
+                AccountType = accountType
+            };
+        }
+
+        private static Guid CreateDeterministicGuid(string value)
+        {
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+            return new Guid(hash[..16]);
+        }
+
+        private static string GetRateSourceSystemUsername(string sourceCode)
+        {
+            var normalized = new string(sourceCode
+                .Trim()
+                .ToLowerInvariant()
+                .Select(character => char.IsLetterOrDigit(character) ? character : '_')
+                .ToArray());
+            return "system_" + normalized;
+        }
+
+        private static decimal GetSystemLiquidityBalance(string symbol)
+        {
+            return symbol switch
+            {
+                "PLN" => 1_000_000m,
+                "EUR" or "USD" => 400_000m,
+                "GBP" or "CHF" => 200_000m,
+                "JPY" or "KRW" => 50_000_000m,
+                _ => 500_000m
+            };
+        }
+
+        private static AccountType ResolveAccountType(string role)
+        {
+            return role switch
+            {
+                "SuperAdmin" => AccountType.SuperAdminUser,
+                "Admin" => AccountType.AdminUser,
+                _ => AccountType.RegularUser
+            };
         }
 
         private static async Task<int> SeedExchangeRatesAsync(
@@ -618,6 +827,7 @@ namespace GieudexPol.Infrastructure.Data
             string Email,
             string DisplayName,
             string Password,
-            IReadOnlyDictionary<string, decimal> Balances);
+            IReadOnlyDictionary<string, decimal> Balances,
+            string Role = "User");
     }
 }

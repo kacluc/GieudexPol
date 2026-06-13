@@ -84,6 +84,107 @@ namespace GieudexPol.Tests
             Assert.Equal(2.35m, json.RootElement.GetProperty("amountTo").GetDecimal());
             Assert.Equal("ECB", json.RootElement.GetProperty("buyRateSource").GetString());
         }
+
+        [Fact]
+        public async Task ExecuteTrade_CannotUseAnotherUserId()
+        {
+            var client = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    var descriptor = services.FirstOrDefault(d =>
+                        d.ServiceType == typeof(IWalletService));
+                    if (descriptor != null)
+                    {
+                        services.Remove(descriptor);
+                    }
+                    services.AddSingleton(_mockWalletService.Object);
+                });
+            }).CreateClient();
+
+            var response = await client.PostAsJsonAsync(
+                "api/Wallets/trade?userId=2",
+                new { fromCurrencyId = 1, amountFrom = 10m, toCurrencyId = 2 });
+
+            Assert.Equal(System.Net.HttpStatusCode.Forbidden, response.StatusCode);
+            _mockWalletService.Verify(service =>
+                service.ExecuteTradeTransactionAsync(
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<decimal>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task PreviewExchange_UsesAuthenticatedUser_WithoutExecutingTrade()
+        {
+            _mockWalletService.Setup(service => service.PreviewTradeAsync(
+                    1,
+                    1,
+                    3900m,
+                    2,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ExchangePreviewResultDto
+                {
+                    FromCurrencyCode = "PLN",
+                    ToCurrencyCode = "USD",
+                    InputAmount = 3900m,
+                    EstimatedOutputAmount = 1000m,
+                    Rate = 1m / 3.9m,
+                    FeeAmount = 19.5m,
+                    FeeCurrencyCode = "PLN",
+                    TotalDebitAmount = 3919.5m,
+                    RateDate = DateTime.Today,
+                    IsPreview = true
+                });
+
+            var client = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureServices(services =>
+                {
+                    var descriptor = services.FirstOrDefault(d =>
+                        d.ServiceType == typeof(IWalletService));
+                    if (descriptor != null)
+                    {
+                        services.Remove(descriptor);
+                    }
+
+                    services.AddSingleton(_mockWalletService.Object);
+                });
+            }).CreateClient();
+
+            var response = await client.PostAsJsonAsync(
+                "/api/wallet/exchange/preview",
+                new ExchangePreviewRequestDto
+                {
+                    FromCurrencyId = 1,
+                    ToCurrencyId = 2,
+                    Amount = 3900m
+                });
+
+            Assert.True(response.IsSuccessStatusCode);
+            var result = await response.Content.ReadFromJsonAsync<ExchangePreviewResultDto>();
+            Assert.NotNull(result);
+            Assert.True(result.IsPreview);
+            Assert.Equal(1000m, result.EstimatedOutputAmount);
+
+            _mockWalletService.Verify(service => service.PreviewTradeAsync(
+                    1,
+                    1,
+                    3900m,
+                    2,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+            _mockWalletService.Verify(service => service.ExecuteTradeTransactionAsync(
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<decimal>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }
 
@@ -139,6 +240,21 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
             var walletRepositoryDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IWalletRepository));
             if (walletRepositoryDescriptor != null) services.Remove(walletRepositoryDescriptor);
             services.AddTransient(sp => new Mock<IWalletRepository>().Object);
+
+            var userRepositoryDescriptor = services.FirstOrDefault(d =>
+                d.ServiceType == typeof(IUserRepository));
+            if (userRepositoryDescriptor != null) services.Remove(userRepositoryDescriptor);
+            var userRepository = new Mock<IUserRepository>();
+            userRepository.Setup(repository => repository.GetByAuthIdAsync(
+                    TestAuthHandler.AuthId))
+                .ReturnsAsync(new User
+                {
+                    Id = 1,
+                    AuthId = TestAuthHandler.AuthId,
+                    Username = "test@local",
+                    Role = "User"
+                });
+            services.AddSingleton(userRepository.Object);
         });
     }
 }
@@ -146,6 +262,8 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public const string AuthenticationScheme = "Test";
+    public static readonly Guid AuthId =
+        new("12345678-1234-1234-1234-123456789012");
 
     public TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -159,7 +277,7 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     {
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, "test-user")
+            new(ClaimTypes.NameIdentifier, AuthId.ToString())
         };
         if (Request.Headers.TryGetValue("X-Test-Role", out var role) &&
             !string.IsNullOrWhiteSpace(role))

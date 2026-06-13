@@ -9,6 +9,11 @@ namespace GieudexPol.Application.Interfaces
             CreateOrderRequestDto request,
             CancellationToken cancellationToken = default);
 
+        Task<OrderDto> PlaceRateSourceOrderAsync(
+            string rateSourceCode,
+            CreateOrderRequestDto request,
+            CancellationToken cancellationToken = default);
+
         Task<IReadOnlyList<OrderDto>> GetMyOrdersAsync(
             int userId,
             CancellationToken cancellationToken = default);

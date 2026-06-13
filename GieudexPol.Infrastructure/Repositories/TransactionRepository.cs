@@ -28,6 +28,16 @@ namespace GieudexPol.Infrastructure.Repositories
                 .Include(t => t.TradeExecution)
                     .ThenInclude(execution => execution!.TradingPair)
                         .ThenInclude(pair => pair.QuoteCurrency)
+                .Include(t => t.TradeExecution)
+                    .ThenInclude(execution => execution!.FeeCurrency)
+                .Include(t => t.ExchangeExecution)
+                    .ThenInclude(execution => execution!.RateSource)
+                .Include(t => t.ExchangeExecution)
+                    .ThenInclude(execution => execution!.FromCurrency)
+                .Include(t => t.ExchangeExecution)
+                    .ThenInclude(execution => execution!.ToCurrency)
+                .Include(t => t.ExchangeExecution)
+                    .ThenInclude(execution => execution!.FeeCurrency)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
@@ -51,6 +61,16 @@ namespace GieudexPol.Infrastructure.Repositories
                 .Include(t => t.TradeExecution)
                     .ThenInclude(execution => execution!.TradingPair)
                         .ThenInclude(pair => pair.QuoteCurrency)
+                .Include(t => t.TradeExecution)
+                    .ThenInclude(execution => execution!.FeeCurrency)
+                .Include(t => t.ExchangeExecution)
+                    .ThenInclude(execution => execution!.RateSource)
+                .Include(t => t.ExchangeExecution)
+                    .ThenInclude(execution => execution!.FromCurrency)
+                .Include(t => t.ExchangeExecution)
+                    .ThenInclude(execution => execution!.ToCurrency)
+                .Include(t => t.ExchangeExecution)
+                    .ThenInclude(execution => execution!.FeeCurrency)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(transactionType))

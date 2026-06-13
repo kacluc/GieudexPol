@@ -70,6 +70,13 @@ namespace GieudexPol.Application.Services
                 throw new ArgumentException("Receiver not found.");
             }
 
+            if (receiver.AccountType is AccountType.RateSourceSystem or
+                AccountType.PlatformTreasury)
+            {
+                throw new ArgumentException(
+                    "Nie mozna wykonac zwyklego transferu do konta systemowego.");
+            }
+
             if (sender.Id == receiver.Id)
             {
                 throw new ArgumentException("Cannot transfer money to yourself.");
@@ -151,6 +158,16 @@ namespace GieudexPol.Application.Services
                       t.TradeExecution.TradingPair.QuoteCurrency.Symbol,
                 ExecutionPrice = t.TradeExecution?.Price,
                 ExecutionAmount = t.TradeExecution?.Amount,
+                ExchangeExecutionId = t.ExchangeExecutionId,
+                ExchangePair = t.ExchangeExecution == null
+                    ? null
+                    : t.ExchangeExecution.FromCurrency.Symbol + "/" +
+                      t.ExchangeExecution.ToCurrency.Symbol,
+                RateSource = t.ExchangeExecution?.RateSource.Code,
+                ExchangeRate = t.ExchangeExecution?.Rate,
+                FeeCurrency = t.TradeExecution?.FeeCurrency?.Symbol ??
+                              t.ExchangeExecution?.FeeCurrency.Symbol ??
+                              t.Currency?.Symbol,
                 Timestamp = t.Timestamp
             }).ToList();
 

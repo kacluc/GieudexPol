@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using GieudexPol.Application.Interfaces;
 using GieudexPol.Application.Services;
 using GieudexPol.Domain.Entities;
+using FluentAssertions;
 using System;
 
 namespace GieudexPol.Tests
@@ -216,6 +217,49 @@ namespace GieudexPol.Tests
 
             await Assert.ThrowsAsync<ArgumentException>(
                 () => _userAlertService.CreateUserAlertAsync(alert));
+        }
+
+        [Fact]
+        public async Task NonAdminCannotCreateAlertForMockBank()
+        {
+            var alert = ValidThresholdAlert();
+            alert.RateSourceId = 7;
+
+            var action = () => _userAlertService.CreateUserAlertAsync(alert);
+
+            await action.Should().ThrowAsync<ArgumentException>()
+                .WithMessage("*administratorow*");
+        }
+
+        [Fact]
+        public async Task AdminCanCreateAlertForMockBank()
+        {
+            var alert = ValidThresholdAlert();
+            alert.RateSourceId = 7;
+
+            await _userAlertService.CreateUserAlertAsync(
+                alert,
+                allowTestRateSources: true);
+
+            _mockUserAlertRepository.Verify(
+                repository => repository.AddAsync(alert),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task NonAdminRateSourceListExcludesMockBanks()
+        {
+            _mockRateSourceRepository
+                .Setup(repository => repository.GetActiveAsync())
+                .ReturnsAsync([
+                    new RateSource { Id = 1, Code = "NBP", IsActive = true },
+                    new RateSource { Id = 2, Code = "MOCK_BANK_A", IsActive = true },
+                    new RateSource { Id = 3, Code = "MOCK_BANK_B", IsActive = true }
+                ]);
+
+            var result = await _userAlertService.GetActiveRateSourcesAsync();
+
+            result.Select(source => source.Code).Should().Equal("NBP");
         }
 
         private static UserAlert ValidThresholdAlert()

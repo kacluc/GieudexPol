@@ -60,7 +60,8 @@ namespace GieudexPol.Infrastructure.Auth
                 Username = user.Email,
                 DisplayName = user.DisplayName,
                 PasswordHash = hashedPassword,
-                Role = "User"
+                Role = "User",
+                AccountType = AccountType.RegularUser
             };
 
             applicationUser.Wallets.Add(new Wallet

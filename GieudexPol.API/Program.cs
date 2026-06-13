@@ -148,6 +148,7 @@ builder.Services.AddScoped<ICurrencyService, CurrencyService>();
 builder.Services.AddScoped<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
+builder.Services.AddScoped<IAdminSystemAccountService, AdminSystemAccountService>();
 builder.Services.AddScoped<IAdminTestExchangeRateService, AdminTestExchangeRateService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<ITransactionService, GieudexPol.Application.Services.TransactionService>();
@@ -159,6 +160,8 @@ builder.Services.AddScoped<IUserTradingAlertService, UserTradingAlertService>();
 builder.Services.AddScoped<ITradingAlertEvaluationService, TradingAlertEvaluationService>();
 builder.Services.AddScoped<IExchangeRateSyncService, ExchangeRateSyncService>();
 builder.Services.AddScoped<IWhaleRankingService, WhaleRankingService>();
+builder.Services.AddScoped<ISystemAccountService, SystemAccountService>();
+builder.Services.AddScoped<IInstantExchangeService, InstantExchangeService>();
 builder.Services.AddScoped<IOrderMatchingService, OrderMatchingService>();
 builder.Services.AddScoped<IOrderBookService, OrderBookService>();
 

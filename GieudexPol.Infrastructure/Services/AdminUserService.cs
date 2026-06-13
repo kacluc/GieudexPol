@@ -22,6 +22,9 @@ namespace GieudexPol.Infrastructure.Services
         {
             return await _context.Users
                 .AsNoTracking()
+                .Where(user =>
+                    user.AccountType != AccountType.RateSourceSystem &&
+                    user.AccountType != AccountType.PlatformTreasury)
                 .OrderBy(user => user.Username)
                 .Select(user => ToDto(user))
                 .ToListAsync(cancellationToken);
@@ -33,7 +36,11 @@ namespace GieudexPol.Infrastructure.Services
         {
             var user = await _context.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(user =>
+                    user.Id == id &&
+                    user.AccountType != AccountType.RateSourceSystem &&
+                    user.AccountType != AccountType.PlatformTreasury,
+                    cancellationToken);
 
             return user == null ? null : ToDto(user);
         }
@@ -70,7 +77,8 @@ namespace GieudexPol.Infrastructure.Services
                 Username = email,
                 DisplayName = ResolveDisplayName(email),
                 PasswordHash = _passwordHasher.HashPassword(authUser, request.Password),
-                Role = role
+                Role = role,
+                AccountType = ResolveAccountType(role)
             };
 
             _context.Users.Add(user);
@@ -93,6 +101,13 @@ namespace GieudexPol.Infrastructure.Services
                 return null;
             }
 
+            if (user.AccountType is AccountType.RateSourceSystem or
+                AccountType.PlatformTreasury)
+            {
+                throw new InvalidOperationException(
+                    "Kontami systemowymi zarzadza dedykowany panel.");
+            }
+
             if (string.Equals(user.Role, UserRoles.Admin, StringComparison.OrdinalIgnoreCase) &&
                 normalizedRole != UserRoles.Admin)
             {
@@ -108,6 +123,11 @@ namespace GieudexPol.Infrastructure.Services
             }
 
             user.Role = normalizedRole;
+            if (user.AccountType is not AccountType.RateSourceSystem and
+                not AccountType.PlatformTreasury)
+            {
+                user.AccountType = ResolveAccountType(normalizedRole);
+            }
             await _context.SaveChangesAsync(cancellationToken);
 
             return ToDto(user);
@@ -129,6 +149,13 @@ namespace GieudexPol.Infrastructure.Services
             if (user == null)
             {
                 return false;
+            }
+
+            if (user.AccountType is AccountType.RateSourceSystem or
+                AccountType.PlatformTreasury)
+            {
+                throw new InvalidOperationException(
+                    "Nie mozna resetowac hasla konta systemowego.");
             }
 
             var authUser = new AuthUser(user.AuthId, user.Username, newPassword, user.Id);
@@ -162,10 +189,18 @@ namespace GieudexPol.Infrastructure.Services
                 Email = user.Username,
                 Username = user.Username,
                 DisplayName = user.DisplayName,
+                AccountType = user.AccountType.ToString(),
                 Role = UserRoles.IsValid(user.Role)
                     ? UserRoles.Normalize(user.Role)
                     : UserRoles.User
             };
+        }
+
+        private static AccountType ResolveAccountType(string role)
+        {
+            return string.Equals(role, UserRoles.Admin, StringComparison.OrdinalIgnoreCase)
+                ? AccountType.AdminUser
+                : AccountType.RegularUser;
         }
     }
 }

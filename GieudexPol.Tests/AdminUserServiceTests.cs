@@ -54,6 +54,36 @@ public class AdminUserServiceTests
     }
 
     [Fact]
+    public async Task GetUsersAsync_ExcludesSystemAccounts()
+    {
+        await using var context = CreateContext();
+        context.Users.AddRange(
+            new UserEntity
+            {
+                AuthId = Guid.NewGuid(),
+                Username = "user@example.com",
+                PasswordHash = "hash",
+                Role = UserRoles.User,
+                AccountType = GieudexPol.Domain.Entities.AccountType.RegularUser
+            },
+            new UserEntity
+            {
+                AuthId = Guid.NewGuid(),
+                Username = "system_ecb",
+                PasswordHash = "system",
+                Role = "System",
+                AccountType = GieudexPol.Domain.Entities.AccountType.RateSourceSystem
+            });
+        await context.SaveChangesAsync();
+        var service = new AdminUserService(context);
+
+        var result = await service.GetUsersAsync();
+
+        result.Should().ContainSingle(item =>
+            item.Email == "user@example.com");
+    }
+
+    [Fact]
     public async Task CreateUserAsync_CreatesUserWithHashedPassword()
     {
         await using var context = CreateContext();

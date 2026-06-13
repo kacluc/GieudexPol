@@ -1,4 +1,5 @@
 using GieudexPol.Application.Auth.Services;
+using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using AuthUser = GieudexPol.Domain.Auth.User;
@@ -22,6 +23,12 @@ namespace GieudexPol.Infrastructure.Auth
                 .FirstOrDefaultAsync(user => user.Username == email);
 
             if (applicationUser == null)
+            {
+                return false;
+            }
+
+            if (applicationUser.AccountType is AccountType.RateSourceSystem or
+                AccountType.PlatformTreasury)
             {
                 return false;
             }

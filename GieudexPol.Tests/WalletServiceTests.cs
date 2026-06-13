@@ -12,8 +12,8 @@ namespace GieudexPol.Tests
     {
         private readonly Mock<IWalletRepository> _walletRepository = new();
         private readonly Mock<ICurrencyService> _currencyService = new();
-        private readonly Mock<IExchangeRateService> _exchangeRateService = new();
         private readonly Mock<ITransactionFeeCalculator> _transactionFeeCalculator = new();
+        private readonly Mock<IInstantExchangeService> _instantExchangeService = new();
         private readonly WalletService _walletService;
 
         public WalletServiceTests()
@@ -21,8 +21,8 @@ namespace GieudexPol.Tests
             _walletService = new WalletService(
                 _walletRepository.Object,
                 _currencyService.Object,
-                _exchangeRateService.Object,
-                _transactionFeeCalculator.Object);
+                _transactionFeeCalculator.Object,
+                _instantExchangeService.Object);
         }
 
         [Fact]
@@ -151,72 +151,53 @@ namespace GieudexPol.Tests
         public async Task ExecuteTradeTransactionAsync_ShouldUseLowestSellPriceAcrossSourcesWhenBuying()
         {
             var operationDate = DateTime.Today;
-            var pln = new Currency { Id = 1, Symbol = "PLN" };
-            var eur = new Currency { Id = 2, Symbol = "EUR" };
-            var nbp = new RateSource { Code = "NBP" };
-            var ecb = new RateSource { Code = "ECB" };
-            var wallets = new List<Wallet>
-            {
-                new Wallet { Id = 1, UserId = 1, CurrencyId = pln.Id, Currency = pln, Balance = 100m },
-                new Wallet { Id = 2, UserId = 1, CurrencyId = eur.Id, Currency = eur, Balance = 0m }
-            };
-            var rates = new List<ExchangeRate>
-            {
-                new ExchangeRate { CurrencyId = eur.Id, Currency = eur, RateSource = nbp, BuyPrice = 4.20m, SellPrice = 4.25m, EffectiveDate = operationDate },
-                new ExchangeRate { CurrencyId = eur.Id, Currency = eur, RateSource = ecb, BuyPrice = 4.18m, SellPrice = 4.20m, EffectiveDate = operationDate }
-            };
-            _walletRepository.Setup(repository => repository.GetUserWalletsAsync(1)).ReturnsAsync(wallets);
-            _exchangeRateService.Setup(service => service.GetTradingRateCandidatesAsync(
-                    It.IsAny<IReadOnlyCollection<int>>(),
-                    It.IsAny<DateTime>(),
-                    operationDate))
-                .ReturnsAsync(rates);
+            _instantExchangeService.Setup(service => service.ExecuteAsync(
+                    1,
+                    1,
+                    42m,
+                    2,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new TradeExecutionResultDto
+                {
+                    AmountTo = 10m,
+                    BuyRateSource = "ECB",
+                    SellRateSource = "ECB",
+                    EffectiveDate = operationDate
+                });
 
-            var result = await _walletService.ExecuteTradeTransactionAsync(1, pln.Id, 42m, eur.Id);
+            var result = await _walletService.ExecuteTradeTransactionAsync(1, 1, 42m, 2);
 
             result.AmountTo.Should().Be(10m);
             result.BuyRateSource.Should().Be("ECB");
-            result.SellRateSource.Should().Be("PLN");
+            result.SellRateSource.Should().Be("ECB");
             result.EffectiveDate.Should().Be(operationDate);
-            _walletRepository.Verify(repository => repository.ExecuteTradeAsync(
-                wallets[0],
-                42m,
-                wallets[1],
-                10m,
-                It.IsAny<Transaction>(),
-                It.IsAny<Transaction>()), Times.Once);
+            _instantExchangeService.Verify(service => service.ExecuteAsync(
+                1, 1, 42m, 2, It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]
         public async Task ExecuteTradeTransactionAsync_ShouldUseHighestBuyPriceOnPreviousPublicationDate()
         {
             var previousPublicationDate = DateTime.Today.AddDays(-1);
-            var pln = new Currency { Id = 1, Symbol = "PLN" };
-            var usd = new Currency { Id = 2, Symbol = "USD" };
-            var nbp = new RateSource { Code = "NBP" };
-            var boe = new RateSource { Code = "BOE" };
-            var wallets = new List<Wallet>
-            {
-                new Wallet { Id = 1, UserId = 1, CurrencyId = usd.Id, Currency = usd, Balance = 10m },
-                new Wallet { Id = 2, UserId = 1, CurrencyId = pln.Id, Currency = pln, Balance = 0m }
-            };
-            var rates = new List<ExchangeRate>
-            {
-                new ExchangeRate { CurrencyId = usd.Id, Currency = usd, RateSource = nbp, BuyPrice = 4.00m, SellPrice = 4.10m, EffectiveDate = previousPublicationDate },
-                new ExchangeRate { CurrencyId = usd.Id, Currency = usd, RateSource = boe, BuyPrice = 4.10m, SellPrice = 4.10m, EffectiveDate = previousPublicationDate }
-            };
-            _walletRepository.Setup(repository => repository.GetUserWalletsAsync(1)).ReturnsAsync(wallets);
-            _exchangeRateService.Setup(service => service.GetTradingRateCandidatesAsync(
-                    It.IsAny<IReadOnlyCollection<int>>(),
-                    It.IsAny<DateTime>(),
-                    DateTime.Today))
-                .ReturnsAsync(rates);
+            _instantExchangeService.Setup(service => service.ExecuteAsync(
+                    1,
+                    2,
+                    2m,
+                    1,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new TradeExecutionResultDto
+                {
+                    AmountTo = 8.20m,
+                    SellRateSource = "BOE",
+                    BuyRateSource = "BOE",
+                    EffectiveDate = previousPublicationDate
+                });
 
-            var result = await _walletService.ExecuteTradeTransactionAsync(1, usd.Id, 2m, pln.Id);
+            var result = await _walletService.ExecuteTradeTransactionAsync(1, 2, 2m, 1);
 
             result.AmountTo.Should().Be(8.20m);
             result.SellRateSource.Should().Be("BOE");
-            result.BuyRateSource.Should().Be("PLN");
+            result.BuyRateSource.Should().Be("BOE");
             result.EffectiveDate.Should().Be(previousPublicationDate);
         }
 

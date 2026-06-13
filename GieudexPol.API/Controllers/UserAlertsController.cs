@@ -1,5 +1,6 @@
 using GieudexPol.Application.DTOs;
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -42,7 +43,7 @@ namespace GieudexPol.API.Controllers
             }
 
             var userAlerts = await _userAlertService.GetUserAlertsByUserIdAsync(userId);
-            var userAlertDtos = userAlerts.Select(MapToDto);
+            var userAlertDtos = VisibleAlerts(userAlerts).Select(MapToDto);
             return Ok(userAlertDtos);
         }
 
@@ -56,13 +57,14 @@ namespace GieudexPol.API.Controllers
             }
 
             var userAlerts = await _userAlertService.GetUserAlertsByUserIdAsync(currentUser.Id);
-            return Ok(userAlerts.Select(MapToDto));
+            return Ok(VisibleAlerts(userAlerts).Select(MapToDto));
         }
 
         [HttpGet("rate-sources")]
         public async Task<ActionResult<IEnumerable<AlertRateSourceDto>>> GetRateSources()
         {
-            var sources = await _userAlertService.GetActiveRateSourcesAsync();
+            var sources = await _userAlertService.GetActiveRateSourcesAsync(
+                User.IsInRole(UserRoles.Admin));
             return Ok(sources.Select(source => new AlertRateSourceDto
             {
                 Id = source.Id,
@@ -95,7 +97,9 @@ namespace GieudexPol.API.Controllers
 
             try
             {
-                await _userAlertService.CreateUserAlertAsync(userAlert);
+                await _userAlertService.CreateUserAlertAsync(
+                    userAlert,
+                    User.IsInRole(UserRoles.Admin));
             }
             catch (ArgumentException exception)
             {
@@ -154,7 +158,9 @@ namespace GieudexPol.API.Controllers
 
             try
             {
-                await _userAlertService.UpdateUserAlertAsync(existingUserAlert);
+                await _userAlertService.UpdateUserAlertAsync(
+                    existingUserAlert,
+                    User.IsInRole(UserRoles.Admin));
             }
             catch (ArgumentException exception)
             {
@@ -224,6 +230,50 @@ namespace GieudexPol.API.Controllers
                     .Select(MapLog)
                     .ToList()
             };
+        }
+
+        private IEnumerable<UserAlert> VisibleAlerts(IEnumerable<UserAlert> alerts)
+        {
+            if (User.IsInRole(UserRoles.Admin))
+            {
+                return alerts;
+            }
+
+            var visibleAlerts = alerts.Where(alert =>
+                    alert.RateSource == null ||
+                    !IsTestRateSource(alert.RateSource.Code))
+                .ToList();
+            foreach (var alert in visibleAlerts)
+            {
+                alert.Logs = alert.Logs
+                    .Where(log => !ContainsTestRateSource(log.SourceSummary) &&
+                                  !ContainsTestRateSource(log.Message))
+                    .ToList();
+            }
+
+            return visibleAlerts;
+        }
+
+        private static bool IsTestRateSource(string code)
+        {
+            return string.Equals(
+                       code,
+                       DevelopmentIdentity.RateSourceCode,
+                       StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(
+                       code,
+                       DevelopmentIdentity.RateSourceCodeB,
+                       StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool ContainsTestRateSource(string? value)
+        {
+            return value?.Contains(
+                       DevelopmentIdentity.RateSourceCode,
+                       StringComparison.OrdinalIgnoreCase) == true ||
+                   value?.Contains(
+                       DevelopmentIdentity.RateSourceCodeB,
+                       StringComparison.OrdinalIgnoreCase) == true;
         }
 
         private static AlertLogDto MapLog(AlertLog log)

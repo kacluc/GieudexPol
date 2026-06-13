@@ -204,6 +204,45 @@ namespace GieudexPol.Tests
             _mockTransactionRepository.Verify(repo => repo.UpdateAsync(It.IsAny<Transaction>()), Times.Never);
         }
 
+        [Theory]
+        [InlineData(AccountType.RateSourceSystem)]
+        [InlineData(AccountType.PlatformTreasury)]
+        public async Task CreateTransfer_ToSystemAccount_IsRejected(AccountType accountType)
+        {
+            var sender = new User { Id = 1, Username = "sender@test.local" };
+            var receiver = new User
+            {
+                Id = 2,
+                Username = "system@test.local",
+                AccountType = accountType
+            };
+            _mockUserRepository.Setup(repo => repo.GetByIdAsync(sender.Id))
+                .ReturnsAsync(sender);
+            _mockUserRepository.Setup(repo => repo.GetByUsernameAsync(receiver.Username))
+                .ReturnsAsync(receiver);
+
+            var action = () => _transactionService.CreateTransfer(
+                sender.Id,
+                new TransferRequest
+                {
+                    ReceiverUsername = receiver.Username,
+                    CurrencyId = 1,
+                    Amount = 100m
+                });
+
+            await action.Should().ThrowAsync<ArgumentException>()
+                .WithMessage("*konta systemowego*");
+            _mockWalletRepository.Verify(
+                repository => repository.ExecuteTransferAsync(
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<int>(),
+                    It.IsAny<decimal>(),
+                    It.IsAny<decimal>(),
+                    It.IsAny<Transaction>()),
+                Times.Never);
+        }
+
         [Fact]
         public async Task GetUserTransactions_ShouldReturnPaginatedResult()
         {

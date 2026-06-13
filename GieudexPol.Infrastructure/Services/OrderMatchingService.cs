@@ -7,10 +7,17 @@ namespace GieudexPol.Infrastructure.Services
     public class OrderMatchingService : IOrderMatchingService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ITransactionFeeCalculator _feeCalculator;
+        private readonly ISystemAccountService _systemAccounts;
 
-        public OrderMatchingService(ApplicationDbContext context)
+        public OrderMatchingService(
+            ApplicationDbContext context,
+            ITransactionFeeCalculator feeCalculator,
+            ISystemAccountService systemAccounts)
         {
             _context = context;
+            _feeCalculator = feeCalculator;
+            _systemAccounts = systemAccounts;
         }
 
         public async Task<IReadOnlyList<TradeExecution>> MatchAsync(
@@ -111,22 +118,67 @@ namespace GieudexPol.Infrastructure.Services
                 pair.QuoteCurrencyId,
                 cancellationToken);
 
-            var buyReservationBefore = CalculateQuoteAmount(
-                buyOrder.RemainingAmount,
-                buyOrder.Price);
-            buyOrder.RemainingAmount -= amount;
-            sellOrder.RemainingAmount -= amount;
-            var buyReservationAfter = CalculateQuoteAmount(
-                buyOrder.RemainingAmount,
-                buyOrder.Price);
-            var releasedBuyReservation = buyReservationBefore - buyReservationAfter;
+            var buyReservationBefore = await CalculateRemainingBuyReservationAsync(
+                buyOrder,
+                pair.QuoteCurrencyId,
+                cancellationToken);
             var quoteAmount = CalculateQuoteAmount(amount, execution.Price);
+            var buyerFee = await CalculateIncrementalFeeAsync(
+                buyOrder,
+                quoteAmount,
+                pair.QuoteCurrencyId,
+                cancellationToken);
+            var sellerFee = await CalculateIncrementalFeeAsync(
+                sellOrder,
+                quoteAmount,
+                pair.QuoteCurrencyId,
+                cancellationToken);
+            var sellerProceeds = quoteAmount - sellerFee;
+            if (sellerProceeds <= 0)
+            {
+                throw new InvalidOperationException(
+                    "Wartosc wykonania jest zbyt niska, aby pokryc prowizje sprzedajacego.");
+            }
 
-            buyerQuoteWallet.Release(releasedBuyReservation);
-            buyerQuoteWallet.Debit(quoteAmount);
+            buyerQuoteWallet.DebitReserved(quoteAmount + buyerFee);
             sellerBaseWallet.DebitReserved(amount);
             buyerBaseWallet.Credit(amount);
-            sellerQuoteWallet.Credit(quoteAmount);
+            sellerQuoteWallet.Credit(sellerProceeds);
+
+            buyOrder.ExecutedQuoteAmount += quoteAmount;
+            sellOrder.ExecutedQuoteAmount += quoteAmount;
+            buyOrder.FeePaid += buyerFee;
+            sellOrder.FeePaid += sellerFee;
+            buyOrder.RemainingAmount -= amount;
+            sellOrder.RemainingAmount -= amount;
+
+            var desiredBuyReservation = await CalculateRemainingBuyReservationAsync(
+                buyOrder,
+                pair.QuoteCurrencyId,
+                cancellationToken);
+            var reservationAfterExecution =
+                buyReservationBefore - quoteAmount - buyerFee;
+            var excessReservation =
+                reservationAfterExecution - desiredBuyReservation;
+            if (excessReservation > 0)
+            {
+                buyerQuoteWallet.Release(excessReservation);
+            }
+
+            if (buyerFee + sellerFee > 0)
+            {
+                var treasury = await _systemAccounts.GetPlatformTreasuryAsync(
+                    cancellationToken);
+                var treasuryWallet = await _systemAccounts.GetOrCreateWalletAsync(
+                    treasury.Id,
+                    pair.QuoteCurrencyId,
+                    cancellationToken);
+                treasuryWallet.Credit(buyerFee + sellerFee);
+            }
+
+            execution.BuyerFee = buyerFee;
+            execution.SellerFee = sellerFee;
+            execution.FeeCurrencyId = pair.QuoteCurrencyId;
 
             UpdateStatus(buyOrder);
             UpdateStatus(sellOrder);
@@ -139,7 +191,7 @@ namespace GieudexPol.Infrastructure.Services
                     CurrencyId = pair.BaseCurrencyId,
                     TransactionType = "OrderBookBuy",
                     Amount = amount,
-                    AppliedFee = 0m,
+                    AppliedFee = buyerFee,
                     Status = "Completed",
                     Timestamp = execution.ExecutedAt,
                     TradeExecution = execution
@@ -151,11 +203,50 @@ namespace GieudexPol.Infrastructure.Services
                     CurrencyId = pair.QuoteCurrencyId,
                     TransactionType = "OrderBookSell",
                     Amount = quoteAmount,
-                    AppliedFee = 0m,
+                    AppliedFee = sellerFee,
                     Status = "Completed",
                     Timestamp = execution.ExecutedAt,
                     TradeExecution = execution
                 });
+        }
+
+        private async Task<decimal> CalculateIncrementalFeeAsync(
+            Order order,
+            decimal quoteAmount,
+            int quoteCurrencyId,
+            CancellationToken cancellationToken)
+        {
+            var cumulativeQuote = order.ExecutedQuoteAmount + quoteAmount;
+            var cumulativeFee = await _feeCalculator.CalculateAsync(
+                "OrderBook",
+                quoteCurrencyId,
+                cumulativeQuote,
+                cancellationToken);
+            return Math.Max(0m, cumulativeFee.FeeAmount - order.FeePaid);
+        }
+
+        private async Task<decimal> CalculateRemainingBuyReservationAsync(
+            Order buyOrder,
+            int quoteCurrencyId,
+            CancellationToken cancellationToken)
+        {
+            if (buyOrder.RemainingAmount <= 0)
+            {
+                return 0m;
+            }
+
+            var remainingQuote = CalculateQuoteAmount(
+                buyOrder.RemainingAmount,
+                buyOrder.Price);
+            var projectedQuote = buyOrder.ExecutedQuoteAmount + remainingQuote;
+            var projectedFee = await _feeCalculator.CalculateAsync(
+                "OrderBook",
+                quoteCurrencyId,
+                projectedQuote,
+                cancellationToken);
+            return remainingQuote + Math.Max(
+                0m,
+                projectedFee.FeeAmount - buyOrder.FeePaid);
         }
 
         private async Task<Wallet> GetWalletAsync(

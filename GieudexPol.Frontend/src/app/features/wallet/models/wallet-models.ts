@@ -36,6 +36,11 @@ export interface TradeResponse {
   toRateToPln?: number;
   sellRateSource?: string;
   buyRateSource?: string;
+  rateSource?: string;
+  appliedRate?: number;
+  feeAmount?: number;
+  feeCurrency?: string;
+  exchangeExecutionId?: number;
   effectiveDate?: string;
   newBalance?: WalletBalance;
 }
@@ -48,4 +53,27 @@ export interface DepositRequest {
 export interface WithdrawRequest {
   currencyId: number;
   amount: number;
+}
+
+export interface ExchangePreviewRequest {
+  fromCurrencyId: number;
+  toCurrencyId: number;
+  amount: number;
+}
+
+export interface ExchangePreviewResult {
+  fromCurrencyCode: string;
+  toCurrencyCode: string;
+  inputAmount: number;
+  estimatedOutputAmount: number;
+  rate: number;
+  feeAmount: number;
+  feeCurrencyCode: string;
+  totalDebitAmount: number;
+  rateDate: string;
+  rateSourceCode?: string;
+  rateSourceName?: string;
+  hasSufficientFunds: boolean;
+  isPreview: boolean;
+  message: string;
 }

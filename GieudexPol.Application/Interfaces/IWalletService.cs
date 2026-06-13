@@ -14,6 +14,12 @@ namespace GieudexPol.Application.Interfaces
             decimal amountFrom,
             int toCurrencyId,
             CancellationToken cancellationToken = default);
+        Task<ExchangePreviewResultDto> PreviewTradeAsync(
+            int userId,
+            int fromCurrencyId,
+            decimal amountFrom,
+            int toCurrencyId,
+            CancellationToken cancellationToken = default);
         Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId);
         Task<IEnumerable<Currency>> GetAvailableWalletCurrenciesAsync(int userId, CancellationToken cancellationToken = default);
         Task<Wallet> AddCurrencyWalletAsync(int userId, int currencyId, CancellationToken cancellationToken = default);

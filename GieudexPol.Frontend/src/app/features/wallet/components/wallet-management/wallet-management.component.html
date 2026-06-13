@@ -184,4 +184,116 @@
       Przejdź do transferów między użytkownikami
     </button>
   </div>
+
+  <section class="exchange-simulator">
+    <div class="simulator-heading">
+      <div>
+        <p class="simulator-eyebrow">Podgląd bez transakcji</p>
+        <h3>Symulator wymiany</h3>
+        <p>
+          Sprawdź orientacyjnie, ile otrzymasz po kursie z aktualnych źródeł i po
+          naliczeniu prowizji. Symulacja nie wykonuje transakcji.
+        </p>
+      </div>
+    </div>
+
+    <form class="simulator-form" (ngSubmit)="calculateExchangePreview()">
+      <label>
+        <span>Z waluty</span>
+        <select
+          [(ngModel)]="simulatorFromCurrency"
+          name="simulatorFromCurrency"
+          required
+        >
+          @for (currency of simulatorCurrencies; track currency.id) {
+            <option [value]="currency.symbol">
+              {{ currency.symbol }} - {{ currency.name }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Na walutę</span>
+        <select
+          [(ngModel)]="simulatorToCurrency"
+          name="simulatorToCurrency"
+          required
+        >
+          @for (currency of simulatorCurrencies; track currency.id) {
+            <option [value]="currency.symbol">
+              {{ currency.symbol }} - {{ currency.name }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Kwota</span>
+        <input
+          type="number"
+          [(ngModel)]="simulatorAmount"
+          name="simulatorAmount"
+          min="0.01"
+          step="any"
+          required
+        >
+      </label>
+
+      <button
+        type="submit"
+        [disabled]="simulatorLoading || simulatorCurrencies.length < 2"
+      >
+        {{ simulatorLoading ? 'Obliczanie...' : 'Oblicz' }}
+      </button>
+    </form>
+
+    @if (simulatorError) {
+      <div class="simulator-message error" role="alert">
+        {{ simulatorError }}
+      </div>
+    }
+
+    @if (simulatorResult; as result) {
+      <div class="simulator-result" role="status">
+        <div class="result-main">
+          <span>Otrzymasz około</span>
+          <strong>
+            {{ result.estimatedOutputAmount | number:'1.2-4' }}
+            {{ result.toCurrencyCode }}
+          </strong>
+        </div>
+        <dl>
+          <div>
+            <dt>Kurs</dt>
+            <dd>1 {{ result.fromCurrencyCode }} = {{ result.rate | number:'1.4-8' }} {{ result.toCurrencyCode }}</dd>
+          </div>
+          <div>
+            <dt>Prowizja</dt>
+            <dd>{{ result.feeAmount | number:'1.2-4' }} {{ result.feeCurrencyCode }}</dd>
+          </div>
+          <div>
+            <dt>Razem pobrane</dt>
+            <dd>{{ result.totalDebitAmount | number:'1.2-4' }} {{ result.fromCurrencyCode }}</dd>
+          </div>
+          <div>
+            <dt>Data kursu</dt>
+            <dd>{{ result.rateDate | date:'dd.MM.yyyy' }}</dd>
+          </div>
+        </dl>
+
+        @if (!result.hasSufficientFunds) {
+          <p class="funds-warning">
+            Aktualnie nie masz wystarczających dostępnych środków do wykonania
+            takiej wymiany.
+          </p>
+        }
+
+        <p class="preview-note">
+          To tylko symulacja. Nie zmienia sald, nie rezerwuje środków i nie
+          zapisuje transakcji.
+        </p>
+      </div>
+    }
+  </section>
 </div>

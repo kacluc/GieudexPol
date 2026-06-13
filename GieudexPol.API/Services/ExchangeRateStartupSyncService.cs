@@ -75,6 +75,10 @@ namespace GieudexPol.API.Services
                         today,
                         cancellationToken);
                 }
+
+                await DevelopmentDataSeeder.SeedSystemAccountsAsync(
+                    scope.ServiceProvider,
+                    initializeLiquidity: _environment.IsDevelopment());
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

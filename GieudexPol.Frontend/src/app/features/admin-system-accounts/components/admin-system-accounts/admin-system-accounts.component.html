@@ -1,0 +1,99 @@
+<main class="admin-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Panel administratora</p>
+      <h1>Konta systemowe i skarbiec</h1>
+      <p>Podgląd płynności źródeł kursów oraz prowizji zgromadzonych przez platformę.</p>
+    </div>
+    <a routerLink="/admin/users" class="secondary-link">Wróć do panelu</a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="message error" role="alert">{{ errorMessage }}</div>
+  }
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span>Konta źródeł</span>
+      <strong>{{ rateSourceAccountsCount }}</strong>
+    </article>
+    <article class="summary-card">
+      <span>Skarbiec platformy</span>
+      <strong>{{ treasury ? 'Aktywny' : 'Brak' }}</strong>
+    </article>
+    <article class="summary-card">
+      <span>Portfele wybranego konta</span>
+      <strong>{{ selectedAccount?.wallets?.length ?? 0 }}</strong>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <div>
+        <h2>Wybierz konto</h2>
+        <span>Konta techniczne nie mają możliwości logowania.</span>
+      </div>
+      <button type="button" (click)="loadAccounts()" [disabled]="loading">
+        {{ loading ? 'Odświeżanie...' : 'Odśwież' }}
+      </button>
+    </div>
+
+    <label class="account-select">
+      <span>Konto systemowe</span>
+      <select [(ngModel)]="selectedUserId">
+        @for (account of accounts; track account.userId) {
+          <option [ngValue]="account.userId">{{ accountLabel(account) }}</option>
+        }
+      </select>
+    </label>
+  </section>
+
+  @if (selectedAccount; as account) {
+    <section class="panel">
+      <div class="account-header">
+        <div>
+          <span class="account-kind">{{ accountTypeLabel(account) }}</span>
+          <h2>{{ accountLabel(account) }}</h2>
+          <p>{{ account.username }}</p>
+        </div>
+        @if (account.rateSourceIsActive !== null && account.rateSourceIsActive !== undefined) {
+          <span class="status" [class.inactive]="!account.rateSourceIsActive">
+            {{ account.rateSourceIsActive ? 'Źródło aktywne' : 'Źródło nieaktywne' }}
+          </span>
+        }
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Waluta</th>
+              <th>Saldo</th>
+              <th>Zarezerwowane</th>
+              <th>Dostępne</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (wallet of account.wallets; track wallet.currencyId) {
+              <tr>
+                <td>
+                  <strong>{{ wallet.currencyCode }}</strong>
+                  <span class="currency-name">{{ wallet.currencyName }}</span>
+                </td>
+                <td>{{ wallet.balance | number:'1.2-4' }}</td>
+                <td>{{ wallet.reservedBalance | number:'1.2-4' }}</td>
+                <td class="available">{{ wallet.availableBalance | number:'1.2-4' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4" class="empty">To konto nie ma jeszcze portfeli.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  } @else if (!loading) {
+    <section class="panel empty">Nie znaleziono kont systemowych.</section>
+  }
+</main>

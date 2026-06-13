@@ -13,15 +13,18 @@ namespace GieudexPol.Infrastructure.Services
         private readonly IOrderMatchingService _matchingService;
         private readonly ITradingAlertEvaluationService? _tradingAlertEvaluationService;
         private readonly ILogger<OrderBookService>? _logger;
+        private readonly ITransactionFeeCalculator _feeCalculator;
 
         public OrderBookService(
             ApplicationDbContext context,
             IOrderMatchingService matchingService,
+            ITransactionFeeCalculator feeCalculator,
             ITradingAlertEvaluationService? tradingAlertEvaluationService = null,
             ILogger<OrderBookService>? logger = null)
         {
             _context = context;
             _matchingService = matchingService;
+            _feeCalculator = feeCalculator;
             _tradingAlertEvaluationService = tradingAlertEvaluationService;
             _logger = logger;
         }
@@ -61,6 +64,37 @@ namespace GieudexPol.Infrastructure.Services
             }
 
             return result;
+        }
+
+        public async Task<OrderDto> PlaceRateSourceOrderAsync(
+            string rateSourceCode,
+            CreateOrderRequestDto request,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(rateSourceCode))
+            {
+                throw new ArgumentException("Kod zrodla kursu jest wymagany.");
+            }
+
+            var source = await _context.RateSources
+                .Include(item => item.SystemUser)
+                .SingleOrDefaultAsync(item =>
+                    item.Code == rateSourceCode.Trim().ToUpper() &&
+                    item.IsActive,
+                    cancellationToken)
+                ?? throw new KeyNotFoundException("Aktywne zrodlo kursu nie istnieje.");
+
+            if (!source.SystemUserId.HasValue ||
+                source.SystemUser?.AccountType != AccountType.RateSourceSystem)
+            {
+                throw new InvalidOperationException(
+                    "Zrodlo kursu nie ma skonfigurowanego konta systemowego.");
+            }
+
+            return await PlaceOrderAsync(
+                source.SystemUserId.Value,
+                request,
+                cancellationToken);
         }
 
         public async Task<IReadOnlyList<OrderDto>> GetMyOrdersAsync(
@@ -110,7 +144,9 @@ namespace GieudexPol.Infrastructure.Services
                         item => item.UserId == userId && item.CurrencyId == currencyId,
                         cancellationToken);
                     var reservedAmount = order.Side == OrderSide.Buy
-                        ? CalculateQuoteAmount(order.RemainingAmount, order.Price)
+                        ? await CalculateRemainingBuyReservationAsync(
+                            order,
+                            cancellationToken)
                         : order.RemainingAmount;
 
                     wallet.Release(reservedAmount);
@@ -208,7 +244,11 @@ namespace GieudexPol.Infrastructure.Services
                 ? pair.QuoteCurrencyId
                 : pair.BaseCurrencyId;
             var reservedAmount = request.Side == OrderSide.Buy
-                ? CalculateQuoteAmount(request.Amount, request.Price)
+                ? await CalculateInitialBuyReservationAsync(
+                    request.Amount,
+                    request.Price,
+                    pair.QuoteCurrencyId,
+                    cancellationToken)
                 : request.Amount;
             var wallet = await _context.Wallets.SingleOrDefaultAsync(
                 item => item.UserId == userId && item.CurrencyId == reservedCurrencyId,
@@ -361,6 +401,44 @@ namespace GieudexPol.Infrastructure.Services
         private static decimal CalculateQuoteAmount(decimal amount, decimal price)
         {
             return decimal.Round(amount * price, 4, MidpointRounding.AwayFromZero);
+        }
+
+        private async Task<decimal> CalculateInitialBuyReservationAsync(
+            decimal amount,
+            decimal price,
+            int quoteCurrencyId,
+            CancellationToken cancellationToken)
+        {
+            var quoteAmount = CalculateQuoteAmount(amount, price);
+            var fee = await _feeCalculator.CalculateAsync(
+                "OrderBook",
+                quoteCurrencyId,
+                quoteAmount,
+                cancellationToken);
+            return quoteAmount + fee.FeeAmount;
+        }
+
+        private async Task<decimal> CalculateRemainingBuyReservationAsync(
+            Order order,
+            CancellationToken cancellationToken)
+        {
+            if (order.RemainingAmount <= 0)
+            {
+                return 0m;
+            }
+
+            var remainingQuote = CalculateQuoteAmount(
+                order.RemainingAmount,
+                order.Price);
+            var projectedQuote = order.ExecutedQuoteAmount + remainingQuote;
+            var projectedFee = await _feeCalculator.CalculateAsync(
+                "OrderBook",
+                order.TradingPair.QuoteCurrencyId,
+                projectedQuote,
+                cancellationToken);
+            return remainingQuote + Math.Max(
+                0m,
+                projectedFee.FeeAmount - order.FeePaid);
         }
 
         private static string FormatPair(TradingPair pair)

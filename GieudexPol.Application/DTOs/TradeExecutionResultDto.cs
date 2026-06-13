@@ -10,5 +10,10 @@ namespace GieudexPol.Application.DTOs
         public string SellRateSource { get; set; } = string.Empty;
         public string BuyRateSource { get; set; } = string.Empty;
         public DateTime EffectiveDate { get; set; }
+        public string RateSource { get; set; } = string.Empty;
+        public decimal AppliedRate { get; set; }
+        public decimal FeeAmount { get; set; }
+        public string FeeCurrency { get; set; } = string.Empty;
+        public int? ExchangeExecutionId { get; set; }
     }
 }

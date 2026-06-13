@@ -9,19 +9,19 @@ namespace GieudexPol.Application.Services
     {
         private readonly IWalletRepository _walletRepository;
         private readonly ICurrencyService _currencyService;
-        private readonly IExchangeRateService _exchangeRateService;
         private readonly ITransactionFeeCalculator _transactionFeeCalculator;
+        private readonly IInstantExchangeService _instantExchangeService;
 
         public WalletService(
             IWalletRepository walletRepository,
             ICurrencyService currencyService,
-            IExchangeRateService exchangeRateService,
-            ITransactionFeeCalculator transactionFeeCalculator)
+            ITransactionFeeCalculator transactionFeeCalculator,
+            IInstantExchangeService instantExchangeService)
         {
             _walletRepository = walletRepository;
             _currencyService = currencyService;
-            _exchangeRateService = exchangeRateService;
             _transactionFeeCalculator = transactionFeeCalculator;
+            _instantExchangeService = instantExchangeService;
         }
 
         public async Task<IEnumerable<Wallet>> GetAvailableBalancesAsync(int userId)
@@ -29,88 +29,34 @@ namespace GieudexPol.Application.Services
             return await _walletRepository.GetUserWalletsAsync(userId);
         }
 
-        public async Task<TradeExecutionResultDto> ExecuteTradeTransactionAsync(
+        public Task<TradeExecutionResultDto> ExecuteTradeTransactionAsync(
             int userId,
             int fromCurrencyId,
             decimal amountFrom,
             int toCurrencyId,
             CancellationToken cancellationToken = default)
         {
-            if (amountFrom <= 0)
-            {
-                throw new ArgumentException("Kwota wymiany musi byc wieksza od zera.", nameof(amountFrom));
-            }
-
-            if (fromCurrencyId == toCurrencyId)
-            {
-                throw new InvalidOperationException("Waluta zrodlowa i docelowa musza byc rozne.");
-            }
-
-            var userWallets = (await _walletRepository.GetUserWalletsAsync(userId)).ToList();
-            var fromWallet = userWallets.FirstOrDefault(wallet => wallet.CurrencyId == fromCurrencyId)
-                ?? throw new InvalidOperationException($"Uzytkownik nie posiada portfela dla waluty o ID {fromCurrencyId}.");
-            var toWallet = userWallets.FirstOrDefault(wallet => wallet.CurrencyId == toCurrencyId)
-                ?? throw new InvalidOperationException($"Uzytkownik nie posiada portfela dla waluty o ID {toCurrencyId}.");
-
-            EnsureTradingCurrencyIsAllowed(fromWallet.Currency.Symbol);
-            EnsureTradingCurrencyIsAllowed(toWallet.Currency.Symbol);
-
-            var operationDate = DateTime.Today;
-            var requiredCurrencyIds = new[] { fromWallet, toWallet }
-                .Where(wallet => !string.Equals(wallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase))
-                .Select(wallet => wallet.CurrencyId)
-                .Distinct()
-                .ToArray();
-
-            var rates = await GetRatesForTradeAsync(requiredCurrencyIds, operationDate);
-            var calculation = CalculateTargetAmount(fromWallet, toWallet, amountFrom, rates);
-            var amountTo = calculation.AmountTo;
-            var effectiveDate = rates.Count == 0 ? operationDate : rates[0].EffectiveDate.Date;
-            var transactionTime = DateTime.UtcNow;
-
-            var sellTransaction = new Transaction
-            {
-                SenderId = userId,
-                ReceiverId = userId,
-                CurrencyId = fromCurrencyId,
-                TransactionType = "Sell",
-                Amount = amountFrom,
-                AppliedFee = 0,
-                Status = "Completed",
-                Timestamp = transactionTime
-            };
-
-            var buyTransaction = new Transaction
-            {
-                SenderId = userId,
-                ReceiverId = userId,
-                CurrencyId = toCurrencyId,
-                TransactionType = "Buy",
-                Amount = amountTo,
-                AppliedFee = 0,
-                Status = "Completed",
-                Timestamp = transactionTime
-            };
-
-            await _walletRepository.ExecuteTradeAsync(
-                fromWallet,
+            return _instantExchangeService.ExecuteAsync(
+                userId,
+                fromCurrencyId,
                 amountFrom,
-                toWallet,
-                amountTo,
-                sellTransaction,
-                buyTransaction);
+                toCurrencyId,
+                cancellationToken);
+        }
 
-            return new TradeExecutionResultDto
-            {
-                AmountTo = amountTo,
-                FromCurrency = fromWallet.Currency.Symbol,
-                ToCurrency = toWallet.Currency.Symbol,
-                FromRateToPln = calculation.FromRateToPln,
-                ToRateToPln = calculation.ToRateToPln,
-                SellRateSource = calculation.SellRate?.RateSource.Code ?? TradingCurrencyCatalog.BaseCurrencySymbol,
-                BuyRateSource = calculation.BuyRate?.RateSource.Code ?? TradingCurrencyCatalog.BaseCurrencySymbol,
-                EffectiveDate = effectiveDate
-            };
+        public Task<ExchangePreviewResultDto> PreviewTradeAsync(
+            int userId,
+            int fromCurrencyId,
+            decimal amountFrom,
+            int toCurrencyId,
+            CancellationToken cancellationToken = default)
+        {
+            return _instantExchangeService.PreviewAsync(
+                userId,
+                fromCurrencyId,
+                amountFrom,
+                toCurrencyId,
+                cancellationToken);
         }
 
         public async Task<IEnumerable<Wallet>> GetUserWalletsAsync(int userId)
@@ -239,75 +185,6 @@ namespace GieudexPol.Application.Services
                     fee.TransactionFeeId));
         }
 
-        private async Task<IReadOnlyList<ExchangeRate>> GetRatesForTradeAsync(
-            IReadOnlyCollection<int> requiredCurrencyIds,
-            DateTime operationDate)
-        {
-            if (requiredCurrencyIds.Count == 0)
-            {
-                return Array.Empty<ExchangeRate>();
-            }
-
-            var oldestAcceptedDate = operationDate.AddDays(-14).Date;
-            var rates = await _exchangeRateService.GetTradingRateCandidatesAsync(
-                requiredCurrencyIds,
-                oldestAcceptedDate,
-                operationDate);
-
-            if (requiredCurrencyIds.Any(currencyId => rates.All(rate => rate.CurrencyId != currencyId)))
-            {
-                throw new InvalidOperationException("Nie znaleziono lokalnego aktualnego wspolnego dnia kursowego dla wybranych walut. Odswiez kursy walut lub uruchom synchronizacje.");
-            }
-
-            return rates;
-        }
-
-        private static void EnsureTradingCurrencyIsAllowed(string currencySymbol)
-        {
-            if (!string.Equals(
-                    currencySymbol,
-                    TradingCurrencyCatalog.BaseCurrencySymbol,
-                    StringComparison.OrdinalIgnoreCase) &&
-                !TradingCurrencyCatalog.Contains(currencySymbol))
-            {
-                throw new InvalidOperationException("Wybrana waluta nie jest dostepna na wykresach kursow.");
-            }
-        }
-
-        private static TradeCalculation CalculateTargetAmount(
-            Wallet fromWallet,
-            Wallet toWallet,
-            decimal amountFrom,
-            IReadOnlyList<ExchangeRate> rates)
-        {
-            var sellRate = string.Equals(fromWallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : rates
-                    .Where(rate => rate.CurrencyId == fromWallet.CurrencyId)
-                    .OrderByDescending(rate => rate.BuyPrice)
-                    .ThenBy(rate => rate.RateSource.Code)
-                    .First();
-            var buyRate = string.Equals(toWallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : rates
-                    .Where(rate => rate.CurrencyId == toWallet.CurrencyId)
-                    .OrderBy(rate => rate.SellPrice)
-                    .ThenBy(rate => rate.RateSource.Code)
-                    .First();
-            var fromRate = string.Equals(fromWallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase)
-                ? 1m
-                : sellRate!.BuyPrice;
-            var toRate = string.Equals(toWallet.Currency.Symbol, TradingCurrencyCatalog.BaseCurrencySymbol, StringComparison.OrdinalIgnoreCase)
-                ? 1m
-                : buyRate!.SellPrice;
-
-            return new TradeCalculation(
-                Math.Round(amountFrom * fromRate / toRate, 2, MidpointRounding.AwayFromZero),
-                fromRate,
-                toRate,
-                sellRate,
-                buyRate);
-        }
 
         private static Transaction CreateBalanceTransaction(
             int userId,
@@ -331,11 +208,5 @@ namespace GieudexPol.Application.Services
             };
         }
 
-        private sealed record TradeCalculation(
-            decimal AmountTo,
-            decimal FromRateToPln,
-            decimal ToRateToPln,
-            ExchangeRate? SellRate,
-            ExchangeRate? BuyRate);
     }
 }

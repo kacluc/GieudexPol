@@ -54,8 +54,10 @@ public class UserAlertsControllerTests
         var alertService = new Mock<IUserAlertService>();
         var userRepository = CreateUserRepository(userId: 3);
         alertService
-            .Setup(service => service.CreateUserAlertAsync(It.IsAny<UserAlert>()))
-            .Callback<UserAlert>(alert => alert.Id = 12)
+            .Setup(service => service.CreateUserAlertAsync(
+                It.IsAny<UserAlert>(),
+                false))
+            .Callback<UserAlert, bool>((alert, _) => alert.Id = 12)
             .Returns(Task.CompletedTask);
         var controller = CreateController(alertService.Object, userRepository.Object);
         var request = new UserAlertCreateDto
@@ -78,8 +80,113 @@ public class UserAlertsControllerTests
                 alert.UserId == 3 &&
                 alert.CurrencyId == 2 &&
                 alert.AlertType == AlertType.PriceIncrease &&
-                alert.PriceSide == AlertPriceSide.UserBuysCurrency)),
+                alert.PriceSide == AlertPriceSide.UserBuysCurrency),
+            false),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task GetRateSources_UserDoesNotReceiveMockBanks()
+    {
+        var alertService = new Mock<IUserAlertService>();
+        alertService
+            .Setup(service => service.GetActiveRateSourcesAsync(false))
+            .ReturnsAsync([
+                new RateSource { Id = 1, Code = "NBP", Name = "NBP" }
+            ]);
+        var controller = CreateController(
+            alertService.Object,
+            CreateUserRepository(userId: 3).Object);
+
+        var result = await controller.GetRateSources();
+
+        var response = result.Result.Should().BeOfType<OkObjectResult>().Subject
+            .Value.Should().BeAssignableTo<IEnumerable<AlertRateSourceDto>>().Subject;
+        response.Should().ContainSingle(source => source.Code == "NBP");
+        alertService.Verify(service => service.GetActiveRateSourcesAsync(false), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetRateSources_AdminReceivesTestSources()
+    {
+        var alertService = new Mock<IUserAlertService>();
+        alertService
+            .Setup(service => service.GetActiveRateSourcesAsync(true))
+            .ReturnsAsync([
+                new RateSource { Id = 1, Code = "MOCK_BANK_A", Name = "Mock A" }
+            ]);
+        var controller = CreateController(
+            alertService.Object,
+            CreateUserRepository(userId: 3).Object,
+            role: UserRoles.Admin);
+
+        var result = await controller.GetRateSources();
+
+        var response = result.Result.Should().BeOfType<OkObjectResult>().Subject
+            .Value.Should().BeAssignableTo<IEnumerable<AlertRateSourceDto>>().Subject;
+        response.Should().ContainSingle(source => source.Code == "MOCK_BANK_A");
+        alertService.Verify(service => service.GetActiveRateSourcesAsync(true), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetMyAlerts_UserDoesNotReceiveMockAlertOrMockLogs()
+    {
+        var alertService = new Mock<IUserAlertService>();
+        var mockSource = new RateSource
+        {
+            Id = 2,
+            Code = "MOCK_BANK_A",
+            Name = "Mock A"
+        };
+        alertService
+            .Setup(service => service.GetUserAlertsByUserIdAsync(3))
+            .ReturnsAsync([
+                new UserAlert
+                {
+                    Id = 1,
+                    UserId = 3,
+                    CurrencyId = 1,
+                    Currency = new Currency { Id = 1, Symbol = "EUR" },
+                    RateSourceId = mockSource.Id,
+                    RateSource = mockSource,
+                    Status = AlertStatus.Active
+                },
+                new UserAlert
+                {
+                    Id = 2,
+                    UserId = 3,
+                    CurrencyId = 1,
+                    Currency = new Currency { Id = 1, Symbol = "EUR" },
+                    Status = AlertStatus.Fulfilled,
+                    Logs =
+                    [
+                        new AlertLog
+                        {
+                            Id = 1,
+                            Message = "Warunek spelniony wedlug MOCK_BANK_B.",
+                            SourceSummary = "MOCK_BANK_B"
+                        },
+                        new AlertLog
+                        {
+                            Id = 2,
+                            Message = "Warunek spelniony wedlug NBP.",
+                            SourceSummary = "NBP"
+                        }
+                    ]
+                }
+            ]);
+        var controller = CreateController(
+            alertService.Object,
+            CreateUserRepository(userId: 3).Object);
+
+        var result = await controller.GetMyAlerts();
+
+        var response = result.Result.Should().BeOfType<OkObjectResult>().Subject
+            .Value.Should().BeAssignableTo<IEnumerable<UserAlertDto>>().Subject
+            .ToList();
+        response.Should().ContainSingle(alert => alert.Id == 2);
+        response.Single().Logs.Should().ContainSingle(log =>
+            log.SourceSummary == "NBP");
     }
 
     [Fact]
@@ -130,11 +237,18 @@ public class UserAlertsControllerTests
     private static UserAlertsController CreateController(
         IUserAlertService alertService,
         IUserRepository userRepository,
-        string? subject = null)
+        string? subject = null,
+        string? role = null)
     {
-        var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, subject ?? AuthId.ToString())],
-            "TestAuthentication");
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, subject ?? AuthId.ToString())
+        };
+        if (role != null)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
+        var identity = new ClaimsIdentity(claims, "TestAuthentication");
 
         return new UserAlertsController(alertService, userRepository)
         {

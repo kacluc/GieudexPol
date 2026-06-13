@@ -37,7 +37,10 @@
               <td>{{ transaction.amount | number:'1.2-4' }}</td>
               <td>{{ transaction.currencySymbol || ('#' + transaction.currencyId) }}</td>
               <td>{{ executionDetails(transaction) }}</td>
-              <td>{{ transaction.appliedFee | number:'1.2-4' }}</td>
+              <td>
+                {{ transaction.appliedFee | number:'1.2-4' }}
+                {{ transaction.feeCurrency || transaction.currencySymbol }}
+              </td>
             </tr>
           }
         </tbody>

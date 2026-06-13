@@ -32,6 +32,8 @@ namespace GieudexPol.Domain.Entities
         public decimal Price { get; set; }
         public decimal OriginalAmount { get; set; }
         public decimal RemainingAmount { get; set; }
+        public decimal ExecutedQuoteAmount { get; set; }
+        public decimal FeePaid { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? ClosedAt { get; set; }
         public ICollection<TradeExecution> BuyExecutions { get; set; } = new List<TradeExecution>();

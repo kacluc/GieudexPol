@@ -25,6 +25,7 @@ namespace GieudexPol.Infrastructure
         public DbSet<TradingPair> TradingPairs { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<TradeExecution> TradeExecutions { get; set; }
+        public DbSet<ExchangeExecution> ExchangeExecutions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -47,6 +48,9 @@ namespace GieudexPol.Infrastructure
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Username)
                 .IsUnique();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.AccountType);
 
             modelBuilder.Entity<User>()
                 .HasMany(u => u.Wallets)
@@ -132,6 +136,14 @@ namespace GieudexPol.Infrastructure
                 .HasPrecision(18, 4);
 
             modelBuilder.Entity<Order>()
+                .Property(order => order.ExecutedQuoteAmount)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<Order>()
+                .Property(order => order.FeePaid)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<Order>()
                 .HasIndex(order => new
                 {
                     order.TradingPairId,
@@ -160,11 +172,25 @@ namespace GieudexPol.Infrastructure
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<TradeExecution>()
+                .HasOne(execution => execution.FeeCurrency)
+                .WithMany()
+                .HasForeignKey(execution => execution.FeeCurrencyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TradeExecution>()
                 .Property(execution => execution.Price)
                 .HasPrecision(18, 4);
 
             modelBuilder.Entity<TradeExecution>()
                 .Property(execution => execution.Amount)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<TradeExecution>()
+                .Property(execution => execution.BuyerFee)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<TradeExecution>()
+                .Property(execution => execution.SellerFee)
                 .HasPrecision(18, 4);
 
             modelBuilder.Entity<Transaction>()
@@ -193,6 +219,12 @@ namespace GieudexPol.Infrastructure
                 .HasOne(t => t.TradeExecution)
                 .WithMany(execution => execution.Transactions)
                 .HasForeignKey(t => t.TradeExecutionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Transaction>()
+                .HasOne(t => t.ExchangeExecution)
+                .WithMany(execution => execution.Transactions)
+                .HasForeignKey(t => t.ExchangeExecutionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Transaction>()
@@ -329,6 +361,63 @@ namespace GieudexPol.Infrastructure
             modelBuilder.Entity<RateSource>()
                 .HasIndex(rs => rs.Code)
                 .IsUnique();
+
+            modelBuilder.Entity<RateSource>()
+                .HasOne(source => source.SystemUser)
+                .WithMany()
+                .HasForeignKey(source => source.SystemUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<RateSource>()
+                .HasIndex(source => source.SystemUserId)
+                .IsUnique()
+                .HasFilter("[SystemUserId] IS NOT NULL");
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .HasOne(execution => execution.User)
+                .WithMany(user => user.ExchangeExecutions)
+                .HasForeignKey(execution => execution.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .HasOne(execution => execution.RateSource)
+                .WithMany(source => source.ExchangeExecutions)
+                .HasForeignKey(execution => execution.RateSourceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .HasOne(execution => execution.FromCurrency)
+                .WithMany()
+                .HasForeignKey(execution => execution.FromCurrencyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .HasOne(execution => execution.ToCurrency)
+                .WithMany()
+                .HasForeignKey(execution => execution.ToCurrencyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .HasOne(execution => execution.FeeCurrency)
+                .WithMany()
+                .HasForeignKey(execution => execution.FeeCurrencyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .Property(execution => execution.FromAmount)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .Property(execution => execution.ToAmount)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .Property(execution => execution.Rate)
+                .HasPrecision(18, 8);
+
+            modelBuilder.Entity<ExchangeExecution>()
+                .Property(execution => execution.FeeAmount)
+                .HasPrecision(18, 4);
 
             modelBuilder.Entity<FavoriteCurrency>()
                 .HasIndex(fc => fc.CurrencyCode)

@@ -1,4 +1,5 @@
 using GieudexPol.Application.Interfaces;
+using GieudexPol.Domain;
 using GieudexPol.Domain.Entities;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -53,12 +54,28 @@ namespace GieudexPol.Application.Services
 
         public async Task<IReadOnlyList<RateSource>> GetActiveRateSourcesAsync()
         {
-            return await _rateSourceRepository.GetActiveAsync();
+            return await GetActiveRateSourcesAsync(includeTestSources: false);
+        }
+
+        public async Task<IReadOnlyList<RateSource>> GetActiveRateSourcesAsync(
+            bool includeTestSources)
+        {
+            var sources = await _rateSourceRepository.GetActiveAsync();
+            return includeTestSources
+                ? sources
+                : sources.Where(source => !IsTestRateSource(source.Code)).ToList();
         }
 
         public async Task CreateUserAlertAsync(UserAlert userAlert)
         {
-            await ValidateAsync(userAlert);
+            await CreateUserAlertAsync(userAlert, allowTestRateSources: false);
+        }
+
+        public async Task CreateUserAlertAsync(
+            UserAlert userAlert,
+            bool allowTestRateSources)
+        {
+            await ValidateAsync(userAlert, allowTestRateSources);
             userAlert.CreatedDate = System.DateTime.UtcNow;
             userAlert.Status = AlertStatus.Active;
             await _userAlertRepository.AddAsync(userAlert);
@@ -66,7 +83,14 @@ namespace GieudexPol.Application.Services
 
         public async Task UpdateUserAlertAsync(UserAlert userAlert)
         {
-            await ValidateAsync(userAlert);
+            await UpdateUserAlertAsync(userAlert, allowTestRateSources: false);
+        }
+
+        public async Task UpdateUserAlertAsync(
+            UserAlert userAlert,
+            bool allowTestRateSources)
+        {
+            await ValidateAsync(userAlert, allowTestRateSources);
             await _userAlertRepository.UpdateAsync(userAlert);
         }
 
@@ -79,7 +103,9 @@ namespace GieudexPol.Application.Services
             }
         }
 
-        private async Task ValidateAsync(UserAlert userAlert)
+        private async Task ValidateAsync(
+            UserAlert userAlert,
+            bool allowTestRateSources)
         {
             if (!Enum.IsDefined(userAlert.AlertType))
             {
@@ -103,6 +129,12 @@ namespace GieudexPol.Application.Services
                 if (source == null || !source.IsActive)
                 {
                     throw new ArgumentException("Wybrane zrodlo kursu nie istnieje lub jest nieaktywne.");
+                }
+
+                if (!allowTestRateSources && IsTestRateSource(source.Code))
+                {
+                    throw new ArgumentException(
+                        "Testowe zrodla kursow sa dostepne tylko dla administratorow.");
                 }
             }
 
@@ -136,6 +168,18 @@ namespace GieudexPol.Application.Services
 
             userAlert.ThresholdValue = null;
             userAlert.ThresholdDirection = null;
+        }
+
+        private static bool IsTestRateSource(string code)
+        {
+            return string.Equals(
+                       code,
+                       DevelopmentIdentity.RateSourceCode,
+                       StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(
+                       code,
+                       DevelopmentIdentity.RateSourceCodeB,
+                       StringComparison.OrdinalIgnoreCase);
         }
     }
 }

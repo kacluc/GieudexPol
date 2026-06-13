@@ -56,6 +56,55 @@ public class OrderBookServiceTests
     }
 
     [Fact]
+    public async Task Execution_ChargesBothSidesAndCreditsPlatformTreasury()
+    {
+        await using var context = CreateContext();
+        var data = Seed(context);
+        var treasury = User(100, "system_platform_treasury");
+        treasury.AccountType = AccountType.PlatformTreasury;
+        treasury.Role = "System";
+        context.Users.Add(treasury);
+        context.Wallets.Add(new Wallet
+        {
+            User = treasury,
+            Currency = data.Pln,
+            Balance = 0m
+        });
+        await context.SaveChangesAsync();
+        var feeCalculator = CreateFeeCalculator(10m);
+        var service = new OrderBookService(
+            context,
+            new OrderMatchingService(
+                context,
+                feeCalculator,
+                new SystemAccountService(context)),
+            feeCalculator);
+
+        await service.PlaceOrderAsync(
+            data.Seller.Id,
+            Request(OrderSide.Sell, 4.30m, 100m));
+        await service.PlaceOrderAsync(
+            data.Buyer.Id,
+            Request(OrderSide.Buy, 4.30m, 50m));
+
+        (await Wallet(context, data.Buyer.Id, data.Pln.Id))
+            .Balance.Should().Be(775m);
+        (await Wallet(context, data.Seller.Id, data.Pln.Id))
+            .Balance.Should().Be(205m);
+        (await Wallet(context, treasury.Id, data.Pln.Id))
+            .Balance.Should().Be(20m);
+        var execution = await context.TradeExecutions.SingleAsync();
+        execution.BuyerFee.Should().Be(10m);
+        execution.SellerFee.Should().Be(10m);
+        execution.FeeCurrencyId.Should().Be(data.Pln.Id);
+        var transactions = await context.Transactions.ToListAsync();
+        transactions.Should().HaveCount(2);
+        transactions.Should().OnlyContain(item =>
+            item.TradeExecutionId == execution.Id &&
+            item.AppliedFee == 10m);
+    }
+
+    [Fact]
     public async Task Buy_DoesNotMatchSell_WhenSellPriceIsHigher()
     {
         await using var context = CreateContext();
@@ -359,7 +408,11 @@ public class OrderBookServiceTests
         await context.SaveChangesAsync();
         var service = new OrderBookService(
             context,
-            new OrderMatchingService(context),
+            new OrderMatchingService(
+                context,
+                CreateFeeCalculator(),
+                Mock.Of<ISystemAccountService>()),
+            CreateFeeCalculator(),
             new TradingAlertEvaluationService(context));
 
         await service.PlaceOrderAsync(
@@ -402,6 +455,44 @@ public class OrderBookServiceTests
     public void CreateOrderRequest_DoesNotAcceptUserId()
     {
         typeof(CreateOrderRequestDto).GetProperty("UserId").Should().BeNull();
+        typeof(OrderBookLevelDto).GetProperty("UserId").Should().BeNull();
+        typeof(OrderBookLevelDto).GetProperty("Username").Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RateSourceSystemAccount_CanPlaceOrderWithoutExposingOwner()
+    {
+        await using var context = CreateContext();
+        var data = Seed(context);
+        var sourceUser = User(100, "system_ecb");
+        sourceUser.AccountType = AccountType.RateSourceSystem;
+        sourceUser.Role = "System";
+        var source = new RateSource
+        {
+            Code = "ECB",
+            Name = "ECB",
+            IsActive = true,
+            SystemUser = sourceUser
+        };
+        context.AddRange(sourceUser, source);
+        context.Wallets.Add(new Wallet
+        {
+            User = sourceUser,
+            Currency = data.Eur,
+            Balance = 1_000m
+        });
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        var order = await service.PlaceRateSourceOrderAsync(
+            "ECB",
+            Request(OrderSide.Sell, 4.40m, 100m));
+        var book = await service.GetOrderBookAsync("EUR", "PLN", 10);
+
+        (await context.Orders.SingleAsync(item => item.Id == order.Id))
+            .UserId.Should().Be(sourceUser.Id);
+        book.SellOrders.Should().ContainSingle();
+        book.SellOrders[0].Amount.Should().Be(100m);
     }
 
     [Fact]
@@ -421,7 +512,26 @@ public class OrderBookServiceTests
 
     private static OrderBookService CreateService(ApplicationDbContext context)
     {
-        return new OrderBookService(context, new OrderMatchingService(context));
+        var feeCalculator = CreateFeeCalculator();
+        return new OrderBookService(
+            context,
+            new OrderMatchingService(
+                context,
+                feeCalculator,
+                Mock.Of<ISystemAccountService>()),
+            feeCalculator);
+    }
+
+    private static ITransactionFeeCalculator CreateFeeCalculator(decimal fee = 0m)
+    {
+        var calculator = new Mock<ITransactionFeeCalculator>();
+        calculator.Setup(item => item.CalculateAsync(
+                It.IsAny<string>(),
+                It.IsAny<int>(),
+                It.IsAny<decimal>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OperationFeeCalculationDto(fee, null));
+        return calculator.Object;
     }
 
     private static CreateOrderRequestDto Request(
