@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { catchError, forkJoin, map, Observable, of, tap } from 'rxjs';
 import {
   AlertRateSource,
+  AlertStatus,
   TradingPairOption,
   UserAlertDto,
   UserAlertCreateDto,
@@ -18,17 +19,17 @@ import {
 export class UserAlertService {
   private readonly apiUrl = '/api/UserAlerts';
   private readonly tradingApiUrl = '/api/trading-alerts';
-  private hasUnacknowledgedRateAlerts = false;
-  private hasUnacknowledgedTradingAlerts = false;
-  readonly hasUnacknowledgedAlerts = signal(false);
+  private hasFulfilledRateAlerts = false;
+  private hasFulfilledTradingAlerts = false;
+  readonly hasFulfilledAlerts = signal(false);
 
   constructor(private http: HttpClient) { }
 
   getMyAlerts(): Observable<UserAlertDto[]> {
     return this.http.get<UserAlertDto[]>(`${this.apiUrl}/me`).pipe(
       tap(alerts => {
-        this.hasUnacknowledgedRateAlerts = alerts.some(
-          alert => !!alert.triggeredDate && !alert.isAcknowledged,
+        this.hasFulfilledRateAlerts = alerts.some(
+          alert => alert.status === AlertStatus.Fulfilled,
         );
         this.updateNotificationState();
       }),
@@ -38,8 +39,8 @@ export class UserAlertService {
   getMyTradingAlerts(): Observable<UserTradingAlertDto[]> {
     return this.http.get<UserTradingAlertDto[]>(`${this.tradingApiUrl}/me`).pipe(
       tap(alerts => {
-        this.hasUnacknowledgedTradingAlerts = alerts.some(
-          alert => !!alert.triggeredDate && !alert.isAcknowledged,
+        this.hasFulfilledTradingAlerts = alerts.some(
+          alert => alert.status === AlertStatus.Fulfilled,
         );
         this.updateNotificationState();
       }),
@@ -50,14 +51,14 @@ export class UserAlertService {
     return forkJoin([
       this.getMyAlerts().pipe(
         catchError(() => {
-          this.hasUnacknowledgedRateAlerts = false;
+          this.hasFulfilledRateAlerts = false;
           this.updateNotificationState();
           return of([] as UserAlertDto[]);
         }),
       ),
       this.getMyTradingAlerts().pipe(
         catchError(() => {
-          this.hasUnacknowledgedTradingAlerts = false;
+          this.hasFulfilledTradingAlerts = false;
           this.updateNotificationState();
           return of([] as UserTradingAlertDto[]);
         }),
@@ -85,10 +86,6 @@ export class UserAlertService {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
 
-  acknowledgeAlert(id: number): Observable<void> {
-    return this.http.put<void>(`${this.apiUrl}/${id}/acknowledge`, {});
-  }
-
   createTradingAlert(
     alert: UserTradingAlertCreateDto,
   ): Observable<UserTradingAlertDto> {
@@ -106,13 +103,9 @@ export class UserAlertService {
     return this.http.delete<void>(`${this.tradingApiUrl}/${id}`);
   }
 
-  acknowledgeTradingAlert(id: number): Observable<void> {
-    return this.http.put<void>(`${this.tradingApiUrl}/${id}/acknowledge`, {});
-  }
-
   private updateNotificationState(): void {
-    this.hasUnacknowledgedAlerts.set(
-      this.hasUnacknowledgedRateAlerts || this.hasUnacknowledgedTradingAlerts,
+    this.hasFulfilledAlerts.set(
+      this.hasFulfilledRateAlerts || this.hasFulfilledTradingAlerts,
     );
   }
 }

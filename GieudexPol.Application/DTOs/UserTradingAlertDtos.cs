@@ -14,7 +14,7 @@ namespace GieudexPol.Application.DTOs
     public class UserTradingAlertUpdateDto : UserTradingAlertCreateDto
     {
         public int Id { get; set; }
-        public bool IsActive { get; set; }
+        public AlertStatus Status { get; set; }
     }
 
     public class UserTradingAlertDto
@@ -28,10 +28,9 @@ namespace GieudexPol.Application.DTOs
         public ThresholdDirection Direction { get; set; }
         public decimal TargetPrice { get; set; }
         public decimal? MinimumAmount { get; set; }
-        public bool IsActive { get; set; }
+        public AlertStatus Status { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? TriggeredDate { get; set; }
-        public bool IsAcknowledged { get; set; }
-        public DateTime? AcknowledgedDate { get; set; }
+        public IReadOnlyList<AlertLogDto> Logs { get; set; } = [];
     }
 }

@@ -124,9 +124,13 @@ public class AlertEvaluationServiceTests
         context.Notifications.Should().ContainSingle();
         context.Notifications.Single().Message.Should().Contain("MOCK_BANK_A");
         context.Notifications.Single().Message.Should().Contain("MOCK_BANK_B");
-        alert.IsActive.Should().BeFalse();
+        alert.Status.Should().Be(AlertStatus.Fulfilled);
         alert.TriggeredDate.Should().NotBeNull();
-        alert.IsAcknowledged.Should().BeFalse();
+        context.AlertLogs.Should().ContainSingle(log =>
+            log.UserAlertId == alert.Id &&
+            log.SourceSummary != null &&
+            log.SourceSummary.Contains("MOCK_BANK_A") &&
+            log.SourceSummary.Contains("MOCK_BANK_B"));
     }
 
     [Fact]
@@ -278,7 +282,7 @@ public class AlertEvaluationServiceTests
             PercentageChange = percentage,
             TimeFrameHours = type == AlertType.Threshold ? null : 24,
             RateSourceId = sourceId,
-            IsActive = true,
+            Status = AlertStatus.Active,
             CreatedDate = DateTime.UtcNow
         };
         context.UserAlerts.Add(alert);

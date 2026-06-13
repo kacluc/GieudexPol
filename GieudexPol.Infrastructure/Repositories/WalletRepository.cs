@@ -190,7 +190,8 @@ namespace GieudexPol.Infrastructure.Repositories
                 AppliedFee = transaction.AppliedFee,
                 Status = transaction.Status,
                 Timestamp = transaction.Timestamp,
-                TransactionFeeId = transaction.TransactionFeeId
+                TransactionFeeId = transaction.TransactionFeeId,
+                TradeExecutionId = transaction.TradeExecutionId
             };
         }
     }

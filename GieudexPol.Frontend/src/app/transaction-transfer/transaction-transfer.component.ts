@@ -37,7 +37,15 @@ export class TransactionTransferComponent implements OnInit {
   currentUserId: number | null = null;
   transactions: Transaction[] = [];
   paginatedResult: PaginatedResult<Transaction> = { items: [], totalCount: 0, pageNumber: 1, pageSize: 10 };
-  transactionTypes: string[] = ['Transfer', 'Deposit', 'Withdrawal', 'Buy', 'Sell'];
+  transactionTypes: string[] = [
+    'Transfer',
+    'Deposit',
+    'Withdrawal',
+    'Buy',
+    'Sell',
+    'OrderBookBuy',
+    'OrderBookSell',
+  ];
 
   get transferableCurrencies(): Currency[] {
     const walletCurrencyIds = new Set(this.userWallets.map(wallet => wallet.currencyId));
@@ -142,8 +150,8 @@ export class TransactionTransferComponent implements OnInit {
 
   transactionTypeLabel(type: string): string {
     const labels: Record<string, string> = {
-      OrderBookBuy: 'Kupno w arkuszu zleceń',
-      OrderBookSell: 'Sprzedaż w arkuszu zleceń',
+      OrderBookBuy: 'Kupno na rynku walut',
+      OrderBookSell: 'Sprzedaż na rynku walut',
     };
 
     return labels[type] ?? type;

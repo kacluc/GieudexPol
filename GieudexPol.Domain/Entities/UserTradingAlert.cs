@@ -18,10 +18,15 @@ namespace GieudexPol.Domain.Entities
         public ThresholdDirection Direction { get; set; }
         public decimal TargetPrice { get; set; }
         public decimal? MinimumAmount { get; set; }
-        public bool IsActive { get; set; }
+        public AlertStatus Status { get; set; }
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public bool IsActive
+        {
+            get => Status == AlertStatus.Active;
+            set => Status = value ? AlertStatus.Active : AlertStatus.Inactive;
+        }
         public DateTime CreatedDate { get; set; }
         public DateTime? TriggeredDate { get; set; }
-        public bool IsAcknowledged { get; set; }
-        public DateTime? AcknowledgedDate { get; set; }
+        public ICollection<AlertLog> Logs { get; set; } = new List<AlertLog>();
     }
 }

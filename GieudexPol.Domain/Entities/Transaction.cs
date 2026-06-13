@@ -17,6 +17,8 @@ namespace GieudexPol.Domain.Entities
         public decimal AppliedFee { get; set; } // The actual fee applied for this transaction
         public Guid? TransactionFeeId { get; set; }
         public TransactionFee? TransactionFee { get; set; }
+        public int? TradeExecutionId { get; set; }
+        public TradeExecution? TradeExecution { get; set; }
         public DateTime Timestamp { get; set; }
     }
 }

@@ -71,7 +71,7 @@ namespace GieudexPol.Infrastructure.Services
                     .ThenInclude(pair => pair.BaseCurrency)
                 .Include(alert => alert.TradingPair)
                     .ThenInclude(pair => pair.QuoteCurrency)
-                .Where(alert => alert.IsActive);
+                .Where(alert => alert.Status == AlertStatus.Active);
 
             if (alertId.HasValue)
             {
@@ -100,11 +100,18 @@ namespace GieudexPol.Infrastructure.Services
                     continue;
                 }
 
-                alert.IsActive = false;
+                alert.Status = AlertStatus.Fulfilled;
                 alert.TriggeredDate = DateTime.UtcNow;
-                alert.IsAcknowledged = false;
-                alert.AcknowledgedDate = null;
                 var message = BuildNotificationMessage(alert, trigger);
+                _context.AlertLogs.Add(new AlertLog
+                {
+                    UserTradingAlert = alert,
+                    Message = message,
+                    CreatedDate = alert.TriggeredDate.Value,
+                    CurrentPrice = trigger.Price,
+                    CurrentAmount = trigger.Amount,
+                    EffectiveDate = trigger.OccurredAt
+                });
                 _context.Notifications.Add(new Notification
                 {
                     UserId = alert.UserId,
@@ -203,9 +210,20 @@ namespace GieudexPol.Infrastructure.Services
 
         private static bool MeetsPrice(UserTradingAlert alert, decimal price)
         {
-            return alert.Direction == ThresholdDirection.AboveOrEqual
+            var direction = GetEffectiveDirection(alert);
+            return direction == ThresholdDirection.AboveOrEqual
                 ? price >= alert.TargetPrice
                 : price <= alert.TargetPrice;
+        }
+
+        private static ThresholdDirection GetEffectiveDirection(UserTradingAlert alert)
+        {
+            return alert.EventType switch
+            {
+                TradingAlertEvent.SellOrder => ThresholdDirection.BelowOrEqual,
+                TradingAlertEvent.BuyOrder => ThresholdDirection.AboveOrEqual,
+                _ => alert.Direction
+            };
         }
 
         private static bool MeetsAmount(UserTradingAlert alert, decimal amount)
@@ -221,18 +239,18 @@ namespace GieudexPol.Infrastructure.Services
                        alert.TradingPair.QuoteCurrency.Symbol;
             var eventLabel = alert.EventType switch
             {
-                TradingAlertEvent.BuyOrder => "najlepsza oferta Kupna",
-                TradingAlertEvent.SellOrder => "najlepsza oferta Sprzedazy",
+                TradingAlertEvent.BuyOrder => "chcesz sprzedac - najlepsza oferta kupna",
+                TradingAlertEvent.SellOrder => "chcesz kupic - najtansza oferta sprzedazy",
                 TradingAlertEvent.TradeExecution => "wykonana transakcja",
-                _ => "zdarzenie handlowe"
+                _ => "zdarzenie na rynku"
             };
-            var direction = alert.Direction == ThresholdDirection.AboveOrEqual
+            var direction = GetEffectiveDirection(alert) == ThresholdDirection.AboveOrEqual
                 ? ">="
                 : "<=";
             var price = trigger.Price.ToString("0.####", CultureInfo.InvariantCulture);
             var amount = trigger.Amount.ToString("0.####", CultureInfo.InvariantCulture);
 
-            return $"Alert handlowy {pair}: {eventLabel} spelnila warunek " +
+            return $"Alert rynku {pair}: {eventLabel} spelnila warunek " +
                    $"{direction} {alert.TargetPrice.ToString("0.####", CultureInfo.InvariantCulture)}. " +
                    $"Cena: {price} {alert.TradingPair.QuoteCurrency.Symbol}, " +
                    $"ilosc: {amount} {alert.TradingPair.BaseCurrency.Symbol}, " +

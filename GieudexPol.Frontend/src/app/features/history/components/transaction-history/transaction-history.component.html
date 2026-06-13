@@ -2,11 +2,11 @@
   <header>
     <p class="eyebrow">Historia</p>
     <h1>Historia transakcji</h1>
-    <p>Audyt operacji portfela oraz transferow zapisanych w systemie.</p>
+    <p>Audyt operacji portfela, transferów i transakcji na rynku walut.</p>
   </header>
 
   @if (isLoading) {
-    <div class="state">Ladowanie historii...</div>
+    <div class="state">Ładowanie historii...</div>
   } @else if (errorMessage) {
     <div class="state error">{{ errorMessage }}</div>
   } @else if (transactions.length === 0) {
@@ -24,7 +24,8 @@
             <th>Status</th>
             <th>Kwota</th>
             <th>Waluta</th>
-            <th>Oplata</th>
+            <th>Szczegóły wykonania</th>
+            <th>Opłata</th>
           </tr>
         </thead>
         <tbody>
@@ -34,7 +35,8 @@
               <td>{{ transactionTypeLabel(transaction.transactionType) }}</td>
               <td>{{ transaction.status }}</td>
               <td>{{ transaction.amount | number:'1.2-4' }}</td>
-              <td>#{{ transaction.currencyId }}</td>
+              <td>{{ transaction.currencySymbol || ('#' + transaction.currencyId) }}</td>
+              <td>{{ executionDetails(transaction) }}</td>
               <td>{{ transaction.appliedFee | number:'1.2-4' }}</td>
             </tr>
           }

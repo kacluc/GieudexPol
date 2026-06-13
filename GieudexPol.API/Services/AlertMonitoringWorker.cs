@@ -42,7 +42,7 @@ namespace GieudexPol.API.Services
                         result.TriggeredAlertsCount,
                         result.NotificationsCreatedCount);
                     _logger.LogInformation(
-                        "Ewaluacja alertow handlowych zakonczona. Oceniono: {Evaluated}, " +
+                        "Ewaluacja alertow rynku zakonczona. Oceniono: {Evaluated}, " +
                         "uruchomiono: {Triggered}, powiadomienia: {Notifications}.",
                         tradingResult.EvaluatedAlertsCount,
                         tradingResult.TriggeredAlertsCount,

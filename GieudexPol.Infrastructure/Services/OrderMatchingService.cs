@@ -62,15 +62,6 @@ namespace GieudexPol.Infrastructure.Services
                 var sellOrder = incomingOrder.Side == OrderSide.Sell
                     ? incomingOrder
                     : restingOrder;
-
-                await ExecuteTradeAsync(
-                    buyOrder,
-                    sellOrder,
-                    incomingOrder.TradingPair,
-                    executionPrice,
-                    amount,
-                    cancellationToken);
-
                 var execution = new TradeExecution
                 {
                     BuyOrder = buyOrder,
@@ -80,6 +71,13 @@ namespace GieudexPol.Infrastructure.Services
                     Amount = amount,
                     ExecutedAt = DateTime.UtcNow
                 };
+
+                await ExecuteTradeAsync(
+                    buyOrder,
+                    sellOrder,
+                    incomingOrder.TradingPair,
+                    execution,
+                    cancellationToken);
 
                 await _context.TradeExecutions.AddAsync(execution, cancellationToken);
                 executions.Add(execution);
@@ -92,10 +90,10 @@ namespace GieudexPol.Infrastructure.Services
             Order buyOrder,
             Order sellOrder,
             TradingPair pair,
-            decimal price,
-            decimal amount,
+            TradeExecution execution,
             CancellationToken cancellationToken)
         {
+            var amount = execution.Amount;
             var buyerQuoteWallet = await GetWalletAsync(
                 buyOrder.UserId,
                 pair.QuoteCurrencyId,
@@ -122,15 +120,10 @@ namespace GieudexPol.Infrastructure.Services
                 buyOrder.RemainingAmount,
                 buyOrder.Price);
             var releasedBuyReservation = buyReservationBefore - buyReservationAfter;
-            var quoteAmount = CalculateQuoteAmount(amount, price);
+            var quoteAmount = CalculateQuoteAmount(amount, execution.Price);
 
             buyerQuoteWallet.Release(releasedBuyReservation);
-            if (buyerQuoteWallet.Balance < quoteAmount)
-            {
-                throw new InvalidOperationException("Kupujacy nie ma wystarczajacych zarezerwowanych srodkow.");
-            }
-
-            buyerQuoteWallet.Balance -= quoteAmount;
+            buyerQuoteWallet.Debit(quoteAmount);
             sellerBaseWallet.DebitReserved(amount);
             buyerBaseWallet.Credit(amount);
             sellerQuoteWallet.Credit(quoteAmount);
@@ -138,7 +131,6 @@ namespace GieudexPol.Infrastructure.Services
             UpdateStatus(buyOrder);
             UpdateStatus(sellOrder);
 
-            var executedAt = DateTime.UtcNow;
             await _context.Transactions.AddRangeAsync(
                 new Transaction
                 {
@@ -149,7 +141,8 @@ namespace GieudexPol.Infrastructure.Services
                     Amount = amount,
                     AppliedFee = 0m,
                     Status = "Completed",
-                    Timestamp = executedAt
+                    Timestamp = execution.ExecutedAt,
+                    TradeExecution = execution
                 },
                 new Transaction
                 {
@@ -160,7 +153,8 @@ namespace GieudexPol.Infrastructure.Services
                     Amount = quoteAmount,
                     AppliedFee = 0m,
                     Status = "Completed",
-                    Timestamp = executedAt
+                    Timestamp = execution.ExecutedAt,
+                    TradeExecution = execution
                 });
         }
 

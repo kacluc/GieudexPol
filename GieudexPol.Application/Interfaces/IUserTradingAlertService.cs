@@ -24,9 +24,5 @@ namespace GieudexPol.Application.Interfaces
             UserTradingAlert alert,
             CancellationToken cancellationToken = default);
 
-        Task<bool> AcknowledgeAsync(
-            int alertId,
-            int userId,
-            CancellationToken cancellationToken = default);
     }
 }

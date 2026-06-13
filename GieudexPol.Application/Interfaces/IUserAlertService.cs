@@ -9,7 +9,5 @@ namespace GieudexPol.Application.Interfaces
         Task CreateUserAlertAsync(UserAlert userAlert);
         Task UpdateUserAlertAsync(UserAlert userAlert);
         Task DeleteUserAlertAsync(int userAlertId);
-        Task<bool> AcknowledgeAlertAsync(int userAlertId, int userId);
-        Task TriggerAlertAsync(int userAlertId, string message);
     }
 }

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { finalize, interval, Subscription, TimeoutError } from 'rxjs';
 import { WalletDto } from '../../../wallet/models/wallet-models';
 import { WalletService } from '../../../wallet/services/wallet.service';
@@ -36,14 +37,37 @@ export class OrderbookComponent implements OnInit, OnDestroy {
 
   private readonly subscriptions = new Subscription();
   private refreshPending = false;
+  private marketPrefill?: {
+    pairId: number;
+    side: OrderSide;
+    price: number;
+  };
 
   constructor(
     private readonly orderBookService: OrderBookService,
     private readonly walletService: WalletService,
     private readonly changeDetector: ChangeDetectorRef,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    this.subscriptions.add(
+      this.route.queryParamMap.subscribe(params => {
+        const pairId = Number(params.get('pairId'));
+        const side = params.get('side');
+        const price = Number(params.get('price'));
+        if (
+          Number.isInteger(pairId) &&
+          pairId > 0 &&
+          (side === 'Buy' || side === 'Sell') &&
+          Number.isFinite(price) &&
+          price > 0
+        ) {
+          this.marketPrefill = { pairId, side, price };
+          this.applyMarketPrefill();
+        }
+      }),
+    );
     this.subscriptions.add(
       this.walletService.wallets$.subscribe(wallets => {
         this.wallets = [...wallets].sort((left, right) =>
@@ -210,7 +234,7 @@ export class OrderbookComponent implements OnInit, OnDestroy {
         this.amount = null;
         this.message = order.status === 'Filled'
           ? 'Zlecenie zostało wykonane.'
-          : 'Zlecenie zostało przyjęte do arkusza.';
+          : 'Zlecenie zostało przyjęte na rynek.';
         this.refresh(false);
       },
       error: error => {
@@ -257,14 +281,41 @@ export class OrderbookComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const selectedPair = pairs.find(pair => pair.id === this.selectedPair?.id) ?? pairs[0];
+    const selectedPair = pairs.find(
+      pair => pair.id === (this.marketPrefill?.pairId ?? this.selectedPair?.id),
+    ) ?? pairs[0];
     const changed = selectedPair.id !== this.selectedPair?.id;
     this.selectedPair = selectedPair;
+    this.applyMarketPrefill();
 
     if (changed || !this.orderBook) {
       this.refresh();
     }
 
+    this.render();
+  }
+
+  private applyMarketPrefill(): void {
+    if (!this.marketPrefill || this.pairs.length === 0) {
+      return;
+    }
+
+    const pair = this.pairs.find(item => item.id === this.marketPrefill?.pairId);
+    if (!pair) {
+      return;
+    }
+
+    const pairChanged = pair.id !== this.selectedPair?.id;
+    this.selectedPair = pair;
+    this.side = this.marketPrefill.side;
+    this.price = this.marketPrefill.price;
+    this.amount = null;
+    this.marketPrefill = undefined;
+
+    if (pairChanged) {
+      this.orderBook = undefined;
+      this.refresh();
+    }
     this.render();
   }
 

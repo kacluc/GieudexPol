@@ -55,7 +55,7 @@ namespace GieudexPol.Infrastructure.Services
                 {
                     _logger?.LogError(
                         exception,
-                        "Nie udalo sie ocenic alertow handlowych po zleceniu {OrderId}.",
+                        "Nie udalo sie ocenic alertow rynku po zleceniu {OrderId}.",
                         result.Id);
                 }
             }

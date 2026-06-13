@@ -1,11 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { CurrencyDto } from '../../../../models/currency.dto';
 import { CurrencyService } from '../../../../services/currency.service';
 import {
   AlertPriceSide,
   AlertRateSource,
+  AlertStatus,
   AlertType,
   ThresholdDirection,
   TradingAlertEvent,
@@ -33,10 +35,15 @@ export class AlertsComponent implements OnInit {
   readonly AlertType = AlertType;
   readonly AlertPriceSide = AlertPriceSide;
   readonly ThresholdDirection = ThresholdDirection;
+  readonly AlertStatus = AlertStatus;
   readonly TradingAlertEvent = TradingAlertEvent;
   readonly alertTypes = Object.values(AlertType);
   readonly priceSides = Object.values(AlertPriceSide);
-  readonly tradingEvents = Object.values(TradingAlertEvent);
+  readonly tradingEvents = [
+    TradingAlertEvent.SellOrder,
+    TradingAlertEvent.BuyOrder,
+    TradingAlertEvent.TradeExecution,
+  ];
   readonly alerts = signal<UserAlertDto[]>([]);
   readonly tradingAlerts = signal<UserTradingAlertDto[]>([]);
   readonly currencies = signal<CurrencyDto[]>([]);
@@ -57,6 +64,7 @@ export class AlertsComponent implements OnInit {
     private readonly currencyService: CurrencyService,
     private readonly authService: AuthService,
     private readonly changeDetector: ChangeDetectorRef,
+    private readonly router: Router,
   ) {
     this.alertForm = this.formBuilder.group({
       currencyId: [null as number | null, Validators.required],
@@ -67,18 +75,16 @@ export class AlertsComponent implements OnInit {
       thresholdDirection: [null as ThresholdDirection | null],
       percentageChange: [null as number | null],
       timeFrameHours: [24 as number | null],
-      isActive: [true, Validators.required],
     });
     this.tradingAlertForm = this.formBuilder.group({
       tradingPairId: [null as number | null, Validators.required],
-      eventType: [TradingAlertEvent.BuyOrder, Validators.required],
-      direction: [ThresholdDirection.AboveOrEqual, Validators.required],
+      eventType: [TradingAlertEvent.SellOrder, Validators.required],
+      direction: [ThresholdDirection.BelowOrEqual, Validators.required],
       targetPrice: [
         null as number | null,
         [Validators.required, Validators.min(0.0001)],
       ],
       minimumAmount: [null as number | null, Validators.min(0.0001)],
-      isActive: [true, Validators.required],
     });
   }
 
@@ -97,6 +103,9 @@ export class AlertsComponent implements OnInit {
 
     this.alertForm.controls.alertType.valueChanges.subscribe(type => {
       this.updateValidators(type);
+    });
+    this.tradingAlertForm.controls.eventType.valueChanges.subscribe(event => {
+      this.applyMarketDirection(event);
     });
   }
 
@@ -124,7 +133,7 @@ export class AlertsComponent implements OnInit {
   loadTradingAlerts(): void {
     this.userAlertService.getMyTradingAlerts().subscribe({
       next: alerts => this.tradingAlerts.set(alerts),
-      error: error => this.handleError(error, 'Nie udało się pobrać alertów handlowych.'),
+      error: error => this.handleError(error, 'Nie udało się pobrać alertów rynku.'),
     });
   }
 
@@ -204,7 +213,6 @@ export class AlertsComponent implements OnInit {
       thresholdDirection: alert.thresholdDirection ?? null,
       percentageChange: alert.percentageChange ?? null,
       timeFrameHours: alert.timeFrameHours ?? 24,
-      isActive: alert.isActive,
     });
     this.updateValidators(alert.alertType);
   }
@@ -215,10 +223,9 @@ export class AlertsComponent implements OnInit {
     this.tradingAlertForm.reset({
       tradingPairId: alert.tradingPairId,
       eventType: alert.eventType,
-      direction: alert.direction,
+      direction: this.marketDirection(alert.eventType, alert.direction),
       targetPrice: alert.targetPrice,
       minimumAmount: alert.minimumAmount ?? null,
-      isActive: alert.isActive,
     });
   }
 
@@ -234,27 +241,13 @@ export class AlertsComponent implements OnInit {
   }
 
   deleteTradingAlert(id: number): void {
-    if (!confirm('Czy na pewno usunąć ten alert handlowy?')) {
+    if (!confirm('Czy na pewno usunąć ten alert rynku?')) {
       return;
     }
 
     this.userAlertService.deleteTradingAlert(id).subscribe({
       next: () => this.loadTradingAlerts(),
       error: error => this.handleError(error),
-    });
-  }
-
-  acknowledgeAlert(id: number): void {
-    this.userAlertService.acknowledgeAlert(id).subscribe({
-      next: () => this.loadAlerts(),
-      error: error => this.handleError(error, 'Nie udało się potwierdzić alertu.'),
-    });
-  }
-
-  acknowledgeTradingAlert(id: number): void {
-    this.userAlertService.acknowledgeTradingAlert(id).subscribe({
-      next: () => this.loadTradingAlerts(),
-      error: error => this.handleError(error, 'Nie udało się potwierdzić alertu.'),
     });
   }
 
@@ -285,25 +278,78 @@ export class AlertsComponent implements OnInit {
 
   tradingEventLabel(event: TradingAlertEvent): string {
     return {
-      [TradingAlertEvent.BuyOrder]: 'Najlepsza oferta Kupna',
-      [TradingAlertEvent.SellOrder]: 'Najlepsza oferta Sprzedaży',
+      [TradingAlertEvent.BuyOrder]: 'Chcę sprzedać',
+      [TradingAlertEvent.SellOrder]: 'Chcę kupić',
       [TradingAlertEvent.TradeExecution]: 'Wykonana transakcja',
     }[event];
+  }
+
+  marketDirectionLabel(event: TradingAlertEvent | null): string {
+    return event === TradingAlertEvent.SellOrder
+      ? '<= maksymalna cena zakupu'
+      : '>= minimalna cena sprzedaży';
   }
 
   directionLabel(direction?: ThresholdDirection | null): string {
     return direction === ThresholdDirection.AboveOrEqual ? '>=' : '<=';
   }
 
-  statusLabel(alert: {
-    triggeredDate?: string | null;
-    isAcknowledged: boolean;
-  }): string {
-    if (alert.isAcknowledged) {
-      return 'Przyjęty';
+  statusLabel(status: AlertStatus): string {
+    return {
+      [AlertStatus.Active]: 'Aktywny',
+      [AlertStatus.Fulfilled]: 'Spełniony',
+      [AlertStatus.Inactive]: 'Nieaktywny',
+    }[status];
+  }
+
+  setRateAlertStatus(alert: UserAlertDto, status: AlertStatus): void {
+    this.userAlertService.updateUserAlert(alert.id, {
+      id: alert.id,
+      currencyId: alert.currencyId,
+      alertType: alert.alertType,
+      priceSide: alert.priceSide,
+      thresholdDirection: alert.thresholdDirection,
+      rateSourceId: alert.rateSourceId,
+      thresholdValue: alert.thresholdValue,
+      percentageChange: alert.percentageChange,
+      timeFrameHours: alert.timeFrameHours,
+      status,
+    }).subscribe({
+      next: () => this.loadAlerts(),
+      error: error => this.handleError(error),
+    });
+  }
+
+  setTradingAlertStatus(
+    alert: UserTradingAlertDto,
+    status: AlertStatus,
+  ): void {
+    this.userAlertService.updateTradingAlert(alert.id, {
+      id: alert.id,
+      tradingPairId: alert.tradingPairId,
+      eventType: alert.eventType,
+      direction: alert.direction,
+      targetPrice: alert.targetPrice,
+      minimumAmount: alert.minimumAmount,
+      status,
+    }).subscribe({
+      next: () => this.loadTradingAlerts(),
+      error: error => this.handleError(error),
+    });
+  }
+
+  openMarketOrder(alert: UserTradingAlertDto): void {
+    if (alert.eventType === TradingAlertEvent.TradeExecution) {
+      return;
     }
 
-    return alert.triggeredDate ? 'Spełniony' : 'Aktywny';
+    void this.router.navigate(['/order-book'], {
+      queryParams: {
+        pairId: alert.tradingPairId,
+        side: alert.eventType === TradingAlertEvent.SellOrder ? 'Buy' : 'Sell',
+        price: alert.logs[0]?.currentPrice ?? alert.targetPrice,
+      },
+    });
   }
 
   private submitRateAlert(): void {
@@ -337,7 +383,7 @@ export class AlertsComponent implements OnInit {
       const request: UserAlertUpdateDto = {
         id: this.editingAlert.id,
         ...common,
-        isActive: value.isActive ?? true,
+        status: this.editingAlert.status,
       };
       this.userAlertService.updateUserAlert(request.id, request).subscribe({
         next: () => {
@@ -369,7 +415,6 @@ export class AlertsComponent implements OnInit {
     if (
       value.tradingPairId == null ||
       value.eventType == null ||
-      value.direction == null ||
       value.targetPrice == null
     ) {
       return;
@@ -378,7 +423,7 @@ export class AlertsComponent implements OnInit {
     const common = {
       tradingPairId: value.tradingPairId,
       eventType: value.eventType,
-      direction: value.direction,
+      direction: this.marketDirection(value.eventType, value.direction),
       targetPrice: value.targetPrice,
       minimumAmount: value.minimumAmount,
     };
@@ -388,7 +433,7 @@ export class AlertsComponent implements OnInit {
       const request: UserTradingAlertUpdateDto = {
         id: this.editingTradingAlert.id,
         ...common,
-        isActive: value.isActive ?? true,
+        status: this.editingTradingAlert.status,
       };
       this.userAlertService.updateTradingAlert(request.id, request).subscribe({
         next: () => {
@@ -422,7 +467,6 @@ export class AlertsComponent implements OnInit {
       thresholdDirection: null,
       percentageChange: null,
       timeFrameHours: 24,
-      isActive: true,
     });
   }
 
@@ -431,12 +475,40 @@ export class AlertsComponent implements OnInit {
     this.errorMessage = '';
     this.tradingAlertForm.reset({
       tradingPairId: this.tradingPairs()[0]?.id ?? null,
-      eventType: TradingAlertEvent.BuyOrder,
-      direction: ThresholdDirection.AboveOrEqual,
+      eventType: TradingAlertEvent.SellOrder,
+      direction: ThresholdDirection.BelowOrEqual,
       targetPrice: null,
       minimumAmount: null,
-      isActive: true,
     });
+  }
+
+  private applyMarketDirection(event: TradingAlertEvent | null): void {
+    if (event === TradingAlertEvent.SellOrder) {
+      this.tradingAlertForm.controls.direction.setValue(
+        ThresholdDirection.BelowOrEqual,
+        { emitEvent: false },
+      );
+    } else if (event === TradingAlertEvent.BuyOrder) {
+      this.tradingAlertForm.controls.direction.setValue(
+        ThresholdDirection.AboveOrEqual,
+        { emitEvent: false },
+      );
+    }
+  }
+
+  private marketDirection(
+    event: TradingAlertEvent,
+    direction: ThresholdDirection | null,
+  ): ThresholdDirection {
+    if (event === TradingAlertEvent.SellOrder) {
+      return ThresholdDirection.BelowOrEqual;
+    }
+
+    if (event === TradingAlertEvent.BuyOrder) {
+      return ThresholdDirection.AboveOrEqual;
+    }
+
+    return direction ?? ThresholdDirection.AboveOrEqual;
   }
 
   private handleError(

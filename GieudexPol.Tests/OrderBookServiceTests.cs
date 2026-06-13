@@ -1,9 +1,13 @@
 using FluentAssertions;
 using GieudexPol.Application.DTOs;
+using GieudexPol.Application.Interfaces;
+using GieudexPol.Application.Services;
 using GieudexPol.Domain.Entities;
 using GieudexPol.Infrastructure;
+using GieudexPol.Infrastructure.Repositories;
 using GieudexPol.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace GieudexPol.Tests;
 
@@ -42,8 +46,13 @@ public class OrderBookServiceTests
         sellerPln.Balance.Should().Be(215m);
         sellerEur.Balance.Should().Be(50m);
         sellerEur.ReservedBalance.Should().Be(50m);
-        (await context.TradeExecutions.CountAsync()).Should().Be(1);
-        (await context.Transactions.CountAsync()).Should().Be(2);
+        var execution = await context.TradeExecutions.SingleAsync();
+        var transactions = await context.Transactions
+            .OrderBy(transaction => transaction.Id)
+            .ToListAsync();
+        transactions.Should().HaveCount(2);
+        transactions.Should().OnlyContain(
+            transaction => transaction.TradeExecutionId == execution.Id);
     }
 
     [Fact]
@@ -90,6 +99,10 @@ public class OrderBookServiceTests
         execution.Amount.Should().Be(20m);
         (await context.Orders.SingleAsync(order => order.Id == buy.Id))
             .Status.Should().Be(OrderStatus.Filled);
+        (await Wallet(context, data.Buyer.Id, data.Pln.Id))
+            .ReservedBalance.Should().Be(0m);
+        (await Wallet(context, data.Seller.Id, data.Eur.Id))
+            .ReservedBalance.Should().Be(0m);
     }
 
     [Fact]
@@ -263,6 +276,112 @@ public class OrderBookServiceTests
     }
 
     [Fact]
+    public async Task CancelAfterPartialFill_ReleasesOnlyRemainingReservation()
+    {
+        await using var context = CreateContext();
+        var data = Seed(context);
+        var service = CreateService(context);
+
+        var sell = await service.PlaceOrderAsync(
+            data.Seller.Id,
+            Request(OrderSide.Sell, 4.30m, 100m));
+        await service.PlaceOrderAsync(
+            data.Buyer.Id,
+            Request(OrderSide.Buy, 4.30m, 50m));
+
+        var sellerWallet = await Wallet(context, data.Seller.Id, data.Eur.Id);
+        sellerWallet.Balance.Should().Be(50m);
+        sellerWallet.ReservedBalance.Should().Be(50m);
+
+        await service.CancelOrderAsync(data.Seller.Id, sell.Id);
+
+        sellerWallet.Balance.Should().Be(50m);
+        sellerWallet.ReservedBalance.Should().Be(0m);
+        sellerWallet.AvailableBalance.Should().Be(50m);
+        (await context.Orders.SingleAsync(order => order.Id == sell.Id))
+            .Status.Should().Be(OrderStatus.Cancelled);
+    }
+
+    [Fact]
+    public async Task UserHistory_IncludesOrderBookExecutionDetails()
+    {
+        await using var context = CreateContext();
+        var data = Seed(context);
+        var service = CreateService(context);
+
+        await service.PlaceOrderAsync(
+            data.Seller.Id,
+            Request(OrderSide.Sell, 4.30m, 100m));
+        await service.PlaceOrderAsync(
+            data.Buyer.Id,
+            Request(OrderSide.Buy, 4.30m, 50m));
+
+        var historyService = new TransactionService(
+            new TransactionRepository(context),
+            Mock.Of<IUserRepository>(),
+            Mock.Of<IWalletRepository>(),
+            Mock.Of<ITransactionFeeCalculator>());
+
+        var history = await historyService.GetUserTransactions(
+            data.Buyer.Id,
+            1,
+            10,
+            null,
+            null,
+            null,
+            null);
+
+        history.Items.Should().HaveCount(2);
+        history.Items.Should().OnlyContain(item =>
+            item.TradeExecutionId.HasValue &&
+            item.TradingPair == "EUR/PLN" &&
+            item.ExecutionPrice == 4.30m &&
+            item.ExecutionAmount == 50m);
+        history.Items.Select(item => item.CurrencySymbol)
+            .Should().BeEquivalentTo("EUR", "PLN");
+    }
+
+    [Fact]
+    public async Task TradeExecutionAlert_TriggersAfterOrderMatch()
+    {
+        await using var context = CreateContext();
+        var data = Seed(context);
+        context.UserTradingAlerts.Add(new UserTradingAlert
+        {
+            User = data.Buyer2,
+            TradingPair = data.Pair,
+            EventType = TradingAlertEvent.TradeExecution,
+            Direction = ThresholdDirection.AboveOrEqual,
+            TargetPrice = 4.30m,
+            Status = AlertStatus.Active,
+            CreatedDate = DateTime.UtcNow.AddMinutes(-1)
+        });
+        await context.SaveChangesAsync();
+        var service = new OrderBookService(
+            context,
+            new OrderMatchingService(context),
+            new TradingAlertEvaluationService(context));
+
+        await service.PlaceOrderAsync(
+            data.Seller.Id,
+            Request(OrderSide.Sell, 4.30m, 100m));
+        context.Notifications.Should().BeEmpty();
+
+        await service.PlaceOrderAsync(
+            data.Buyer.Id,
+            Request(OrderSide.Buy, 4.30m, 50m));
+
+        context.TradeExecutions.Should().ContainSingle();
+        context.Notifications.Should().ContainSingle(notification =>
+            notification.UserId == data.Buyer2.Id &&
+            notification.Message.Contains("wykonana transakcja"));
+        context.UserTradingAlerts.Single().Status.Should().Be(AlertStatus.Fulfilled);
+        context.AlertLogs.Should().ContainSingle(log =>
+            log.CurrentPrice == 4.30m &&
+            log.CurrentAmount == 50m);
+    }
+
+    [Fact]
     public async Task OrderWithoutAvailableFunds_IsRejected()
     {
         await using var context = CreateContext();
@@ -369,6 +488,7 @@ public class OrderBookServiceTests
         return new SeedData(
             eur,
             pln,
+            pair,
             buyer,
             seller,
             buyer2,
@@ -401,6 +521,7 @@ public class OrderBookServiceTests
     private sealed record SeedData(
         Currency Eur,
         Currency Pln,
+        TradingPair Pair,
         User Buyer,
         User Seller,
         User Buyer2,

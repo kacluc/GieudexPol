@@ -1,7 +1,7 @@
 <main class="alerts-container">
   <header class="alerts-header">
     <h1>Alerty</h1>
-    <p>Alerty kursowe i handlowe są sprawdzane automatycznie, także gdy nie jesteś zalogowany.</p>
+    <p>Alerty kursowe i rynku są sprawdzane automatycznie, także gdy nie jesteś zalogowany.</p>
   </header>
 
   <div class="mode-switch" role="tablist" aria-label="Rodzaj monitorowanych danych">
@@ -21,7 +21,7 @@
       [attr.aria-selected]="mode() === 'trading'"
       (click)="setMode('trading')"
     >
-      Handel w arkuszu
+      Rynek
     </button>
   </div>
 
@@ -118,8 +118,8 @@
           </div>
         </form>
       } @else {
-        <h2>{{ editingTradingAlert ? 'Edytuj alert handlowy' : 'Utwórz alert handlowy' }}</h2>
-        <p class="form-intro">Monitoruje zlecenia użytkowników i wykonane dopasowania, niezależnie od kursów bankowych.</p>
+        <h2>{{ editingTradingAlert ? 'Edytuj alert rynku' : 'Utwórz alert rynku' }}</h2>
+        <p class="form-intro">Monitoruje oferty użytkowników i wykonane transakcje niezależnie od kursów bankowych.</p>
 
         <form [formGroup]="tradingAlertForm" (ngSubmit)="onSubmit()" class="alert-form">
           <div class="form-group">
@@ -133,7 +133,7 @@
           </div>
 
           <div class="form-group">
-            <label for="eventType">Monitorowane zdarzenie</label>
+            <label for="eventType">Co chcesz zrobić?</label>
             <select id="eventType" formControlName="eventType" class="form-control">
               @for (event of tradingEvents; track event) {
                 <option [ngValue]="event">{{ tradingEventLabel(event) }}</option>
@@ -141,13 +141,24 @@
             </select>
           </div>
 
-          <div class="form-group">
-            <label for="tradeDirection">Warunek ceny</label>
-            <select id="tradeDirection" formControlName="direction" class="form-control">
-              <option [ngValue]="ThresholdDirection.AboveOrEqual">&gt;= cena docelowa</option>
-              <option [ngValue]="ThresholdDirection.BelowOrEqual">&lt;= cena docelowa</option>
-            </select>
-          </div>
+          @if (tradingAlertForm.controls.eventType.value === TradingAlertEvent.TradeExecution) {
+            <div class="form-group">
+              <label for="tradeDirection">Warunek ceny wykonania</label>
+              <select id="tradeDirection" formControlName="direction" class="form-control">
+                <option [ngValue]="ThresholdDirection.AboveOrEqual">&gt;= cena docelowa</option>
+                <option [ngValue]="ThresholdDirection.BelowOrEqual">&lt;= cena docelowa</option>
+              </select>
+            </div>
+          } @else {
+            <div class="feature-note">
+              Warunek ceny: {{ marketDirectionLabel(tradingAlertForm.controls.eventType.value) }}.
+              @if (tradingAlertForm.controls.eventType.value === TradingAlertEvent.SellOrder) {
+                Sprawdzamy najtańszą ofertę sprzedaży innych użytkowników.
+              } @else {
+                Sprawdzamy najwyższą ofertę kupna innych użytkowników.
+              }
+            </div>
+          }
 
           <div class="form-group">
             <label for="targetPrice">Cena docelowa</label>
@@ -188,16 +199,11 @@
                 <span>{{ alertTypeLabel(alert.alertType) }}</span>
               </div>
               <span class="status-badge"
-                [class.active]="!alert.triggeredDate"
-                [class.fulfilled]="alert.triggeredDate && !alert.isAcknowledged"
-                [class.accepted]="alert.isAcknowledged">
-                {{ statusLabel(alert) }}
+                [class.active]="alert.status === AlertStatus.Active"
+                [class.fulfilled]="alert.status === AlertStatus.Fulfilled"
+                [class.inactive]="alert.status === AlertStatus.Inactive">
+                {{ statusLabel(alert.status) }}
               </span>
-              @if (alert.triggeredDate && !alert.isAcknowledged) {
-                <button type="button" (click)="acknowledgeAlert(alert.id)" class="btn btn-success btn-sm">
-                  Potwierdź
-                </button>
-              }
             </article>
           } @empty {
             <div class="no-alerts-message">Brak ostatnich alertów kursowych.</div>
@@ -210,19 +216,22 @@
                 <span>{{ tradingEventLabel(alert.eventType) }}</span>
               </div>
               <span class="status-badge"
-                [class.active]="!alert.triggeredDate"
-                [class.fulfilled]="alert.triggeredDate && !alert.isAcknowledged"
-                [class.accepted]="alert.isAcknowledged">
-                {{ statusLabel(alert) }}
+                [class.active]="alert.status === AlertStatus.Active"
+                [class.fulfilled]="alert.status === AlertStatus.Fulfilled"
+                [class.inactive]="alert.status === AlertStatus.Inactive">
+                {{ statusLabel(alert.status) }}
               </span>
-              @if (alert.triggeredDate && !alert.isAcknowledged) {
-                <button type="button" (click)="acknowledgeTradingAlert(alert.id)" class="btn btn-success btn-sm">
-                  Potwierdź
+              @if (
+                alert.status === AlertStatus.Fulfilled &&
+                alert.eventType !== TradingAlertEvent.TradeExecution
+              ) {
+                <button type="button" (click)="openMarketOrder(alert)" class="btn btn-success btn-sm">
+                  Przejdź do rynku
                 </button>
               }
             </article>
           } @empty {
-            <div class="no-alerts-message">Brak ostatnich alertów handlowych.</div>
+            <div class="no-alerts-message">Brak ostatnich alertów rynku.</div>
           }
         }
       </div>
@@ -230,7 +239,7 @@
   </div>
 
   <section class="panel all-alerts-panel">
-    <h2>{{ mode() === 'rates' ? 'Alerty kursowe konta' : 'Alerty handlowe konta' }}</h2>
+    <h2>{{ mode() === 'rates' ? 'Alerty kursowe konta' : 'Alerty rynku konta' }}</h2>
 
     @if (mode() === 'rates') {
       @if (alerts().length === 0) {
@@ -249,24 +258,32 @@
                 <span>Zmiana: {{ alert.percentageChange }}% / {{ alert.timeFrameHours ?? 24 }}h</span><br>
               }
               <strong>Status:</strong>
-              <span [class.active]="!alert.triggeredDate"
-                [class.inactive]="alert.triggeredDate && !alert.isAcknowledged"
-                [class.acknowledged]="alert.isAcknowledged">
-                {{ statusLabel(alert) }}
+              <span [class.active]="alert.status === AlertStatus.Active"
+                [class.fulfilled]="alert.status === AlertStatus.Fulfilled"
+                [class.inactive]="alert.status === AlertStatus.Inactive">
+                {{ statusLabel(alert.status) }}
               </span>
               @if (alert.triggeredDate) {
                 <br><span>Spełniono: {{ alert.triggeredDate | date:'short' }}</span>
               }
-              @if (alert.acknowledgedDate) {
-                <br><span>Przyjęto: {{ alert.acknowledgedDate | date:'short' }}</span>
+              @if (alert.logs.length > 0) {
+                <div class="alert-log">
+                  <strong>Log alertu</strong>
+                  @for (log of alert.logs; track log.id) {
+                    <div class="alert-log-entry">
+                      <time>{{ log.createdDate | date:'short' }}</time>
+                      <span>{{ log.message }}</span>
+                    </div>
+                  }
+                </div>
               }
             </div>
             <div class="alert-actions">
-              @if (!alert.triggeredDate) {
-                <button type="button" (click)="editAlert(alert)" class="btn btn-info btn-sm">Edytuj</button>
-              }
-              @if (alert.triggeredDate && !alert.isAcknowledged) {
-                <button type="button" (click)="acknowledgeAlert(alert.id)" class="btn btn-success btn-sm">Potwierdź</button>
+              <button type="button" (click)="editAlert(alert)" class="btn btn-info btn-sm">Edytuj</button>
+              @if (alert.status === AlertStatus.Active) {
+                <button type="button" (click)="setRateAlertStatus(alert, AlertStatus.Inactive)" class="btn btn-secondary btn-sm">Wyłącz</button>
+              } @else {
+                <button type="button" (click)="setRateAlertStatus(alert, AlertStatus.Active)" class="btn btn-success btn-sm">Uruchom ponownie</button>
               }
               <button type="button" (click)="deleteAlert(alert.id)" class="btn btn-danger btn-sm">Usuń</button>
             </div>
@@ -275,7 +292,7 @@
       </ul>
     } @else {
       @if (tradingAlerts().length === 0) {
-        <div class="no-alerts-message">Nie masz jeszcze alertów handlowych.</div>
+        <div class="no-alerts-message">Nie masz jeszcze alertów rynku.</div>
       }
       <ul class="alerts-list">
         @for (alert of tradingAlerts(); track alert.id) {
@@ -287,24 +304,38 @@
                 <span>Minimalna ilość: {{ alert.minimumAmount }} {{ alert.baseCurrency }}</span><br>
               }
               <strong>Status:</strong>
-              <span [class.active]="!alert.triggeredDate"
-                [class.inactive]="alert.triggeredDate && !alert.isAcknowledged"
-                [class.acknowledged]="alert.isAcknowledged">
-                {{ statusLabel(alert) }}
+              <span [class.active]="alert.status === AlertStatus.Active"
+                [class.fulfilled]="alert.status === AlertStatus.Fulfilled"
+                [class.inactive]="alert.status === AlertStatus.Inactive">
+                {{ statusLabel(alert.status) }}
               </span>
               @if (alert.triggeredDate) {
                 <br><span>Spełniono: {{ alert.triggeredDate | date:'short' }}</span>
               }
-              @if (alert.acknowledgedDate) {
-                <br><span>Przyjęto: {{ alert.acknowledgedDate | date:'short' }}</span>
+              @if (alert.logs.length > 0) {
+                <div class="alert-log">
+                  <strong>Log alertu</strong>
+                  @for (log of alert.logs; track log.id) {
+                    <div class="alert-log-entry">
+                      <time>{{ log.createdDate | date:'short' }}</time>
+                      <span>{{ log.message }}</span>
+                    </div>
+                  }
+                </div>
               }
             </div>
             <div class="alert-actions">
-              @if (!alert.triggeredDate) {
-                <button type="button" (click)="editTradingAlert(alert)" class="btn btn-info btn-sm">Edytuj</button>
+              @if (
+                alert.status === AlertStatus.Fulfilled &&
+                alert.eventType !== TradingAlertEvent.TradeExecution
+              ) {
+                <button type="button" (click)="openMarketOrder(alert)" class="btn btn-success btn-sm">Przejdź do rynku</button>
               }
-              @if (alert.triggeredDate && !alert.isAcknowledged) {
-                <button type="button" (click)="acknowledgeTradingAlert(alert.id)" class="btn btn-success btn-sm">Potwierdź</button>
+              <button type="button" (click)="editTradingAlert(alert)" class="btn btn-info btn-sm">Edytuj</button>
+              @if (alert.status === AlertStatus.Active) {
+                <button type="button" (click)="setTradingAlertStatus(alert, AlertStatus.Inactive)" class="btn btn-secondary btn-sm">Wyłącz</button>
+              } @else {
+                <button type="button" (click)="setTradingAlertStatus(alert, AlertStatus.Active)" class="btn btn-success btn-sm">Uruchom ponownie</button>
               }
               <button type="button" (click)="deleteTradingAlert(alert.id)" class="btn btn-danger btn-sm">Usuń</button>
             </div>

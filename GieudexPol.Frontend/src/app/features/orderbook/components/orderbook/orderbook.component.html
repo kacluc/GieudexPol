@@ -2,7 +2,7 @@
   <header class="page-header">
     <div>
       <p class="eyebrow">Handel użytkowników</p>
-      <h1>Arkusz zleceń</h1>
+      <h1>Rynek walut</h1>
       <p>Aktywne zlecenia kupna i sprzedaży składane w GieudexPol.</p>
     </div>
   </header>
@@ -135,7 +135,7 @@
   <section class="my-orders">
     <div class="book-heading">
       <div>
-        <p class="section-label">Twoje środki w arkuszu</p>
+        <p class="section-label">Twoje środki na rynku</p>
         <h2>Moje aktywne zlecenia</h2>
       </div>
     </div>
@@ -182,7 +182,7 @@
     <div class="book-heading">
       <div>
         <p class="section-label">Aktywne oferty użytkowników</p>
-        <h2>{{ orderBook?.pair ?? selectedPair?.pair ?? 'Arkusz' }}</h2>
+        <h2>{{ orderBook?.pair ?? selectedPair?.pair ?? 'Rynek' }}</h2>
       </div>
       <button type="button" class="secondary-button" [disabled]="refreshing" (click)="refresh()">
         {{ refreshing ? 'Odświeżanie...' : 'Odśwież' }}
@@ -249,6 +249,6 @@
   </section>
 
   @if (loading) {
-    <div class="loading-overlay">Ładowanie arkusza...</div>
+    <div class="loading-overlay">Ładowanie rynku...</div>
   }
 </section>

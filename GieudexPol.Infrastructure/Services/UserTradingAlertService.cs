@@ -23,6 +23,7 @@ namespace GieudexPol.Infrastructure.Services
                     .ThenInclude(pair => pair.BaseCurrency)
                 .Include(alert => alert.TradingPair)
                     .ThenInclude(pair => pair.QuoteCurrency)
+                .Include(alert => alert.Logs)
                 .Where(alert => alert.UserId == userId)
                 .OrderByDescending(alert => alert.CreatedDate)
                 .ToListAsync(cancellationToken);
@@ -37,6 +38,7 @@ namespace GieudexPol.Infrastructure.Services
                     .ThenInclude(pair => pair.BaseCurrency)
                 .Include(alert => alert.TradingPair)
                     .ThenInclude(pair => pair.QuoteCurrency)
+                .Include(alert => alert.Logs)
                 .SingleOrDefaultAsync(alert => alert.Id == id, cancellationToken);
         }
 
@@ -46,9 +48,7 @@ namespace GieudexPol.Infrastructure.Services
         {
             await ValidateAsync(alert, cancellationToken);
             alert.CreatedDate = DateTime.UtcNow;
-            alert.IsActive = true;
-            alert.IsAcknowledged = false;
-            alert.AcknowledgedDate = null;
+            alert.Status = AlertStatus.Active;
             _context.UserTradingAlerts.Add(alert);
             await _context.SaveChangesAsync(cancellationToken);
             await LoadPairAsync(alert, cancellationToken);
@@ -58,12 +58,11 @@ namespace GieudexPol.Infrastructure.Services
             UserTradingAlert alert,
             CancellationToken cancellationToken = default)
         {
-            if (alert.TriggeredDate.HasValue)
-            {
-                throw new ArgumentException("Spelnionego alertu nie mozna edytowac.");
-            }
-
             await ValidateAsync(alert, cancellationToken);
+            if (alert.Status != AlertStatus.Fulfilled)
+            {
+                alert.TriggeredDate = null;
+            }
             await _context.SaveChangesAsync(cancellationToken);
             await LoadPairAsync(alert, cancellationToken);
         }
@@ -72,31 +71,12 @@ namespace GieudexPol.Infrastructure.Services
             UserTradingAlert alert,
             CancellationToken cancellationToken = default)
         {
+            var logs = await _context.AlertLogs
+                .Where(log => log.UserTradingAlertId == alert.Id)
+                .ToListAsync(cancellationToken);
+            _context.AlertLogs.RemoveRange(logs);
             _context.UserTradingAlerts.Remove(alert);
             await _context.SaveChangesAsync(cancellationToken);
-        }
-
-        public async Task<bool> AcknowledgeAsync(
-            int alertId,
-            int userId,
-            CancellationToken cancellationToken = default)
-        {
-            var alert = await _context.UserTradingAlerts.SingleOrDefaultAsync(
-                item => item.Id == alertId && item.UserId == userId,
-                cancellationToken);
-            if (alert == null || !alert.TriggeredDate.HasValue)
-            {
-                return false;
-            }
-
-            if (!alert.IsAcknowledged)
-            {
-                alert.IsAcknowledged = true;
-                alert.AcknowledgedDate = DateTime.UtcNow;
-                await _context.SaveChangesAsync(cancellationToken);
-            }
-
-            return true;
         }
 
         private async Task ValidateAsync(
@@ -111,6 +91,25 @@ namespace GieudexPol.Infrastructure.Services
             if (!Enum.IsDefined(alert.Direction))
             {
                 throw new ArgumentException("Nieprawidlowy kierunek ceny alertu.");
+            }
+
+            if (!Enum.IsDefined(alert.Status))
+            {
+                throw new ArgumentException("Nieprawidlowy status alertu.");
+            }
+
+            if (alert.EventType == TradingAlertEvent.SellOrder &&
+                alert.Direction != ThresholdDirection.BelowOrEqual)
+            {
+                throw new ArgumentException(
+                    "Alert kupna waluty monitoruje oferty sprzedazy tylko z warunkiem <=.");
+            }
+
+            if (alert.EventType == TradingAlertEvent.BuyOrder &&
+                alert.Direction != ThresholdDirection.AboveOrEqual)
+            {
+                throw new ArgumentException(
+                    "Alert sprzedazy waluty monitoruje oferty kupna tylko z warunkiem >=.");
             }
 
             if (alert.TargetPrice <= 0)

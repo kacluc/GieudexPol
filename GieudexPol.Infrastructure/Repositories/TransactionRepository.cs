@@ -22,6 +22,12 @@ namespace GieudexPol.Infrastructure.Repositories
                 .Include(t => t.Sender)
                 .Include(t => t.Receiver)
                 .Include(t => t.Currency)
+                .Include(t => t.TradeExecution)
+                    .ThenInclude(execution => execution!.TradingPair)
+                        .ThenInclude(pair => pair.BaseCurrency)
+                .Include(t => t.TradeExecution)
+                    .ThenInclude(execution => execution!.TradingPair)
+                        .ThenInclude(pair => pair.QuoteCurrency)
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
@@ -39,6 +45,12 @@ namespace GieudexPol.Infrastructure.Repositories
                 .Include(t => t.Sender)
                 .Include(t => t.Receiver)
                 .Include(t => t.Currency)
+                .Include(t => t.TradeExecution)
+                    .ThenInclude(execution => execution!.TradingPair)
+                        .ThenInclude(pair => pair.BaseCurrency)
+                .Include(t => t.TradeExecution)
+                    .ThenInclude(execution => execution!.TradingPair)
+                        .ThenInclude(pair => pair.QuoteCurrency)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(transactionType))
@@ -124,4 +136,4 @@ namespace GieudexPol.Infrastructure.Repositories
             }
         }
     }
-} 
+}

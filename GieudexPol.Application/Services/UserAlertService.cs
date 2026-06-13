@@ -8,18 +8,15 @@ namespace GieudexPol.Application.Services
     public class UserAlertService : IUserAlertService
     {
         private readonly IUserAlertRepository _userAlertRepository;
-        private readonly INotificationService _notificationService;
         private readonly ICurrencyRepository _currencyRepository;
         private readonly IRateSourceRepository _rateSourceRepository;
 
         public UserAlertService(
             IUserAlertRepository userAlertRepository,
-            INotificationService notificationService,
             ICurrencyRepository currencyRepository,
             IRateSourceRepository rateSourceRepository)
         {
             _userAlertRepository = userAlertRepository;
-            _notificationService = notificationService;
             _currencyRepository = currencyRepository;
             _rateSourceRepository = rateSourceRepository;
         }
@@ -63,15 +60,17 @@ namespace GieudexPol.Application.Services
         {
             await ValidateAsync(userAlert);
             userAlert.CreatedDate = System.DateTime.UtcNow;
-            userAlert.IsActive = true;
-            userAlert.IsAcknowledged = false;
-            userAlert.AcknowledgedDate = null;
+            userAlert.Status = AlertStatus.Active;
             await _userAlertRepository.AddAsync(userAlert);
         }
 
         public async Task UpdateUserAlertAsync(UserAlert userAlert)
         {
             await ValidateAsync(userAlert);
+            if (userAlert.Status != AlertStatus.Fulfilled)
+            {
+                userAlert.TriggeredDate = null;
+            }
             await _userAlertRepository.UpdateAsync(userAlert);
         }
 
@@ -81,48 +80,6 @@ namespace GieudexPol.Application.Services
             if (userAlert != null)
             {
                 await _userAlertRepository.DeleteAsync(userAlert);
-            }
-        }
-
-        public async Task<bool> AcknowledgeAlertAsync(int userAlertId, int userId)
-        {
-            var userAlert = await _userAlertRepository.GetByIdAsync(userAlertId);
-            if (userAlert == null ||
-                userAlert.UserId != userId ||
-                !userAlert.TriggeredDate.HasValue)
-            {
-                return false;
-            }
-
-            if (!userAlert.IsAcknowledged)
-            {
-                userAlert.IsAcknowledged = true;
-                userAlert.AcknowledgedDate = DateTime.UtcNow;
-                await _userAlertRepository.UpdateAsync(userAlert);
-            }
-
-            return true;
-        }
-
-        public async Task TriggerAlertAsync(int userAlertId, string message)
-        {
-            var userAlert = await _userAlertRepository.GetByIdAsync(userAlertId);
-            if (userAlert != null)
-            {
-                userAlert.TriggeredDate = System.DateTime.UtcNow;
-                userAlert.IsActive = false;
-                userAlert.IsAcknowledged = false;
-                userAlert.AcknowledgedDate = null;
-                await _userAlertRepository.UpdateAsync(userAlert);
-
-                var notification = new Notification
-                {
-                    UserId = userAlert.UserId,
-                    Message = message,
-                    CreatedDate = System.DateTime.UtcNow,
-                    IsRead = false
-                };
-                await _notificationService.AddAsync(notification);
             }
         }
 

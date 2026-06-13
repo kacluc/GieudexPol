@@ -11,6 +11,7 @@ namespace GieudexPol.Application.DTOs
         public string TransactionType { get; set; } = string.Empty;
         public decimal AppliedFee { get; set; }
         public Guid? TransactionFeeId { get; set; }
+        public int? TradeExecutionId { get; set; }
         public DateTime Timestamp { get; set; }
     }
 }

@@ -49,8 +49,8 @@ export class DashboardComponent implements OnInit {
       status: 'Dostepne',
     },
     {
-      title: 'Arkusz zleceń',
-      description: 'Składanie zleceń oraz podgląd aktywnych ofert kupna i sprzedaży.',
+      title: 'Rynek walut',
+      description: 'Składanie zleceń oraz podgląd ofert kupna i sprzedaży użytkowników.',
       route: '/order-book',
       status: 'Dostępne',
     },

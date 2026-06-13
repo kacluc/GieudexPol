@@ -105,17 +105,26 @@ namespace GieudexPol.API.Controllers
                 return Forbid();
             }
 
+            if (request.Status == AlertStatus.Fulfilled &&
+                alert.Status != AlertStatus.Fulfilled)
+            {
+                return BadRequest(new
+                {
+                    message = "Stan Spełniony może ustawić wyłącznie system ewaluacji alertów."
+                });
+            }
+
             alert.TradingPairId = request.TradingPairId;
             alert.EventType = request.EventType;
             alert.Direction = request.Direction;
             alert.TargetPrice = request.TargetPrice;
             alert.MinimumAmount = request.MinimumAmount;
-            alert.IsActive = request.IsActive;
+            alert.Status = request.Status;
 
             try
             {
                 await _alertService.UpdateAsync(alert, cancellationToken);
-                if (alert.IsActive)
+                if (alert.Status == AlertStatus.Active)
                 {
                     await _evaluationService.EvaluateAlertAsync(alert.Id, cancellationToken);
                 }
@@ -154,24 +163,6 @@ namespace GieudexPol.API.Controllers
             return NoContent();
         }
 
-        [HttpPut("{id:int}/acknowledge")]
-        public async Task<IActionResult> Acknowledge(
-            int id,
-            CancellationToken cancellationToken)
-        {
-            var user = await GetAuthenticatedUserAsync();
-            if (user == null)
-            {
-                return Unauthorized();
-            }
-
-            var acknowledged = await _alertService.AcknowledgeAsync(
-                id,
-                user.Id,
-                cancellationToken);
-            return acknowledged ? NoContent() : NotFound();
-        }
-
         private async Task<User?> GetAuthenticatedUserAsync()
         {
             var authIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -191,14 +182,35 @@ namespace GieudexPol.API.Controllers
                 BaseCurrency = alert.TradingPair.BaseCurrency.Symbol,
                 QuoteCurrency = alert.TradingPair.QuoteCurrency.Symbol,
                 EventType = alert.EventType,
-                Direction = alert.Direction,
+                Direction = alert.EventType switch
+                {
+                    TradingAlertEvent.SellOrder => ThresholdDirection.BelowOrEqual,
+                    TradingAlertEvent.BuyOrder => ThresholdDirection.AboveOrEqual,
+                    _ => alert.Direction
+                },
                 TargetPrice = alert.TargetPrice,
                 MinimumAmount = alert.MinimumAmount,
-                IsActive = alert.IsActive,
+                Status = alert.Status,
                 CreatedDate = alert.CreatedDate,
                 TriggeredDate = alert.TriggeredDate,
-                IsAcknowledged = alert.IsAcknowledged,
-                AcknowledgedDate = alert.AcknowledgedDate
+                Logs = alert.Logs
+                    .OrderByDescending(log => log.CreatedDate)
+                    .Select(MapLog)
+                    .ToList()
+            };
+        }
+
+        private static AlertLogDto MapLog(AlertLog log)
+        {
+            return new AlertLogDto
+            {
+                Id = log.Id,
+                Message = log.Message,
+                CreatedDate = log.CreatedDate,
+                CurrentPrice = log.CurrentPrice,
+                CurrentAmount = log.CurrentAmount,
+                SourceSummary = log.SourceSummary,
+                EffectiveDate = log.EffectiveDate
             };
         }
     }

@@ -19,7 +19,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     { label: 'Portfel', path: '/wallet' },
     { label: 'Transfer', path: '/transfer' },
     { label: 'Historia', path: '/history' },
-    { label: 'Arkusz zleceń', path: '/order-book' },
+    { label: 'Rynek walut', path: '/order-book' },
     { label: 'Alerty', path: '/alerts' },
     { label: 'Top Walenie', path: '/whale-ranking' },
   ];
@@ -55,7 +55,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   private refreshAlertIndicator(): void {
     this.userAlertService.refreshAlertIndicator().subscribe({
-      error: () => this.userAlertService.hasUnacknowledgedAlerts.set(false),
+      error: () => this.userAlertService.hasFulfilledAlerts.set(false),
     });
   }
 }

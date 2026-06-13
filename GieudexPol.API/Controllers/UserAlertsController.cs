@@ -133,6 +133,15 @@ namespace GieudexPol.API.Controllers
                 return Forbid();
             }
 
+            if (userAlertUpdateDto.Status == AlertStatus.Fulfilled &&
+                existingUserAlert.Status != AlertStatus.Fulfilled)
+            {
+                return BadRequest(new
+                {
+                    message = "Stan Spełniony może ustawić wyłącznie system ewaluacji alertów."
+                });
+            }
+
             existingUserAlert.CurrencyId = userAlertUpdateDto.CurrencyId;
             existingUserAlert.AlertType = userAlertUpdateDto.AlertType;
             existingUserAlert.PriceSide = userAlertUpdateDto.PriceSide;
@@ -141,7 +150,7 @@ namespace GieudexPol.API.Controllers
             existingUserAlert.ThresholdValue = userAlertUpdateDto.ThresholdValue;
             existingUserAlert.PercentageChange = userAlertUpdateDto.PercentageChange;
             existingUserAlert.TimeFrameHours = userAlertUpdateDto.TimeFrameHours;
-            existingUserAlert.IsActive = userAlertUpdateDto.IsActive;
+            existingUserAlert.Status = userAlertUpdateDto.Status;
 
             try
             {
@@ -179,21 +188,6 @@ namespace GieudexPol.API.Controllers
             return NoContent();
         }
 
-        [HttpPut("{id}/acknowledge")]
-        public async Task<IActionResult> AcknowledgeAlert(int id)
-        {
-            var currentUser = await GetAuthenticatedUserAsync();
-            if (currentUser == null)
-            {
-                return Unauthorized();
-            }
-
-            var acknowledged = await _userAlertService.AcknowledgeAlertAsync(
-                id,
-                currentUser.Id);
-            return acknowledged ? NoContent() : NotFound();
-        }
-
         private async Task<User?> GetAuthenticatedUserAsync()
         {
             var authIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -222,11 +216,27 @@ namespace GieudexPol.API.Controllers
                 ThresholdValue = userAlert.ThresholdValue,
                 PercentageChange = userAlert.PercentageChange,
                 TimeFrameHours = userAlert.TimeFrameHours,
-                IsActive = userAlert.IsActive,
+                Status = userAlert.Status,
                 CreatedDate = userAlert.CreatedDate,
                 TriggeredDate = userAlert.TriggeredDate,
-                IsAcknowledged = userAlert.IsAcknowledged,
-                AcknowledgedDate = userAlert.AcknowledgedDate
+                Logs = userAlert.Logs
+                    .OrderByDescending(log => log.CreatedDate)
+                    .Select(MapLog)
+                    .ToList()
+            };
+        }
+
+        private static AlertLogDto MapLog(AlertLog log)
+        {
+            return new AlertLogDto
+            {
+                Id = log.Id,
+                Message = log.Message,
+                CreatedDate = log.CreatedDate,
+                CurrentPrice = log.CurrentPrice,
+                CurrentAmount = log.CurrentAmount,
+                SourceSummary = log.SourceSummary,
+                EffectiveDate = log.EffectiveDate
             };
         }
     }

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BehaviorSubject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
+import { ActivatedRoute } from '@angular/router';
 import { WalletService } from '../../../wallet/services/wallet.service';
 import { OrderBook, TradingPair, UserOrder } from '../../models/order-book.model';
 import { OrderBookService } from '../../services/order-book.service';
@@ -41,6 +42,9 @@ describe('OrderbookComponent', () => {
 
   const pairsSubject = new BehaviorSubject<TradingPair[]>([pair]);
   const ordersSubject = new BehaviorSubject<UserOrder[]>([]);
+  const queryParamsSubject = new BehaviorSubject({
+    get: (_name: string) => null as string | null,
+  });
   const walletsSubject = new BehaviorSubject([
     {
       id: 1,
@@ -69,6 +73,7 @@ describe('OrderbookComponent', () => {
   beforeEach(async () => {
     pairsSubject.next([pair]);
     ordersSubject.next([]);
+    queryParamsSubject.next({ get: () => null });
     orderBookService.getTradingPairs.mockReturnValue(of([pair]));
     orderBookService.getOrderBook.mockReturnValue(of(orderBook));
     orderBookService.getMyOrders.mockImplementation(() => {
@@ -84,6 +89,12 @@ describe('OrderbookComponent', () => {
       providers: [
         { provide: OrderBookService, useValue: orderBookService },
         { provide: WalletService, useValue: walletService },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParamMap: queryParamsSubject.asObservable(),
+          },
+        },
       ],
     }).compileComponents();
 
@@ -126,5 +137,23 @@ describe('OrderbookComponent', () => {
 
     expect(orderBookService.createOrder).toHaveBeenCalled();
     expect(walletService.refreshWallets).toHaveBeenCalled();
+  });
+
+  it('prefills pair, side and price passed from a fulfilled market alert', () => {
+    queryParamsSubject.next({
+      get: (name: string) => {
+        if (name === 'pairId') return '1';
+        if (name === 'side') return 'Sell';
+        if (name === 'price') return '4.35';
+        return null;
+      },
+    });
+
+    fixture.detectChanges();
+
+    expect(component.selectedPair).toEqual(pair);
+    expect(component.side).toBe('Sell');
+    expect(component.price).toBe(4.35);
+    expect(component.amount).toBeNull();
   });
 });

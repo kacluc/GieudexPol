@@ -12,5 +12,6 @@ namespace GieudexPol.Domain.Entities
         public decimal Price { get; set; }
         public decimal Amount { get; set; }
         public DateTime ExecutedAt { get; set; }
+        public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
     }
 }

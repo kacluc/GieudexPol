@@ -11,5 +11,9 @@ export interface Transaction {
     transactionType: string; // e.g., "Transfer", "Buy", "Sell"
     appliedFee: number;
     transactionFeeId?: string; // Optional, as it can be null
+    tradeExecutionId?: number;
+    tradingPair?: string;
+    executionPrice?: number;
+    executionAmount?: number;
     timestamp: Date;
 }

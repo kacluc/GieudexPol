@@ -139,10 +139,18 @@ namespace GieudexPol.Application.Services
                 SenderUsername = t.Sender?.Username ?? "N/A",
                 ReceiverUsername = t.Receiver?.Username ?? "N/A",
                 Amount = t.Amount,
+                CurrencyId = t.CurrencyId,
                 CurrencySymbol = t.Currency?.Symbol ?? "N/A",
                 Status = t.Status,
                 TransactionType = t.TransactionType,
                 AppliedFee = t.AppliedFee,
+                TradeExecutionId = t.TradeExecutionId,
+                TradingPair = t.TradeExecution == null
+                    ? null
+                    : t.TradeExecution.TradingPair.BaseCurrency.Symbol + "/" +
+                      t.TradeExecution.TradingPair.QuoteCurrency.Symbol,
+                ExecutionPrice = t.TradeExecution?.Price,
+                ExecutionAmount = t.TradeExecution?.Amount,
                 Timestamp = t.Timestamp
             }).ToList();
 

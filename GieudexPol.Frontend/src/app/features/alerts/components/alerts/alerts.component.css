@@ -88,6 +88,27 @@
   line-height: 1.4;
 }
 
+.alert-log {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border, #dfe3e8);
+}
+
+.alert-log-entry {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.55rem;
+  padding: 0.6rem;
+  border-radius: 0.45rem;
+  background: rgba(15, 23, 42, 0.04);
+  font-size: 0.88rem;
+}
+
+.alert-log-entry time {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
 .form-group label {
   display: block;
   margin-bottom: 0.45rem;
@@ -164,7 +185,7 @@
   color: #bd2f26;
 }
 
-.status-badge.accepted {
+.status-badge.inactive {
   background: #e8edf4;
   color: #4c5c72;
 }
@@ -198,12 +219,12 @@
   font-weight: 700;
 }
 
-.alert-details span.inactive {
+.alert-details span.fulfilled {
   color: #c62828;
   font-weight: 700;
 }
 
-.alert-details span.acknowledged {
+.alert-details span.inactive {
   color: #4c5c72;
   font-weight: 700;
 }

@@ -12,9 +12,9 @@
         {{ item.label }}
         @if (
           item.path === '/alerts' &&
-          userAlertService.hasUnacknowledgedAlerts()
+          userAlertService.hasFulfilledAlerts()
         ) {
-          <span class="alert-dot" aria-label="Niepotwierdzony spełniony alert"></span>
+          <span class="alert-dot" aria-label="Spełniony alert"></span>
         }
       </a>
     }

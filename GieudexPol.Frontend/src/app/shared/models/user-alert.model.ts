@@ -15,6 +15,22 @@ export enum ThresholdDirection {
   BelowOrEqual = 'BelowOrEqual',
 }
 
+export enum AlertStatus {
+  Active = 'Active',
+  Fulfilled = 'Fulfilled',
+  Inactive = 'Inactive',
+}
+
+export interface AlertLogDto {
+  id: number;
+  message: string;
+  createdDate: string;
+  currentPrice?: number | null;
+  currentAmount?: number | null;
+  sourceSummary?: string | null;
+  effectiveDate?: string | null;
+}
+
 export interface UserAlertCreateDto {
   currencyId: number;
   alertType: AlertType;
@@ -36,7 +52,7 @@ export interface UserAlertUpdateDto {
   thresholdValue?: number | null;
   percentageChange?: number | null;
   timeFrameHours?: number | null;
-  isActive: boolean;
+  status: AlertStatus;
 }
 
 export interface UserAlertDto {
@@ -54,11 +70,10 @@ export interface UserAlertDto {
   thresholdValue?: number | null;
   percentageChange?: number | null;
   timeFrameHours?: number | null;
-  isActive: boolean;
+  status: AlertStatus;
   createdDate: string;
   triggeredDate?: string | null;
-  isAcknowledged: boolean;
-  acknowledgedDate?: string | null;
+  logs: AlertLogDto[];
 }
 
 export interface AlertRateSource {
@@ -92,7 +107,7 @@ export interface UserTradingAlertCreateDto {
 
 export interface UserTradingAlertUpdateDto extends UserTradingAlertCreateDto {
   id: number;
-  isActive: boolean;
+  status: AlertStatus;
 }
 
 export interface UserTradingAlertDto {
@@ -105,9 +120,8 @@ export interface UserTradingAlertDto {
   direction: ThresholdDirection;
   targetPrice: number;
   minimumAmount?: number | null;
-  isActive: boolean;
+  status: AlertStatus;
   createdDate: string;
   triggeredDate?: string | null;
-  isAcknowledged: boolean;
-  acknowledgedDate?: string | null;
+  logs: AlertLogDto[];
 }

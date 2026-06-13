@@ -106,6 +106,7 @@ namespace GieudexPol.API.Controllers
                 TransactionType = transaction.TransactionType,
                 AppliedFee = transaction.AppliedFee,
                 TransactionFeeId = transaction.TransactionFeeId,
+                TradeExecutionId = transaction.TradeExecutionId,
                 Timestamp = transaction.Timestamp
             };
         }
@@ -122,6 +123,7 @@ namespace GieudexPol.API.Controllers
         public string TransactionType { get; set; } = string.Empty;
         public decimal AppliedFee { get; set; }
         public Guid? TransactionFeeId { get; set; }
+        public int? TradeExecutionId { get; set; }
         public DateTime Timestamp { get; set; }
     }
 }

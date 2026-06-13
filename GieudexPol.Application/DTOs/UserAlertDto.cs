@@ -31,11 +31,10 @@ namespace GieudexPol.Application.DTOs
         public decimal? ThresholdValue { get; set; }
         public decimal? PercentageChange { get; set; }
         public int? TimeFrameHours { get; set; }
-        public bool IsActive { get; set; }
+        public AlertStatus Status { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? TriggeredDate { get; set; }
-        public bool IsAcknowledged { get; set; }
-        public DateTime? AcknowledgedDate { get; set; }
+        public IReadOnlyList<AlertLogDto> Logs { get; set; } = [];
     }
 
     public class UserAlertUpdateDto
@@ -49,7 +48,7 @@ namespace GieudexPol.Application.DTOs
         public decimal? ThresholdValue { get; set; }
         public decimal? PercentageChange { get; set; }
         public int? TimeFrameHours { get; set; }
-        public bool IsActive { get; set; }
+        public AlertStatus Status { get; set; }
     }
 
     public class AlertRateSourceDto

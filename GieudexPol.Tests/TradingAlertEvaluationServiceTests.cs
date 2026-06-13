@@ -29,7 +29,8 @@ public class TradingAlertEvaluationServiceTests
 
         result.TriggeredAlertsCount.Should().Be(1);
         context.Notifications.Single().Message.Should().Contain("4.35");
-        context.UserTradingAlerts.Single().IsActive.Should().BeFalse();
+        context.UserTradingAlerts.Single().Status.Should().Be(AlertStatus.Fulfilled);
+        context.AlertLogs.Single().CurrentPrice.Should().Be(4.35m);
     }
 
     [Fact]
@@ -54,6 +55,50 @@ public class TradingAlertEvaluationServiceTests
 
         result.TriggeredAlertsCount.Should().Be(1);
         context.Notifications.Single().Message.Should().Contain("ilosc: 11");
+    }
+
+    [Fact]
+    public async Task WantToBuy_UsesLowestSellAndBelowOrEqualEvenForLegacyDirection()
+    {
+        await using var context = CreateContext();
+        var seed = await SeedMarketAsync(context);
+        context.Orders.AddRange(
+            CreateOrder(seed.Pair, seed.OtherUser, OrderSide.Sell, 4.20m, 5m),
+            CreateOrder(seed.Pair, seed.ThirdUser, OrderSide.Sell, 4.30m, 5m));
+        context.UserTradingAlerts.Add(CreateAlert(
+            seed,
+            TradingAlertEvent.SellOrder,
+            ThresholdDirection.AboveOrEqual,
+            4.25m));
+        await context.SaveChangesAsync();
+
+        var result = await new TradingAlertEvaluationService(context)
+            .EvaluateAllActiveAlertsAsync();
+
+        result.TriggeredAlertsCount.Should().Be(1);
+        context.Notifications.Single().Message.Should().Contain("4.2");
+    }
+
+    [Fact]
+    public async Task WantToSell_UsesHighestBuyAndAboveOrEqualEvenForLegacyDirection()
+    {
+        await using var context = CreateContext();
+        var seed = await SeedMarketAsync(context);
+        context.Orders.AddRange(
+            CreateOrder(seed.Pair, seed.OtherUser, OrderSide.Buy, 4.40m, 5m),
+            CreateOrder(seed.Pair, seed.ThirdUser, OrderSide.Buy, 4.30m, 5m));
+        context.UserTradingAlerts.Add(CreateAlert(
+            seed,
+            TradingAlertEvent.BuyOrder,
+            ThresholdDirection.BelowOrEqual,
+            4.35m));
+        await context.SaveChangesAsync();
+
+        var result = await new TradingAlertEvaluationService(context)
+            .EvaluateAllActiveAlertsAsync();
+
+        result.TriggeredAlertsCount.Should().Be(1);
+        context.Notifications.Single().Message.Should().Contain("4.4");
     }
 
     [Fact]
@@ -110,7 +155,7 @@ public class TradingAlertEvaluationServiceTests
 
         result.TriggeredAlertsCount.Should().Be(0);
         context.Notifications.Should().BeEmpty();
-        context.UserTradingAlerts.Single().IsActive.Should().BeTrue();
+        context.UserTradingAlerts.Single().Status.Should().Be(AlertStatus.Active);
     }
 
     private static ApplicationDbContext CreateContext()
@@ -156,7 +201,7 @@ public class TradingAlertEvaluationServiceTests
             Direction = direction,
             TargetPrice = price,
             MinimumAmount = minimumAmount,
-            IsActive = true,
+            Status = AlertStatus.Active,
             CreatedDate = DateTime.UtcNow.AddMinutes(-1)
         };
     }

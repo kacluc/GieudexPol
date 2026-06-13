@@ -99,7 +99,7 @@ namespace GieudexPol.Infrastructure.Services
                 .Include(alert => alert.Currency)
                 .Include(alert => alert.RateSource)
                 .Include(alert => alert.EvaluationStates)
-                .Where(alert => alert.IsActive);
+                .Where(alert => alert.Status == AlertStatus.Active);
 
             if (alertId.HasValue)
             {
@@ -233,11 +233,27 @@ namespace GieudexPol.Infrastructure.Services
 
             if (triggerDetails.Count > 0)
             {
-                alert.IsActive = false;
+                alert.Status = AlertStatus.Fulfilled;
                 alert.TriggeredDate = DateTime.UtcNow;
-                alert.IsAcknowledged = false;
-                alert.AcknowledgedDate = null;
                 var message = BuildNotificationMessage(alert, triggerDetails);
+                _context.AlertLogs.Add(new AlertLog
+                {
+                    UserAlert = alert,
+                    Message = message,
+                    CreatedDate = alert.TriggeredDate.Value,
+                    CurrentPrice = triggerDetails.Count == 1
+                        ? triggerDetails[0].CurrentPrice
+                        : null,
+                    SourceSummary = string.Join(
+                        ", ",
+                        triggerDetails.Select(detail => detail.SourceCode)),
+                    EffectiveDate = triggerDetails
+                        .Select(detail => detail.EffectiveDate)
+                        .Distinct()
+                        .Count() == 1
+                            ? triggerDetails[0].EffectiveDate
+                            : null
+                });
                 _context.Notifications.Add(new Notification
                 {
                     UserId = alert.UserId,

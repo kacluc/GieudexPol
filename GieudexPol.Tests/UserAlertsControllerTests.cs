@@ -30,7 +30,7 @@ public class UserAlertsControllerTests
                 Currency = new Currency { Id = 1, Symbol = "USD" },
                 AlertType = AlertType.Threshold,
                 ThresholdValue = 4.2m,
-                IsActive = true
+                Status = AlertStatus.Active
             }
         };
         alertService
@@ -96,21 +96,6 @@ public class UserAlertsControllerTests
 
         result.Should().BeOfType<ForbidResult>();
         alertService.Verify(service => service.DeleteUserAlertAsync(It.IsAny<int>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task AcknowledgeAlert_ForAuthenticatedOwner_ReturnsNoContent()
-    {
-        var alertService = new Mock<IUserAlertService>();
-        var userRepository = CreateUserRepository(userId: 3);
-        alertService.Setup(service => service.AcknowledgeAlertAsync(7, 3))
-            .ReturnsAsync(true);
-        var controller = CreateController(alertService.Object, userRepository.Object);
-
-        var result = await controller.AcknowledgeAlert(7);
-
-        result.Should().BeOfType<NoContentResult>();
-        alertService.Verify(service => service.AcknowledgeAlertAsync(7, 3), Times.Once);
     }
 
     [Fact]

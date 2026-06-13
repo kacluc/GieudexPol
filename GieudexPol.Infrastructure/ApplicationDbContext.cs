@@ -17,6 +17,7 @@ namespace GieudexPol.Infrastructure
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<UserAlert> UserAlerts { get; set; }
         public DbSet<UserTradingAlert> UserTradingAlerts { get; set; }
+        public DbSet<AlertLog> AlertLogs { get; set; }
         public DbSet<UserAlertEvaluationState> UserAlertEvaluationStates { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<FavoriteCurrency> FavoriteCurrencies { get; set; }
@@ -189,6 +190,12 @@ namespace GieudexPol.Infrastructure
                 .HasForeignKey(t => t.TransactionFeeId);
 
             modelBuilder.Entity<Transaction>()
+                .HasOne(t => t.TradeExecution)
+                .WithMany(execution => execution.Transactions)
+                .HasForeignKey(t => t.TradeExecutionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Transaction>()
                .Property(t => t.Amount)
                .HasPrecision(18, 4);
 
@@ -262,10 +269,36 @@ namespace GieudexPol.Infrastructure
             modelBuilder.Entity<UserTradingAlert>()
                 .HasIndex(alert => new
                 {
-                    alert.IsActive,
+                    alert.Status,
                     alert.TradingPairId,
                     alert.EventType
                 });
+
+            modelBuilder.Entity<AlertLog>()
+                .HasOne(log => log.UserAlert)
+                .WithMany(alert => alert.Logs)
+                .HasForeignKey(log => log.UserAlertId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<AlertLog>()
+                .HasOne(log => log.UserTradingAlert)
+                .WithMany(alert => alert.Logs)
+                .HasForeignKey(log => log.UserTradingAlertId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<AlertLog>()
+                .Property(log => log.CurrentPrice)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<AlertLog>()
+                .Property(log => log.CurrentAmount)
+                .HasPrecision(18, 4);
+
+            modelBuilder.Entity<AlertLog>()
+                .HasIndex(log => new { log.UserAlertId, log.CreatedDate });
+
+            modelBuilder.Entity<AlertLog>()
+                .HasIndex(log => new { log.UserTradingAlertId, log.CreatedDate });
 
             modelBuilder.Entity<ExchangeRate>()
                 .HasOne(er => er.Currency)

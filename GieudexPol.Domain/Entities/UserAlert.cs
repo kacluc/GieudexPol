@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GieudexPol.Domain.Entities
 {
@@ -34,16 +35,21 @@ namespace GieudexPol.Domain.Entities
         public decimal? ThresholdValue { get; set; }
         public decimal? PercentageChange { get; set; }
         public int? TimeFrameHours { get; set; }
-        public bool IsActive { get; set; }
+        public AlertStatus Status { get; set; }
+        [NotMapped]
+        public bool IsActive
+        {
+            get => Status == AlertStatus.Active;
+            set => Status = value ? AlertStatus.Active : AlertStatus.Inactive;
+        }
         public DateTime CreatedDate { get; set; }
         public DateTime? TriggeredDate { get; set; }
-        public bool IsAcknowledged { get; set; }
-        public DateTime? AcknowledgedDate { get; set; }
 
         public User User { get; set; } = null!;
         public Currency Currency { get; set; } = null!;
         public RateSource? RateSource { get; set; }
         public ICollection<UserAlertEvaluationState> EvaluationStates { get; set; } =
             new List<UserAlertEvaluationState>();
+        public ICollection<AlertLog> Logs { get; set; } = new List<AlertLog>();
     }
 }

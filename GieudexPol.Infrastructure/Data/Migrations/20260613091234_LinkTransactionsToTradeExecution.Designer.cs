@@ -4,6 +4,7 @@ using GieudexPol.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GieudexPol.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260613091234_LinkTransactionsToTradeExecution")]
+    partial class LinkTransactionsToTradeExecution
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,50 +24,6 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("GieudexPol.Domain.Entities.AlertLog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal?>("CurrentAmount")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<decimal?>("CurrentPrice")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
-
-                    b.Property<DateTime?>("EffectiveDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SourceSummary")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("UserAlertId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("UserTradingAlertId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserAlertId", "CreatedDate");
-
-                    b.HasIndex("UserTradingAlertId", "CreatedDate");
-
-                    b.ToTable("AlertLogs");
-                });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.AuditLog", b =>
                 {
@@ -494,6 +453,9 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("AcknowledgedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("AlertType")
                         .HasColumnType("int");
 
@@ -503,6 +465,12 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     b.Property<int>("CurrencyId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsAcknowledged")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<decimal?>("PercentageChange")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -511,9 +479,6 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.Property<int?>("RateSourceId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.Property<int?>("ThresholdDirection")
@@ -578,6 +543,9 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("AcknowledgedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
@@ -587,12 +555,15 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     b.Property<int>("EventType")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsAcknowledged")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.Property<decimal?>("MinimumAmount")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
 
                     b.Property<decimal>("TargetPrice")
                         .HasPrecision(18, 4)
@@ -613,7 +584,7 @@ namespace GieudexPol.Infrastructure.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("Status", "TradingPairId", "EventType");
+                    b.HasIndex("IsActive", "TradingPairId", "EventType");
 
                     b.ToTable("UserTradingAlerts");
                 });
@@ -676,23 +647,6 @@ namespace GieudexPol.Infrastructure.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("WhaleRankings");
-                });
-
-            modelBuilder.Entity("GieudexPol.Domain.Entities.AlertLog", b =>
-                {
-                    b.HasOne("GieudexPol.Domain.Entities.UserAlert", "UserAlert")
-                        .WithMany("Logs")
-                        .HasForeignKey("UserAlertId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("GieudexPol.Domain.Entities.UserTradingAlert", "UserTradingAlert")
-                        .WithMany("Logs")
-                        .HasForeignKey("UserTradingAlertId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("UserAlert");
-
-                    b.Navigation("UserTradingAlert");
                 });
 
             modelBuilder.Entity("GieudexPol.Domain.Entities.AuditLog", b =>
@@ -1003,13 +957,6 @@ namespace GieudexPol.Infrastructure.Data.Migrations
             modelBuilder.Entity("GieudexPol.Domain.Entities.UserAlert", b =>
                 {
                     b.Navigation("EvaluationStates");
-
-                    b.Navigation("Logs");
-                });
-
-            modelBuilder.Entity("GieudexPol.Domain.Entities.UserTradingAlert", b =>
-                {
-                    b.Navigation("Logs");
                 });
 #pragma warning restore 612, 618
         }

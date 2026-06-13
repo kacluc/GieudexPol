@@ -16,9 +16,10 @@ namespace GieudexPol.Infrastructure.Repositories
         public async Task<IEnumerable<UserAlert>> GetAllActiveUserAlertsAsync()
         {
             return await _context.UserAlerts
-                                 .Where(a => a.IsActive)
+                                 .Where(a => a.Status == AlertStatus.Active)
                                  .Include(a => a.Currency)
                                  .Include(a => a.RateSource)
+                                 .Include(a => a.Logs)
                                  .ToListAsync();
         }
 
@@ -28,8 +29,19 @@ namespace GieudexPol.Infrastructure.Repositories
                                  .Where(a => a.UserId == userId)
                                  .Include(a => a.Currency)
                                  .Include(a => a.RateSource)
+                                 .Include(a => a.Logs)
                                  .OrderByDescending(a => a.CreatedDate)
                                  .ToListAsync();
+        }
+
+        public override async Task DeleteAsync(UserAlert alert)
+        {
+            var logs = await _context.AlertLogs
+                .Where(log => log.UserAlertId == alert.Id)
+                .ToListAsync();
+            _context.AlertLogs.RemoveRange(logs);
+            _context.UserAlerts.Remove(alert);
+            await _context.SaveChangesAsync();
         }
     }
 }
