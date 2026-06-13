@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { FavoriteCurrencyService } from '../../services/favorite-currency.service';
 import { Observable } from 'rxjs';
 //spprawdz i upewnij sie
-
+//testowanie czy  railway sie nie popsuje
 
 interface CurrencyExchangeSimulationResponse {
   exchangedAmount: number;
