@@ -130,6 +130,8 @@ describe('AlertsComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/order-book'], {
       queryParams: {
         pairId: 1,
+        baseCurrency: 'EUR',
+        quoteCurrency: 'PLN',
         side: 'Buy',
         price: 4.25,
       },

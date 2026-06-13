@@ -158,6 +158,133 @@ public class TradingAlertEvaluationServiceTests
         context.UserTradingAlerts.Single().Status.Should().Be(AlertStatus.Active);
     }
 
+    [Fact]
+    public async Task FulfilledOrderAlert_ContinuesMonitoringWithoutLoggingSameOfferTwice()
+    {
+        await using var context = CreateContext();
+        var seed = await SeedMarketAsync(context);
+        context.Orders.Add(
+            CreateOrder(seed.Pair, seed.OtherUser, OrderSide.Sell, 4.25m, 5m));
+        context.UserTradingAlerts.Add(CreateAlert(
+            seed,
+            TradingAlertEvent.SellOrder,
+            ThresholdDirection.BelowOrEqual,
+            4.30m));
+        await context.SaveChangesAsync();
+        var service = new TradingAlertEvaluationService(context);
+
+        await service.EvaluateAllActiveAlertsAsync();
+        var second = await service.EvaluateAllActiveAlertsAsync();
+
+        second.EvaluatedAlertsCount.Should().Be(1);
+        second.TriggeredAlertsCount.Should().Be(0);
+        context.UserTradingAlerts.Single().Status.Should().Be(AlertStatus.Fulfilled);
+        context.AlertLogs.Should().ContainSingle();
+        context.Notifications.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task FulfilledOrderAlert_LogsAnotherMatchingOffer()
+    {
+        await using var context = CreateContext();
+        var seed = await SeedMarketAsync(context);
+        context.Orders.Add(
+            CreateOrder(seed.Pair, seed.OtherUser, OrderSide.Sell, 4.25m, 5m));
+        context.UserTradingAlerts.Add(CreateAlert(
+            seed,
+            TradingAlertEvent.SellOrder,
+            ThresholdDirection.BelowOrEqual,
+            4.30m));
+        await context.SaveChangesAsync();
+        var service = new TradingAlertEvaluationService(context);
+
+        await service.EvaluateAllActiveAlertsAsync();
+        context.Orders.Add(
+            CreateOrder(seed.Pair, seed.ThirdUser, OrderSide.Sell, 4.20m, 8m));
+        await context.SaveChangesAsync();
+        var second = await service.EvaluateAllActiveAlertsAsync();
+
+        second.TriggeredAlertsCount.Should().Be(1);
+        context.AlertLogs.Count().Should().Be(2);
+        context.AlertLogs.OrderBy(log => log.Id).Last().CurrentPrice.Should().Be(4.20m);
+        context.Notifications.Count().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task OrderAlert_ReturnsToActiveWhenMatchingOfferDisappears()
+    {
+        await using var context = CreateContext();
+        var seed = await SeedMarketAsync(context);
+        var order = CreateOrder(
+            seed.Pair,
+            seed.OtherUser,
+            OrderSide.Sell,
+            4.25m,
+            5m);
+        context.Orders.Add(order);
+        var alert = CreateAlert(
+            seed,
+            TradingAlertEvent.SellOrder,
+            ThresholdDirection.BelowOrEqual,
+            4.30m);
+        context.UserTradingAlerts.Add(alert);
+        await context.SaveChangesAsync();
+        var service = new TradingAlertEvaluationService(context);
+
+        await service.EvaluateAllActiveAlertsAsync();
+        alert.Status.Should().Be(AlertStatus.Fulfilled);
+
+        order.Status = OrderStatus.Cancelled;
+        order.RemainingAmount = 0;
+        await context.SaveChangesAsync();
+        await service.EvaluateAllActiveAlertsAsync();
+
+        alert.Status.Should().Be(AlertStatus.Active);
+        context.AlertLogs.Should().ContainSingle();
+        context.Notifications.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task OrderAlert_FulfillsAgainWhenAnotherMatchingOfferAppears()
+    {
+        await using var context = CreateContext();
+        var seed = await SeedMarketAsync(context);
+        var firstOrder = CreateOrder(
+            seed.Pair,
+            seed.OtherUser,
+            OrderSide.Sell,
+            4.25m,
+            5m);
+        context.Orders.Add(firstOrder);
+        var alert = CreateAlert(
+            seed,
+            TradingAlertEvent.SellOrder,
+            ThresholdDirection.BelowOrEqual,
+            4.30m);
+        context.UserTradingAlerts.Add(alert);
+        await context.SaveChangesAsync();
+        var service = new TradingAlertEvaluationService(context);
+
+        await service.EvaluateAllActiveAlertsAsync();
+        firstOrder.Status = OrderStatus.Cancelled;
+        firstOrder.RemainingAmount = 0;
+        await context.SaveChangesAsync();
+        await service.EvaluateAllActiveAlertsAsync();
+
+        context.Orders.Add(CreateOrder(
+            seed.Pair,
+            seed.ThirdUser,
+            OrderSide.Sell,
+            4.20m,
+            8m));
+        await context.SaveChangesAsync();
+        await service.EvaluateAllActiveAlertsAsync();
+
+        alert.Status.Should().Be(AlertStatus.Fulfilled);
+        context.AlertLogs.Count().Should().Be(2);
+        context.Notifications.Count().Should().Be(2);
+    }
+
     private static ApplicationDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

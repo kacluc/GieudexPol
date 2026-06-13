@@ -16,7 +16,9 @@ namespace GieudexPol.Infrastructure.Repositories
         public async Task<IEnumerable<UserAlert>> GetAllActiveUserAlertsAsync()
         {
             return await _context.UserAlerts
-                                 .Where(a => a.Status == AlertStatus.Active)
+                                 .Where(a =>
+                                     a.Status == AlertStatus.Active ||
+                                     a.Status == AlertStatus.Fulfilled)
                                  .Include(a => a.Currency)
                                  .Include(a => a.RateSource)
                                  .Include(a => a.Logs)

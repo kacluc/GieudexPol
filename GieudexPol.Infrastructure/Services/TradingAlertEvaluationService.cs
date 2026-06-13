@@ -71,7 +71,10 @@ namespace GieudexPol.Infrastructure.Services
                     .ThenInclude(pair => pair.BaseCurrency)
                 .Include(alert => alert.TradingPair)
                     .ThenInclude(pair => pair.QuoteCurrency)
-                .Where(alert => alert.Status == AlertStatus.Active);
+                .Include(alert => alert.Logs)
+                .Where(alert =>
+                    alert.Status == AlertStatus.Active ||
+                    alert.Status == AlertStatus.Fulfilled);
 
             if (alertId.HasValue)
             {
@@ -97,10 +100,18 @@ namespace GieudexPol.Infrastructure.Services
 
                 if (trigger == null)
                 {
+                    alert.Status = AlertStatus.Active;
                     continue;
                 }
 
                 alert.Status = AlertStatus.Fulfilled;
+                var hasLoggedTrigger = alert.Logs.Any(
+                    log => log.SourceSummary == trigger.EventKey);
+                if (hasLoggedTrigger)
+                {
+                    continue;
+                }
+
                 alert.TriggeredDate = DateTime.UtcNow;
                 var message = BuildNotificationMessage(alert, trigger);
                 _context.AlertLogs.Add(new AlertLog
@@ -110,6 +121,7 @@ namespace GieudexPol.Infrastructure.Services
                     CreatedDate = alert.TriggeredDate.Value,
                     CurrentPrice = trigger.Price,
                     CurrentAmount = trigger.Amount,
+                    SourceSummary = trigger.EventKey,
                     EffectiveDate = trigger.OccurredAt
                 });
                 _context.Notifications.Add(new Notification
@@ -147,34 +159,38 @@ namespace GieudexPol.Infrastructure.Services
                     order.RemainingAmount > 0)
                 .Select(order => new
                 {
+                    order.Id,
                     order.Price,
                     order.RemainingAmount,
                     order.CreatedAt
                 })
                 .ToListAsync(cancellationToken);
 
-            var bestLevel = orders
+            var matchingLevel = orders
                 .GroupBy(order => order.Price)
                 .Select(level => new
                 {
                     Price = level.Key,
                     Amount = level.Sum(order => order.RemainingAmount),
-                    OccurredAt = level.Max(order => order.CreatedAt)
+                    OccurredAt = level.Max(order => order.CreatedAt),
+                    EventKey = $"OrderLevel:{side}:{level.Key.ToString(CultureInfo.InvariantCulture)}:" +
+                               string.Join(",", level.Select(order => order.Id).OrderBy(id => id))
                 })
                 .OrderBy(level => side == OrderSide.Buy ? -level.Price : level.Price)
                 .FirstOrDefault();
 
-            if (bestLevel == null ||
-                !MeetsPrice(alert, bestLevel.Price) ||
-                !MeetsAmount(alert, bestLevel.Amount))
+            if (matchingLevel == null ||
+                !MeetsPrice(alert, matchingLevel.Price) ||
+                !MeetsAmount(alert, matchingLevel.Amount))
             {
                 return null;
             }
 
             return new TradingTrigger(
-                bestLevel.Price,
-                bestLevel.Amount,
-                bestLevel.OccurredAt);
+                matchingLevel.Price,
+                matchingLevel.Amount,
+                matchingLevel.OccurredAt,
+                matchingLevel.EventKey);
         }
 
         private async Task<TradingTrigger?> FindExecutionTriggerAsync(
@@ -190,22 +206,24 @@ namespace GieudexPol.Infrastructure.Services
                 .ThenByDescending(execution => execution.Id)
                 .Select(execution => new
                 {
+                    execution.Id,
                     execution.Price,
                     execution.Amount,
                     execution.ExecutedAt
                 })
                 .ToListAsync(cancellationToken);
 
-            var execution = executions.FirstOrDefault(item =>
-                MeetsPrice(alert, item.Price) &&
-                MeetsAmount(alert, item.Amount));
+            var execution = executions.FirstOrDefault();
 
-            return execution == null
+            return execution == null ||
+                   !MeetsPrice(alert, execution.Price) ||
+                   !MeetsAmount(alert, execution.Amount)
                 ? null
                 : new TradingTrigger(
                     execution.Price,
                     execution.Amount,
-                    execution.ExecutedAt);
+                    execution.ExecutedAt,
+                    $"TradeExecution:{execution.Id}");
         }
 
         private static bool MeetsPrice(UserTradingAlert alert, decimal price)
@@ -260,6 +278,7 @@ namespace GieudexPol.Infrastructure.Services
         private sealed record TradingTrigger(
             decimal Price,
             decimal Amount,
-            DateTime OccurredAt);
+            DateTime OccurredAt,
+            string EventKey);
     }
 }

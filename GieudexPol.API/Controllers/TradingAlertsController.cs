@@ -124,7 +124,7 @@ namespace GieudexPol.API.Controllers
             try
             {
                 await _alertService.UpdateAsync(alert, cancellationToken);
-                if (alert.Status == AlertStatus.Active)
+                if (alert.Status != AlertStatus.Inactive)
                 {
                     await _evaluationService.EvaluateAlertAsync(alert.Id, cancellationToken);
                 }

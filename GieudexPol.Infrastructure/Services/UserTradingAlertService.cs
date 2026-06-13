@@ -59,10 +59,6 @@ namespace GieudexPol.Infrastructure.Services
             CancellationToken cancellationToken = default)
         {
             await ValidateAsync(alert, cancellationToken);
-            if (alert.Status != AlertStatus.Fulfilled)
-            {
-                alert.TriggeredDate = null;
-            }
             await _context.SaveChangesAsync(cancellationToken);
             await LoadPairAsync(alert, cancellationToken);
         }

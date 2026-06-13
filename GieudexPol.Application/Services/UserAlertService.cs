@@ -67,10 +67,6 @@ namespace GieudexPol.Application.Services
         public async Task UpdateUserAlertAsync(UserAlert userAlert)
         {
             await ValidateAsync(userAlert);
-            if (userAlert.Status != AlertStatus.Fulfilled)
-            {
-                userAlert.TriggeredDate = null;
-            }
             await _userAlertRepository.UpdateAsync(userAlert);
         }
 

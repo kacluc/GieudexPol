@@ -1,7 +1,7 @@
 <main class="alerts-container">
   <header class="alerts-header">
     <h1>Alerty</h1>
-    <p>Alerty kursowe i rynku są sprawdzane automatycznie, także gdy nie jesteś zalogowany.</p>
+    <p>Alerty aktywne i spełnione są nadal sprawdzane automatycznie. Wyłączenie usypia alert, ale zachowuje jego logi.</p>
   </header>
 
   <div class="mode-switch" role="tablist" aria-label="Rodzaj monitorowanych danych">
@@ -264,7 +264,7 @@
                 {{ statusLabel(alert.status) }}
               </span>
               @if (alert.triggeredDate) {
-                <br><span>Spełniono: {{ alert.triggeredDate | date:'short' }}</span>
+                <br><span>Ostatnio spełniono: {{ alert.triggeredDate | date:'short' }}</span>
               }
               @if (alert.logs.length > 0) {
                 <div class="alert-log">
@@ -280,10 +280,10 @@
             </div>
             <div class="alert-actions">
               <button type="button" (click)="editAlert(alert)" class="btn btn-info btn-sm">Edytuj</button>
-              @if (alert.status === AlertStatus.Active) {
-                <button type="button" (click)="setRateAlertStatus(alert, AlertStatus.Inactive)" class="btn btn-secondary btn-sm">Wyłącz</button>
+              @if (alert.status !== AlertStatus.Inactive) {
+                <button type="button" (click)="setRateAlertStatus(alert, AlertStatus.Inactive)" class="btn btn-secondary btn-sm">Wyłącz alert</button>
               } @else {
-                <button type="button" (click)="setRateAlertStatus(alert, AlertStatus.Active)" class="btn btn-success btn-sm">Uruchom ponownie</button>
+                <button type="button" (click)="setRateAlertStatus(alert, AlertStatus.Active)" class="btn btn-success btn-sm">Włącz alert</button>
               }
               <button type="button" (click)="deleteAlert(alert.id)" class="btn btn-danger btn-sm">Usuń</button>
             </div>
@@ -310,7 +310,7 @@
                 {{ statusLabel(alert.status) }}
               </span>
               @if (alert.triggeredDate) {
-                <br><span>Spełniono: {{ alert.triggeredDate | date:'short' }}</span>
+                <br><span>Ostatnio spełniono: {{ alert.triggeredDate | date:'short' }}</span>
               }
               @if (alert.logs.length > 0) {
                 <div class="alert-log">
@@ -332,10 +332,10 @@
                 <button type="button" (click)="openMarketOrder(alert)" class="btn btn-success btn-sm">Przejdź do rynku</button>
               }
               <button type="button" (click)="editTradingAlert(alert)" class="btn btn-info btn-sm">Edytuj</button>
-              @if (alert.status === AlertStatus.Active) {
-                <button type="button" (click)="setTradingAlertStatus(alert, AlertStatus.Inactive)" class="btn btn-secondary btn-sm">Wyłącz</button>
+              @if (alert.status !== AlertStatus.Inactive) {
+                <button type="button" (click)="setTradingAlertStatus(alert, AlertStatus.Inactive)" class="btn btn-secondary btn-sm">Wyłącz alert</button>
               } @else {
-                <button type="button" (click)="setTradingAlertStatus(alert, AlertStatus.Active)" class="btn btn-success btn-sm">Uruchom ponownie</button>
+                <button type="button" (click)="setTradingAlertStatus(alert, AlertStatus.Active)" class="btn btn-success btn-sm">Włącz alert</button>
               }
               <button type="button" (click)="deleteTradingAlert(alert.id)" class="btn btn-danger btn-sm">Usuń</button>
             </div>

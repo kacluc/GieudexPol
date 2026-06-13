@@ -38,7 +38,9 @@ export class OrderbookComponent implements OnInit, OnDestroy {
   private readonly subscriptions = new Subscription();
   private refreshPending = false;
   private marketPrefill?: {
-    pairId: number;
+    pairId?: number;
+    baseCurrency?: string;
+    quoteCurrency?: string;
     side: OrderSide;
     price: number;
   };
@@ -54,16 +56,24 @@ export class OrderbookComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.route.queryParamMap.subscribe(params => {
         const pairId = Number(params.get('pairId'));
+        const baseCurrency = params.get('baseCurrency')?.trim().toUpperCase();
+        const quoteCurrency = params.get('quoteCurrency')?.trim().toUpperCase();
         const side = params.get('side');
         const price = Number(params.get('price'));
         if (
-          Number.isInteger(pairId) &&
-          pairId > 0 &&
+          ((Number.isInteger(pairId) && pairId > 0) ||
+            (baseCurrency && quoteCurrency)) &&
           (side === 'Buy' || side === 'Sell') &&
           Number.isFinite(price) &&
           price > 0
         ) {
-          this.marketPrefill = { pairId, side, price };
+          this.marketPrefill = {
+            pairId: Number.isInteger(pairId) && pairId > 0 ? pairId : undefined,
+            baseCurrency,
+            quoteCurrency,
+            side,
+            price,
+          };
           this.applyMarketPrefill();
         }
       }),
@@ -119,7 +129,7 @@ export class OrderbookComponent implements OnInit, OnDestroy {
       : `Sprzedaż: sprzedajesz ${this.selectedPair.baseCurrency} za ${this.selectedPair.quoteCurrency}.`;
   }
 
-  selectPair(pairId: string): void {
+  selectPair(pairId: number | string): void {
     const pair = this.pairs.find(item => item.id === Number(pairId));
     if (!pair || pair.id === this.selectedPair?.id) {
       return;
@@ -281,9 +291,9 @@ export class OrderbookComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const selectedPair = pairs.find(
-      pair => pair.id === (this.marketPrefill?.pairId ?? this.selectedPair?.id),
-    ) ?? pairs[0];
+    const selectedPair = this.findPrefillPair() ??
+      pairs.find(pair => pair.id === this.selectedPair?.id) ??
+      pairs[0];
     const changed = selectedPair.id !== this.selectedPair?.id;
     this.selectedPair = selectedPair;
     this.applyMarketPrefill();
@@ -300,7 +310,7 @@ export class OrderbookComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const pair = this.pairs.find(item => item.id === this.marketPrefill?.pairId);
+    const pair = this.findPrefillPair();
     if (!pair) {
       return;
     }
@@ -317,6 +327,23 @@ export class OrderbookComponent implements OnInit, OnDestroy {
       this.refresh();
     }
     this.render();
+  }
+
+  private findPrefillPair(): TradingPair | undefined {
+    if (!this.marketPrefill) {
+      return undefined;
+    }
+
+    if (this.marketPrefill.baseCurrency && this.marketPrefill.quoteCurrency) {
+      const pairByCodes = this.pairs.find(item =>
+        item.baseCurrency.toUpperCase() === this.marketPrefill?.baseCurrency &&
+        item.quoteCurrency.toUpperCase() === this.marketPrefill?.quoteCurrency);
+      if (pairByCodes) {
+        return pairByCodes;
+      }
+    }
+
+    return this.pairs.find(item => item.id === this.marketPrefill?.pairId);
   }
 
   private readError(error: unknown, fallback: string): string {

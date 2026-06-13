@@ -346,6 +346,8 @@ export class AlertsComponent implements OnInit {
     void this.router.navigate(['/order-book'], {
       queryParams: {
         pairId: alert.tradingPairId,
+        baseCurrency: alert.baseCurrency,
+        quoteCurrency: alert.quoteCurrency,
         side: alert.eventType === TradingAlertEvent.SellOrder ? 'Buy' : 'Sell',
         price: alert.logs[0]?.currentPrice ?? alert.targetPrice,
       },

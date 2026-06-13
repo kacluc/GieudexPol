@@ -34,7 +34,12 @@
             (change)="selectPair($any($event.target).value)"
           >
             @for (pair of pairs; track pair.id) {
-              <option [value]="pair.id">{{ pair.pair }}</option>
+              <option
+                [value]="pair.id"
+                [selected]="pair.id === selectedPair?.id"
+              >
+                {{ pair.pair }}
+              </option>
             }
           </select>
         </label>

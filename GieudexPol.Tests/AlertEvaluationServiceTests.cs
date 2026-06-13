@@ -187,6 +187,90 @@ public class AlertEvaluationServiceTests
     }
 
     [Fact]
+    public async Task FulfilledAlert_ContinuesMonitoringAndLogsNewEffectiveDate()
+    {
+        await using var context = CreateContext();
+        var data = SeedBase(context);
+        AddRate(context, data, data.SourceA, 4.60m, 4.70m, new DateTime(2026, 6, 11));
+        var alert = AddAlert(
+            context,
+            data,
+            AlertType.Threshold,
+            AlertPriceSide.UserSellsCurrency,
+            threshold: 4.50m,
+            direction: ThresholdDirection.AboveOrEqual);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        await service.EvaluateAllActiveAlertsAsync();
+        AddRate(context, data, data.SourceA, 4.65m, 4.75m, new DateTime(2026, 6, 12));
+        await context.SaveChangesAsync();
+        var second = await service.EvaluateAllActiveAlertsAsync();
+
+        alert.Status.Should().Be(AlertStatus.Fulfilled);
+        second.TriggeredAlertsCount.Should().Be(1);
+        context.AlertLogs.Count().Should().Be(2);
+        context.Notifications.Count().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ThresholdAlert_StatusFollowsLatestRateWhileKeepingHistory()
+    {
+        await using var context = CreateContext();
+        var data = SeedBase(context);
+        AddRate(context, data, data.SourceA, 3.80m, 3.90m, new DateTime(2026, 6, 11));
+        var alert = AddAlert(
+            context,
+            data,
+            AlertType.Threshold,
+            AlertPriceSide.UserSellsCurrency,
+            threshold: 3.70m,
+            direction: ThresholdDirection.AboveOrEqual);
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        await service.EvaluateAllActiveAlertsAsync();
+        alert.Status.Should().Be(AlertStatus.Fulfilled);
+
+        AddRate(context, data, data.SourceA, 3.60m, 3.70m, new DateTime(2026, 6, 12));
+        await context.SaveChangesAsync();
+        await service.EvaluateAllActiveAlertsAsync();
+        alert.Status.Should().Be(AlertStatus.Active);
+        context.AlertLogs.Should().ContainSingle();
+
+        AddRate(context, data, data.SourceA, 3.80m, 3.90m, new DateTime(2026, 6, 13));
+        await context.SaveChangesAsync();
+        await service.EvaluateAllActiveAlertsAsync();
+
+        alert.Status.Should().Be(AlertStatus.Fulfilled);
+        context.AlertLogs.Count().Should().Be(2);
+        context.Notifications.Count().Should().Be(2);
+    }
+
+    [Fact]
+    public async Task InactiveAlert_IsNotEvaluated()
+    {
+        await using var context = CreateContext();
+        var data = SeedBase(context);
+        AddRate(context, data, data.SourceA, 4.60m, 4.70m, new DateTime(2026, 6, 11));
+        var alert = AddAlert(
+            context,
+            data,
+            AlertType.Threshold,
+            AlertPriceSide.UserSellsCurrency,
+            threshold: 4.50m,
+            direction: ThresholdDirection.AboveOrEqual);
+        alert.Status = AlertStatus.Inactive;
+        await context.SaveChangesAsync();
+
+        var result = await CreateService(context).EvaluateAllActiveAlertsAsync();
+
+        result.EvaluatedAlertsCount.Should().Be(0);
+        context.AlertLogs.Should().BeEmpty();
+        context.Notifications.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task PercentageAlertWithoutPreviousRate_DoesNotFailOrTrigger()
     {
         await using var context = CreateContext();

@@ -99,7 +99,9 @@ namespace GieudexPol.Infrastructure.Services
                 .Include(alert => alert.Currency)
                 .Include(alert => alert.RateSource)
                 .Include(alert => alert.EvaluationStates)
-                .Where(alert => alert.Status == AlertStatus.Active);
+                .Where(alert =>
+                    alert.Status == AlertStatus.Active ||
+                    alert.Status == AlertStatus.Fulfilled);
 
             if (alertId.HasValue)
             {
@@ -165,17 +167,14 @@ namespace GieudexPol.Infrastructure.Services
                 .ToListAsync(cancellationToken);
 
             var triggerDetails = new List<TriggerDetail>();
+            var isCurrentlyFulfilled = false;
             foreach (var sourceRates in rates.GroupBy(rate => rate.RateSourceId))
             {
                 var currentRate = sourceRates.First();
                 var state = alert.EvaluationStates.SingleOrDefault(
                     item => item.RateSourceId == currentRate.RateSourceId);
-
-                if (state != null &&
-                    state.LastEvaluatedEffectiveDate >= currentRate.EffectiveDate)
-                {
-                    continue;
-                }
+                var isNewEffectiveDate = state == null ||
+                    state.LastEvaluatedEffectiveDate < currentRate.EffectiveDate;
 
                 var currentPrice = SelectPrice(currentRate, alert.PriceSide);
                 decimal? changePercent = null;
@@ -206,7 +205,9 @@ namespace GieudexPol.Infrastructure.Services
                     }
                 }
 
-                if (state == null)
+                isCurrentlyFulfilled |= isTriggered;
+
+                if (isNewEffectiveDate && state == null)
                 {
                     state = new UserAlertEvaluationState
                     {
@@ -216,12 +217,12 @@ namespace GieudexPol.Infrastructure.Services
                     };
                     alert.EvaluationStates.Add(state);
                 }
-                else
+                else if (isNewEffectiveDate)
                 {
-                    state.LastEvaluatedEffectiveDate = currentRate.EffectiveDate;
+                    state!.LastEvaluatedEffectiveDate = currentRate.EffectiveDate;
                 }
 
-                if (isTriggered)
+                if (isNewEffectiveDate && isTriggered)
                 {
                     triggerDetails.Add(new TriggerDetail(
                         currentRate.RateSource.Code,
@@ -231,9 +232,12 @@ namespace GieudexPol.Infrastructure.Services
                 }
             }
 
+            alert.Status = isCurrentlyFulfilled
+                ? AlertStatus.Fulfilled
+                : AlertStatus.Active;
+
             if (triggerDetails.Count > 0)
             {
-                alert.Status = AlertStatus.Fulfilled;
                 alert.TriggeredDate = DateTime.UtcNow;
                 var message = BuildNotificationMessage(alert, triggerDetails);
                 _context.AlertLogs.Add(new AlertLog

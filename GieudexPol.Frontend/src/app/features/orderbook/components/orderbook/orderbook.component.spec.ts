@@ -156,4 +156,36 @@ describe('OrderbookComponent', () => {
     expect(component.price).toBe(4.35);
     expect(component.amount).toBeNull();
   });
+
+  it('prefers currency codes when the alert pair id is stale', () => {
+    const usdPair: TradingPair = {
+      id: 2,
+      pair: 'USD/PLN',
+      baseCurrency: 'USD',
+      quoteCurrency: 'PLN',
+      tickSize: 0.0001,
+      isActive: true,
+    };
+    pairsSubject.next([pair, usdPair]);
+    orderBookService.getTradingPairs.mockReturnValue(of([pair, usdPair]));
+    queryParamsSubject.next({
+      get: (name: string) => {
+        if (name === 'pairId') return '1';
+        if (name === 'baseCurrency') return 'USD';
+        if (name === 'quoteCurrency') return 'PLN';
+        if (name === 'side') return 'Buy';
+        if (name === 'price') return '3.95';
+        return null;
+      },
+    });
+
+    fixture.detectChanges();
+
+    expect(component.selectedPair).toEqual(usdPair);
+    expect(
+      (fixture.nativeElement.querySelector('select[name="pair"]') as HTMLSelectElement).value,
+    ).toBe('2');
+    expect(component.side).toBe('Buy');
+    expect(component.price).toBe(3.95);
+  });
 });
