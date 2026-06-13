@@ -1,0 +1,39 @@
+@startuml
+title GieudexPol - główne przypadki użycia
+left to right direction
+
+actor "Użytkownik" as User
+actor "Administrator" as Admin
+actor "SuperAdmin\n(częściowo)" as SuperAdmin
+
+rectangle GieudexPol {
+  usecase "Rejestracja" as Register
+  usecase "Logowanie" as Login
+  usecase "Podgląd portfela" as Wallet
+  usecase "Wpłata" as Deposit
+  usecase "Wypłata" as Withdraw
+  usecase "Transfer" as Transfer
+  usecase "Szybka wymiana" as Exchange
+  usecase "Symulator wymiany" as Preview
+  usecase "Rynek walut" as Market
+  usecase "Alerty" as Alerts
+  usecase "Zarządzanie kursami testowymi" as TestRates
+  usecase "Zlecenie konta źródła" as SourceOrder
+  usecase "Podgląd kont systemowych" as SystemAccounts
+}
+
+User --> Register
+User --> Login
+User --> Wallet
+User --> Deposit
+User --> Withdraw
+User --> Transfer
+User --> Exchange
+User --> Preview
+User --> Market
+User --> Alerts
+Admin --> TestRates
+Admin --> SourceOrder
+Admin --> SystemAccounts
+SuperAdmin --> SystemAccounts
+@enduml

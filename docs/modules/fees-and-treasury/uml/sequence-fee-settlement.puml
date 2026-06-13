@@ -1,0 +1,23 @@
+@startuml
+title Naliczanie i zaksięgowanie prowizji
+autonumber
+
+actor User
+control OperationService
+control TransactionFeeCalculator
+control ExchangeRateService
+entity PlatformTreasury
+database Db
+
+User -> OperationService : operacja finansowa
+OperationService -> TransactionFeeCalculator : CalculateAsync(type, currency, amount)
+alt currency = PLN
+  TransactionFeeCalculator -> TransactionFeeCalculator : minimum = 10 PLN
+else inna waluta
+  TransactionFeeCalculator -> ExchangeRateService : kurs currency/PLN
+  ExchangeRateService --> TransactionFeeCalculator : Mid lub średnia Buy/Sell
+end
+TransactionFeeCalculator --> OperationService : max(0.5%, minimum)
+OperationService -> PlatformTreasury : credit fee
+OperationService -> Db : Transaction / execution
+@enduml

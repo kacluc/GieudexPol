@@ -1,0 +1,25 @@
+@startuml
+title Transfer użytkownik-użytkownik
+autonumber
+
+actor User
+boundary TransactionsController
+control TransactionService
+control TransactionFeeCalculator
+database WalletRepository
+entity Receiver
+entity PlatformTreasury
+
+User -> TransactionsController : POST /Transactions/transfer
+TransactionsController -> TransactionService : CreateTransfer(sender, request)
+TransactionService -> TransactionService : sprawdź odbiorcę i AccountType
+TransactionService -> TransactionFeeCalculator : CalculateAsync("Transfer")
+alt poprawny odbiorca i środki
+  TransactionService -> WalletRepository : debit amount + fee
+  WalletRepository -> Receiver : credit amount
+  WalletRepository -> PlatformTreasury : credit fee
+  TransactionsController --> User : 200
+else błąd
+  TransactionsController --> User : 400 / 409
+end
+@enduml

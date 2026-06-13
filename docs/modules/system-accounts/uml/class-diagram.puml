@@ -1,0 +1,35 @@
+@startuml
+title Konta systemowe - klasy
+
+enum AccountType {
+  RegularUser
+  AdminUser
+  SuperAdminUser
+  RateSourceSystem
+  PlatformTreasury
+}
+class User {
+  +Username: string
+  +Role: string
+  +AccountType
+}
+class RateSource {
+  +Code: string
+  +SystemUserId: int?
+}
+class Wallet {
+  +Balance: decimal
+  +ReservedBalance: decimal
+}
+class SystemAccountService
+class AdminSystemAccountService
+class DevelopmentDataSeeder
+
+User --> AccountType
+RateSource "0..1" --> "0..1" User : SystemUser
+User "1" *-- "*" Wallet
+DevelopmentDataSeeder ..> User
+DevelopmentDataSeeder ..> Wallet
+SystemAccountService ..> User
+AdminSystemAccountService ..> User
+@enduml

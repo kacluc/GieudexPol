@@ -1,0 +1,21 @@
+@startuml
+title Wpłata środków
+autonumber
+
+actor User
+boundary WalletsController
+control WalletService
+control TransactionFeeCalculator
+database WalletRepository
+entity PlatformTreasury
+
+User -> WalletsController : POST /Wallets/deposit
+WalletsController -> WalletService : DepositAsync(user, currency, amount)
+WalletService -> TransactionFeeCalculator : CalculateAsync("Deposit")
+TransactionFeeCalculator --> WalletService : fee
+WalletService -> WalletRepository : credit amount - fee
+WalletRepository -> PlatformTreasury : credit fee
+WalletRepository -> WalletRepository : zapisz Transaction
+WalletService --> WalletsController : success
+WalletsController --> User : 200 OK
+@enduml

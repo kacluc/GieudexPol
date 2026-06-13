@@ -1,0 +1,28 @@
+@startuml
+title GieudexPol - wdrożenie Docker
+
+node "Komputer użytkownika" as Client {
+  artifact "Browser" as Browser
+}
+
+node "Host Docker / lokalny" as Host {
+  node "gieudexpol-nginx\n80 / 443" as Nginx {
+    artifact "Angular SPA" as Spa
+  }
+  node "gieudexpol-api\n5010 -> 80" as ApiNode {
+    artifact "GieudexPol.API.dll" as Api
+  }
+  node "gieudexpol-db\n1433" as SqlNode {
+    database "SQL Server 2022 Express" as Sql
+  }
+  folder "Docker volume\ngieudexpol-data" as Volume
+}
+
+cloud "Bank central APIs" as Sources
+
+Browser --> Nginx : HTTP/HTTPS
+Nginx --> ApiNode : /api
+ApiNode --> SqlNode : TDS
+ApiNode --> Sources : HTTPS
+SqlNode -- Volume : /var/opt/mssql
+@enduml

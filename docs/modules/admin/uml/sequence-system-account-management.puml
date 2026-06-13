@@ -1,0 +1,20 @@
+@startuml
+title Admin przegląda konta systemowe
+autonumber
+
+actor Admin
+boundary AdminSystemAccountsController as Controller
+control AdminSystemAccountService as Service
+database Db
+
+Admin -> Controller : GET /api/admin/system-accounts
+Controller -> Service : GetAccountsAsync
+Service -> Db : RateSourceSystem i PlatformTreasury
+Service -> Db : portfele i powiązane RateSource
+Service --> Controller : DTO kont i sald
+Controller --> Admin : 200 OK
+
+note right of Service
+Operacja tylko do odczytu.
+end note
+@enduml

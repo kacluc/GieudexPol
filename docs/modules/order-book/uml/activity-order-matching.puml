@@ -1,0 +1,20 @@
+@startuml
+title Matching zleceń - aktywność
+start
+:Ustal przeciwną stronę;
+if (Incoming Buy?) then (tak)
+  :Wybierz Sell <= limit;
+  :Sortuj ceną rosnąco i czasem;
+else (nie)
+  :Wybierz Buy >= limit;
+  :Sortuj ceną malejąco i czasem;
+endif
+:Usuń zlecenia tego samego konta;
+while (Jest kandydat i pozostała ilość?) is (tak)
+  :Wyznacz ilość i cenę resting order;
+  :Przenieś środki i prowizje;
+  :Utwórz TradeExecution i historię;
+  :Aktualizuj statusy i rezerwacje;
+endwhile (nie)
+stop
+@enduml

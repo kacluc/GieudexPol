@@ -1,0 +1,24 @@
+@startuml
+title Obliczenie prowizji
+start
+if (Kwota > 0?) then (tak)
+  :Pobierz walutę;
+  if (Waluta = PLN?) then (tak)
+    :Minimum = 10 PLN;
+  else (nie)
+    :Pobierz kurs do PLN;
+    if (Kurs > 0?) then (tak)
+      :Minimum = 10 / rateToPln;
+    else (nie)
+      :Zwróć błąd kursu;
+      stop
+    endif
+  endif
+  :Procent = amount * 0.5%;
+  :Fee = max(procent, minimum);
+  :Zaokrąglij do 4 miejsc;
+else (nie)
+  :Zwróć błąd kwoty;
+endif
+stop
+@enduml

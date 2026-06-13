@@ -1,0 +1,24 @@
+@startuml
+title Wykonanie szybkiej wymiany
+autonumber
+
+actor User
+boundary WalletsController
+control InstantExchangeService
+database Db
+entity "Konto źródła" as SourceAccount
+entity PlatformTreasury
+
+User -> WalletsController : POST /Wallets/trade
+WalletsController -> InstantExchangeService : ExecuteAsync
+InstantExchangeService -> Db : BuildQuoteAsync
+alt środki i płynność dostępne
+  InstantExchangeService -> User : debit amount + fee
+  InstantExchangeService -> SourceAccount : wymień waluty
+  InstantExchangeService -> PlatformTreasury : credit fee
+  InstantExchangeService -> Db : ExchangeExecution + 2 Transactions
+  WalletsController --> User : 200
+else błąd
+  WalletsController --> User : 400
+end
+@enduml

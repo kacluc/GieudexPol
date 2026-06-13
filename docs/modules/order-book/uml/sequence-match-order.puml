@@ -1,0 +1,22 @@
+@startuml
+title Dopasowanie zlecenia
+autonumber
+
+control OrderMatchingService
+database Db
+entity BuyerWallets
+entity SellerWallets
+entity PlatformTreasury
+
+OrderMatchingService -> Db : pobierz przeciwne zlecenia price-time
+loop do wyczerpania incoming lub kandydatów
+  OrderMatchingService -> OrderMatchingService : amount = min(remaining)
+  OrderMatchingService -> BuyerWallets : debit reserved quote + fee
+  OrderMatchingService -> SellerWallets : debit reserved base
+  OrderMatchingService -> BuyerWallets : credit base
+  OrderMatchingService -> SellerWallets : credit quote - fee
+  OrderMatchingService -> PlatformTreasury : credit buyerFee + sellerFee
+  OrderMatchingService -> Db : TradeExecution + 2 Transactions
+  OrderMatchingService -> Db : aktualizuj RemainingAmount i status
+end
+@enduml

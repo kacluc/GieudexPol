@@ -1,0 +1,17 @@
+@startuml
+title Monitoring alertów - aktywność
+start
+:Uruchom worker;
+while (Aplikacja działa?) is (tak)
+  :Utwórz scope DI;
+  :Oceń alerty kursowe;
+  :Oceń alerty rynkowe;
+  if (Wystąpił błąd?) then (tak)
+    :Zaloguj błąd;
+  else (nie)
+    :Zaloguj liczniki;
+  endif
+  :Odczekaj skonfigurowany interwał;
+endwhile (nie)
+stop
+@enduml

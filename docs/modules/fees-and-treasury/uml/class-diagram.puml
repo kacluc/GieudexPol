@@ -1,0 +1,32 @@
+@startuml
+title Prowizje i skarbiec - klasy
+
+interface ITransactionFeeCalculator
+class TransactionFeeCalculator {
+  -FeePercentage = 0.5
+  -MinimumFeePln = 10
+  +CalculateAsync(type, currency, amount)
+}
+class TransactionFee {
+  +Type: string
+  +FeePercentage: decimal
+  +FlatFee: decimal
+  +IsActive: bool
+}
+class Transaction {
+  +AppliedFee: decimal
+}
+class User {
+  +AccountType
+}
+class Wallet
+
+ITransactionFeeCalculator <|.. TransactionFeeCalculator
+TransactionFeeCalculator ..> TransactionFee
+Transaction --> TransactionFee
+User "1" *-- "*" Wallet
+note right of User
+AccountType = PlatformTreasury
+identyfikuje skarbiec.
+end note
+@enduml

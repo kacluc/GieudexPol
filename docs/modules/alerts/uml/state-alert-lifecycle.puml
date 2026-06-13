@@ -1,0 +1,19 @@
+@startuml
+title Cykl życia alertu
+
+[*] --> Active : utworzenie
+Active --> Fulfilled : warunek spełniony
+Fulfilled --> Fulfilled : warunek nadal spełniony
+Fulfilled --> Active : warunek przestał być spełniony
+Active --> Inactive : wyłącz
+Fulfilled --> Inactive : wyłącz
+Inactive --> Active : włącz
+Active --> [*] : usuń
+Fulfilled --> [*] : usuń
+Inactive --> [*] : usuń
+
+note right of Fulfilled
+Alert nadal jest monitorowany.
+Nowe daty lub zdarzenia trafiają do logu.
+end note
+@enduml

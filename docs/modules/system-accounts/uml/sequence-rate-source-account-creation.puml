@@ -1,0 +1,25 @@
+@startuml
+title Tworzenie kont źródeł przez seeder
+autonumber
+
+participant ExchangeRateStartupSyncService as Startup
+control DevelopmentDataSeeder as Seeder
+database Db
+
+Startup -> Seeder : SeedSystemAccountsAsync
+Seeder -> Db : aktywne Currency i RateSource
+Seeder -> Db : znajdź PlatformTreasury
+alt brak skarbca
+  Seeder -> Db : utwórz system_platform_treasury
+end
+loop każde aktywne źródło
+  Seeder -> Db : znajdź system_{code}
+  alt brak konta
+    Seeder -> Db : utwórz RateSourceSystem
+  end
+  Seeder -> Db : ustaw RateSource.SystemUserId
+end
+loop konto systemowe x waluta
+  Seeder -> Db : utwórz brakujący Wallet
+end
+@enduml

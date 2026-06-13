@@ -1,0 +1,26 @@
+@startuml
+title Ewaluacja alertów
+autonumber
+
+participant AlertMonitoringWorker as Worker
+control AlertEvaluationService as RateAlerts
+control TradingAlertEvaluationService as MarketAlerts
+database Db
+entity Notification
+
+Worker -> RateAlerts : EvaluateAllActiveAlertsAsync
+RateAlerts -> Db : Active lub Fulfilled UserAlert
+loop alert i źródło
+  RateAlerts -> RateAlerts : wybierz cenę i oceń warunek
+  alt nowe spełnienie dla daty
+    RateAlerts -> Db : AlertLog + evaluation state
+    RateAlerts -> Notification : utwórz
+  end
+end
+Worker -> MarketAlerts : EvaluateAllActiveAlertsAsync
+MarketAlerts -> Db : poziomy Order / TradeExecution
+alt nowe zdarzenie spełnia warunek
+  MarketAlerts -> Db : AlertLog
+  MarketAlerts -> Notification : utwórz
+end
+@enduml

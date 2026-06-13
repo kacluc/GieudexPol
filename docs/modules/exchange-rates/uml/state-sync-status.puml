@@ -1,0 +1,14 @@
+@startuml
+title Synchronizacja kursów - stany procesu
+
+[*] --> Oczekuje
+Oczekuje --> Pobieranie : start
+Pobieranie --> Normalizacja : odpowiedź API
+Pobieranie --> Blad : błąd klienta
+Normalizacja --> Zapisywanie : dane poprawne
+Normalizacja --> PominietyDzien : brak podstawy PLN
+Zapisywanie --> Zakonczona : zapis
+PominietyDzien --> Pobieranie : następny dzień
+Blad --> Oczekuje : kolejna próba
+Zakonczona --> [*]
+@enduml

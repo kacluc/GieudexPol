@@ -1,0 +1,33 @@
+@startuml
+title Portfele - klasy
+
+class User {
+  +Id: int
+  +Username: string
+  +AccountType
+}
+class Wallet {
+  +Balance: decimal
+  +ReservedBalance: decimal
+  +AvailableBalance: decimal
+  +Reserve(amount)
+  +Release(amount)
+}
+class Currency
+class Transaction {
+  +Amount: decimal
+  +TransactionType: string
+  +AppliedFee: decimal
+}
+class WalletService
+class TransactionService
+interface IWalletRepository
+
+User "1" *-- "*" Wallet
+Currency "1" -- "*" Wallet
+User "1" -- "*" Transaction : sender/receiver
+Currency "1" -- "*" Transaction
+WalletService ..> IWalletRepository
+TransactionService ..> IWalletRepository
+WalletService ..> Transaction
+@enduml

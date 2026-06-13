@@ -1,0 +1,19 @@
+@startuml
+title Filtrowanie kont systemowych
+start
+:Pobierz użytkowników;
+if (Kontekst administracyjny?) then (tak)
+  :Pozwól pobrać dedykowaną listę systemową;
+else (nie)
+  :Usuń RateSourceSystem;
+  :Usuń PlatformTreasury;
+endif
+if (Operacja = zwykły transfer?) then (tak)
+  if (Odbiorca systemowy?) then (tak)
+    :Odrzuć transfer;
+  else (nie)
+    :Kontynuuj;
+  endif
+endif
+stop
+@enduml

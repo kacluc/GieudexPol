@@ -1,0 +1,29 @@
+@startuml
+title GieudexPol - kontekst systemu
+left to right direction
+
+actor "Użytkownik" as User
+actor "Administrator" as Admin
+actor "SuperAdmin\n(model częściowy)" as SuperAdmin
+component "Angular Frontend" as Frontend
+component ".NET 8 Web API" as Api
+database "SQL Server" as Db
+cloud "Zewnętrzne źródła kursów\nNBP, ECB, BOE, BOC,\nCNB, Norges, BNR, Riksbank" as Sources
+node "Docker / środowisko lokalne" as Runtime
+
+User --> Frontend : operacje użytkownika
+Admin --> Frontend : panele admina
+SuperAdmin --> Frontend : role modelowe
+Frontend --> Api : HTTPS / JSON / JWT
+Api --> Db : EF Core
+Api --> Sources : HTTP
+Runtime -- Frontend
+Runtime -- Api
+Runtime -- Db
+
+note right of SuperAdmin
+Typ i rola istnieją,
+ale kontrolery admina wymagają
+obecnie roli Admin.
+end note
+@enduml

@@ -1,0 +1,31 @@
+@startuml
+title Kursy walut - klasy
+
+class Currency {
+  +Id: int
+  +Symbol: string
+  +IsActive: bool
+}
+class RateSource {
+  +Id: int
+  +Code: string
+  +IsActive: bool
+  +SystemUserId: int?
+}
+class ExchangeRate {
+  +BuyPrice: decimal
+  +SellPrice: decimal
+  +MidPrice: decimal?
+  +EffectiveDate: DateTime
+  +FetchedAt: DateTime
+}
+interface IExchangeRateSyncService
+class ExchangeRateSyncService
+class ExchangeRateStartupSyncService
+
+Currency "1" -- "*" ExchangeRate
+RateSource "1" -- "*" ExchangeRate
+IExchangeRateSyncService <|.. ExchangeRateSyncService
+ExchangeRateStartupSyncService ..> IExchangeRateSyncService
+ExchangeRateSyncService ..> ExchangeRate
+@enduml

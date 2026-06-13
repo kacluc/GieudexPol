@@ -1,0 +1,24 @@
+@startuml
+title Logowanie
+autonumber
+
+actor User
+boundary AuthController
+control LoginUserCommand
+control IdentityService
+control JwtService
+database Db
+
+User -> AuthController : POST /api/Auth/login
+AuthController -> LoginUserCommand : Send
+LoginUserCommand -> IdentityService : CheckPasswordAsync
+IdentityService -> Db : User po e-mailu
+alt konto regularne/admin i poprawne hasło
+  IdentityService --> LoginUserCommand : true
+  LoginUserCommand -> JwtService : GenerateToken(AuthId, email, role)
+  JwtService --> LoginUserCommand : JWT
+  AuthController --> User : 200 AuthResponse
+else błąd lub konto systemowe
+  AuthController --> User : błąd logowania
+end
+@enduml

@@ -1,0 +1,23 @@
+@startuml
+title Administrator - przypadki użycia
+left to right direction
+
+actor Administrator as Admin
+rectangle "Panel administracyjny" {
+  usecase "Zarządzaj użytkownikami" as Users
+  usecase "Resetuj hasło" as Password
+  usecase "Zmień rolę" as Role
+  usecase "Edytuj kursy testowe" as Rates
+  usecase "Oceń alerty ręcznie" as Alerts
+  usecase "Podgląd kont systemowych" as Accounts
+  usecase "Wystaw zlecenie źródła" as Orders
+}
+
+Admin --> Users
+Admin --> Password
+Admin --> Role
+Admin --> Rates
+Admin --> Alerts
+Admin --> Accounts
+Admin --> Orders
+@enduml

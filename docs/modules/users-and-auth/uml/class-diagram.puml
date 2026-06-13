@@ -1,0 +1,26 @@
+@startuml
+title Użytkownicy i auth - klasy
+
+class User {
+  +Id: int
+  +AuthId: Guid
+  +Username: string
+  +PasswordHash: string
+  +Role: string
+  +AccountType
+}
+class AuthController
+class IdentityService
+class JwtService
+class LoginUserCommand
+class RegisterUserCommand
+enum AccountType
+
+AuthController ..> LoginUserCommand
+AuthController ..> RegisterUserCommand
+LoginUserCommand ..> IdentityService
+LoginUserCommand ..> JwtService
+RegisterUserCommand ..> User
+IdentityService ..> User
+User --> AccountType
+@enduml

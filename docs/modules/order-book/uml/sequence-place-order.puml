@@ -1,0 +1,26 @@
+@startuml
+title Złożenie zlecenia limitowego
+autonumber
+
+actor User
+boundary OrdersController
+control OrderBookService
+control TransactionFeeCalculator
+control OrderMatchingService
+database Db
+
+User -> OrdersController : POST /api/orders
+OrdersController -> OrderBookService : PlaceOrderAsync(user, request)
+OrderBookService -> Db : znajdź aktywną parę i portfel
+alt Buy
+  OrderBookService -> TransactionFeeCalculator : fee dla amount * price
+  OrderBookService -> Db : reserve quote + fee
+else Sell
+  OrderBookService -> Db : reserve base amount
+end
+OrderBookService -> Db : zapisz Order(Open)
+OrderBookService -> OrderMatchingService : MatchAsync(order)
+OrderMatchingService --> OrderBookService : executions
+OrderBookService --> OrdersController : OrderDto
+OrdersController --> User : 201 Created
+@enduml

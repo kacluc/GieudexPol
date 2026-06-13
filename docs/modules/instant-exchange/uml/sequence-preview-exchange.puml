@@ -1,0 +1,26 @@
+@startuml
+title Preview szybkiej wymiany
+autonumber
+
+actor User
+boundary WalletsController
+control WalletService
+control InstantExchangeService
+control TransactionFeeCalculator
+database Db
+
+User -> WalletsController : POST /wallet/exchange/preview
+WalletsController -> WalletService : PreviewTradeAsync
+WalletService -> InstantExchangeService : PreviewAsync
+InstantExchangeService -> TransactionFeeCalculator : oblicz fee
+InstantExchangeService -> Db : kursy <= 7 dni
+InstantExchangeService -> Db : płynność kont źródeł
+InstantExchangeService -> InstantExchangeService : wybierz najlepszą ofertę
+InstantExchangeService --> WalletsController : ExchangePreviewResultDto
+WalletsController --> User : wynik symulacji
+
+note right of InstantExchangeService
+Brak SaveChanges.
+Brak Transaction i ExchangeExecution.
+end note
+@enduml

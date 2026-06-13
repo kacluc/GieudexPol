@@ -1,0 +1,24 @@
+@startuml
+title Wypłata środków
+autonumber
+
+actor User
+boundary WalletsController
+control WalletService
+control TransactionFeeCalculator
+database WalletRepository
+entity PlatformTreasury
+
+User -> WalletsController : POST /Wallets/withdraw
+WalletsController -> WalletService : WithdrawAsync(...)
+WalletService -> TransactionFeeCalculator : CalculateAsync("Withdrawal")
+TransactionFeeCalculator --> WalletService : fee
+alt dostępne saldo >= amount + fee
+  WalletService -> WalletRepository : debit amount + fee
+  WalletRepository -> PlatformTreasury : credit fee
+  WalletRepository -> WalletRepository : zapisz Transaction
+  WalletsController --> User : 200 OK
+else brak środków
+  WalletsController --> User : 400
+end
+@enduml

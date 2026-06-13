@@ -1,0 +1,21 @@
+@startuml
+title Przepływ prowizji do PlatformTreasury
+autonumber
+
+actor User
+control FinancialService
+control TransactionFeeCalculator
+control SystemAccountService
+entity PlatformTreasury
+database Db
+
+User -> FinancialService : operacja
+FinancialService -> TransactionFeeCalculator : CalculateAsync
+TransactionFeeCalculator --> FinancialService : fee
+FinancialService -> SystemAccountService : GetPlatformTreasuryAsync
+SystemAccountService --> FinancialService : konto
+FinancialService -> SystemAccountService : GetOrCreateWalletAsync(currency)
+SystemAccountService --> FinancialService : portfel skarbca
+FinancialService -> PlatformTreasury : Credit(fee)
+FinancialService -> Db : zapisz atomowo
+@enduml

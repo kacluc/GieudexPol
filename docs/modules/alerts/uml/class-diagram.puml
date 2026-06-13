@@ -1,0 +1,33 @@
+@startuml
+title Alerty - klasy
+
+enum AlertStatus {
+  Active
+  Fulfilled
+  Inactive
+}
+class UserAlert
+class UserTradingAlert
+class AlertLog {
+  +Message: string
+  +CurrentPrice: decimal?
+  +SourceSummary: string?
+}
+class UserAlertEvaluationState
+class Notification
+class AlertEvaluationService
+class TradingAlertEvaluationService
+class AlertMonitoringWorker
+
+UserAlert --> AlertStatus
+UserTradingAlert --> AlertStatus
+UserAlert "1" *-- "*" AlertLog
+UserTradingAlert "1" *-- "*" AlertLog
+UserAlert "1" *-- "*" UserAlertEvaluationState
+AlertEvaluationService ..> UserAlert
+TradingAlertEvaluationService ..> UserTradingAlert
+AlertEvaluationService ..> Notification
+TradingAlertEvaluationService ..> Notification
+AlertMonitoringWorker ..> AlertEvaluationService
+AlertMonitoringWorker ..> TradingAlertEvaluationService
+@enduml

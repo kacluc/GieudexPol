@@ -1,0 +1,21 @@
+@startuml
+title Admin wystawia zlecenie konta źródła
+autonumber
+
+actor Admin
+boundary AdminRateSourceOrdersController as Controller
+control OrderBookService
+database Db
+entity "Konto systemowe źródła" as SourceAccount
+
+Admin -> Controller : POST /api/admin/rate-source-orders
+Controller -> OrderBookService : PlaceRateSourceOrderAsync
+OrderBookService -> Db : aktywne RateSource + SystemUser
+alt poprawne konto RateSourceSystem
+  OrderBookService -> SourceAccount : PlaceOrderAsync
+  OrderBookService -> Db : rezerwacja, Order, matching
+  Controller --> Admin : 201 Created
+else brak źródła/konta/środków
+  Controller --> Admin : 404 / 409
+end
+@enduml

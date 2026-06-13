@@ -1,0 +1,21 @@
+@startuml
+title Synchronizacja kursów
+autonumber
+
+actor "Użytkownik / startup" as Caller
+boundary "ExchangeRatesController" as Controller
+control "ExchangeRateSyncService" as Sync
+participant "Klient źródła" as Client
+database "SQL Server" as Db
+
+Caller -> Controller : POST /sync/{sourceCode}
+Controller -> Sync : SyncRatesAsync(source, from, to)
+Sync -> Client : pobierz publikacje
+Client --> Sync : kursy źródłowe
+loop każdy dzień i waluta
+  Sync -> Sync : normalizacja do PLN
+  Sync -> Db : insert/update ExchangeRate
+end
+Sync --> Controller : wynik synchronizacji
+Controller --> Caller : 200 OK
+@enduml

@@ -1,0 +1,25 @@
+@startuml
+title Szybka wymiana - klasy
+
+interface IInstantExchangeService
+class InstantExchangeService {
+  +ExecuteAsync(...)
+  +PreviewAsync(...)
+  -BuildQuoteAsync(...)
+  -FindBestOfferAsync(...)
+}
+class ExchangeExecution
+class ExchangeRate
+class RateSource
+class Wallet
+class TransactionFeeCalculator
+class SystemAccountService
+
+IInstantExchangeService <|.. InstantExchangeService
+InstantExchangeService ..> ExchangeRate
+InstantExchangeService ..> RateSource
+InstantExchangeService ..> Wallet
+InstantExchangeService ..> TransactionFeeCalculator
+InstantExchangeService ..> SystemAccountService
+InstantExchangeService ..> ExchangeExecution
+@enduml

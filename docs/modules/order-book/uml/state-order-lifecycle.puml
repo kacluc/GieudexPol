@@ -1,0 +1,18 @@
+@startuml
+title Cykl życia zlecenia
+
+[*] --> Open : utworzenie i rezerwacja
+Open --> PartiallyFilled : częściowe wykonanie
+Open --> Filled : pełne wykonanie
+Open --> Cancelled : anulowanie
+PartiallyFilled --> PartiallyFilled : kolejne częściowe wykonanie
+PartiallyFilled --> Filled : wykonanie reszty
+PartiallyFilled --> Cancelled : anulowanie reszty
+Filled --> [*]
+Cancelled --> [*]
+
+note right of Cancelled
+Zwalniana jest tylko rezerwacja
+pozostałej części zlecenia.
+end note
+@enduml

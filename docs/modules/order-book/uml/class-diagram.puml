@@ -1,0 +1,46 @@
+@startuml
+title Rynek walut - klasy
+
+class TradingPair {
+  +BaseCurrencyId: int
+  +QuoteCurrencyId: int
+  +TickSize: decimal
+  +IsActive: bool
+}
+class Order {
+  +Side: OrderSide
+  +Status: OrderStatus
+  +Price: decimal
+  +OriginalAmount: decimal
+  +RemainingAmount: decimal
+}
+enum OrderSide {
+  Buy
+  Sell
+}
+enum OrderStatus {
+  Open
+  PartiallyFilled
+  Filled
+  Cancelled
+}
+class TradeExecution {
+  +Price: decimal
+  +Amount: decimal
+  +BuyerFee: decimal
+  +SellerFee: decimal
+}
+class OrderBookService
+class OrderMatchingService
+class Wallet
+
+TradingPair "1" *-- "*" Order
+TradingPair "1" *-- "*" TradeExecution
+Order --> OrderSide
+Order --> OrderStatus
+TradeExecution --> "1" Order : BuyOrder
+TradeExecution --> "1" Order : SellOrder
+OrderBookService ..> OrderMatchingService
+OrderBookService ..> Wallet : rezerwuje
+OrderMatchingService ..> TradeExecution
+@enduml

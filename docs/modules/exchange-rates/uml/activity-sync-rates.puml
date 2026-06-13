@@ -1,0 +1,19 @@
+@startuml
+title Synchronizacja kursów - aktywność
+start
+:Sprawdź źródło i zakres dat;
+if (Źródło obsługiwane?) then (tak)
+  :Pobierz dane z API;
+  if (Dzień ma dane potrzebne do PLN?) then (tak)
+    :Przelicz kursy względem PLN;
+    :Wyznacz Buy/Sell/Mid;
+    :Zapisz brakujące rekordy;
+  else (nie)
+    :Pomiń dzień;
+  endif
+  :Zwróć wynik;
+else (nie)
+  :Zwróć błąd walidacji;
+endif
+stop
+@enduml

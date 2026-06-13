@@ -1,0 +1,39 @@
+@startuml
+title GieudexPol - diagram komponentów
+left to right direction
+
+component "Angular Frontend" as Frontend
+package "GieudexPol.API" {
+  component "API Controllers" as Controllers
+  component "Background Workers" as Workers
+}
+package "GieudexPol.Application" {
+  component "Application Services" as AppServices
+  component "DTO i interfejsy" as Contracts
+}
+package "GieudexPol.Domain" {
+  component "Encje i reguły domenowe" as Domain
+}
+package "GieudexPol.Infrastructure" {
+  component "Repozytoria EF Core" as Repositories
+  component "Serwisy infrastrukturalne" as InfraServices
+  component "Klienci kursów" as RateClients
+}
+database "SQL Server" as Db
+cloud "External Rate Sources" as Sources
+
+Frontend --> Controllers : REST / JWT
+Controllers --> Contracts
+Controllers --> AppServices
+Controllers --> InfraServices
+Workers --> InfraServices
+Workers --> RateClients
+AppServices --> Contracts
+AppServices --> Domain
+InfraServices --> Contracts
+InfraServices --> Domain
+Repositories --> Domain
+InfraServices --> Repositories
+Repositories --> Db
+RateClients --> Sources
+@enduml

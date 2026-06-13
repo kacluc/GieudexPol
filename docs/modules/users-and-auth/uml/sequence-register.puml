@@ -1,0 +1,19 @@
+@startuml
+title Rejestracja
+autonumber
+
+actor User
+boundary AuthController
+control RegisterUserCommand
+database Db
+control JwtService
+
+User -> AuthController : POST /api/Auth/register
+AuthController -> RegisterUserCommand : Send
+RegisterUserCommand -> RegisterUserCommand : waliduj dane i unikalność
+RegisterUserCommand -> RegisterUserCommand : hash hasła
+RegisterUserCommand -> Db : User RegularUser
+RegisterUserCommand -> JwtService : GenerateToken
+JwtService --> RegisterUserCommand : JWT
+AuthController --> User : 200 AuthResponse
+@enduml

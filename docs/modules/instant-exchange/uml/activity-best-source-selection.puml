@@ -1,0 +1,20 @@
+@startuml
+title Wybór najlepszego źródła
+start
+:Waliduj waluty i kwotę;
+:Pobierz kursy z ostatnich 7 dni;
+:Usuń źródła nieaktywne i bez konta;
+:Dla zwykłego usera usuń MOCK;
+:Wybierz najnowszy kurs każdej waluty w źródle;
+repeat
+  :Oblicz możliwą kwotę wyjściową;
+  :Sprawdź AvailableBalance waluty docelowej;
+repeat while (Są kolejne źródła?) is (tak)
+if (Istnieje płynny kandydat?) then (tak)
+  :Wybierz największą kwotę wyjściową;
+  :Rozstrzygnij datą i kodem źródła;
+else (nie)
+  :Zwróć błąd braku kursu lub płynności;
+endif
+stop
+@enduml
