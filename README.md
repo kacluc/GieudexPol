@@ -1,6 +1,6 @@
 # GieudexPol
 
-GieudexPol jest aplikacją do zarządzania portfelami walutowymi, obserwowania kursów, szybkiej wymiany z kontami płynności źródeł oraz handlu limitowego na wewnętrznym rynku użytkowników.
+GieudexPol jest aplikacją do zarządzania portfelami walutowymi, obserwowania kursów, szybkiej wymiany z kontami płynności źródeł oraz handlu limitowego na wewnętrznym rynku użytkowników. Aplikacja dostępna jest pod adresem: https://gieudexpol-production.up.railway.app/auth/login
 
 ## Aktualny stos
 
