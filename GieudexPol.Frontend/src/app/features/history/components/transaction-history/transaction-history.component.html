@@ -45,6 +45,25 @@
           }
         </tbody>
       </table>
+
+      <nav class="pagination" aria-label="Stronicowanie historii transakcji">
+        <button
+          type="button"
+          [disabled]="paginatedResult.pageNumber <= 1"
+          (click)="onPageChange(paginatedResult.pageNumber - 1)">
+          Poprzednia
+        </button>
+        <span>
+          Strona {{ paginatedResult.pageNumber }} z
+          {{ (paginatedResult.totalCount / paginatedResult.pageSize) | ceil }}
+        </span>
+        <button
+          type="button"
+          [disabled]="paginatedResult.pageNumber * paginatedResult.pageSize >= paginatedResult.totalCount"
+          (click)="onPageChange(paginatedResult.pageNumber + 1)">
+          Następna
+        </button>
+      </nav>
     </div>
   }
 </section>
