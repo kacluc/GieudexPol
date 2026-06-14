@@ -1,0 +1,68 @@
+@startuml CurrencyExchangeSimulationClassDiagram
+
+title Diagram Klasowy Symulatora Wymiany Walut
+
+' Klasy
+class CurrencyExchangeSimulation {
+  - Guid Id
+  - DateTime CreatedAt
+  - DateTime UpdatedAt
+  - decimal FromAmount
+  - decimal ToAmount
+  - string FromCurrencyCode
+  - string ToCurrencyCode
+  - decimal ExchangeRate
+  - string Status
+  + CurrencyExchangeSimulation()
+}
+
+class Currency {
+  - Guid Id
+  - string Code
+  - string Name
+  - string Symbol
+}
+
+class ExchangeRate {
+  - Guid Id
+  - DateTime EffectiveDate
+  - decimal BuyPrice
+  - decimal SellPrice
+  - decimal MidPrice
+  - string CurrencyCode
+  - string RateSourceCode
+}
+
+class User {
+  - Guid Id
+  - string Username
+  - string DisplayName
+  - string Email
+}
+
+class Wallet {
+  - Guid Id
+  - decimal Balance
+  - decimal ReservedBalance
+  - string CurrencyCode
+  - Guid UserId
+}
+
+class Transaction {
+  - Guid Id
+  - decimal Amount
+  - string CurrencyCode
+  - string TransactionType
+  - DateTime CreatedAt
+  - Guid UserId
+}
+
+' Relacje
+CurrencyExchangeSimulation "1" *-- "1" User : wykonuje
+CurrencyExchangeSimulation "1" *-- "1" Wallet : pochodzi z
+CurrencyExchangeSimulation "1" *-- "1" Currency : waluta źródłowa
+CurrencyExchangeSimulation "1" *-- "1" Currency : waluta docelowa
+CurrencyExchangeSimulation "1" *-- "1" ExchangeRate : używa kursu
+CurrencyExchangeSimulation "1" *-- "1" Transaction : generuje transakcję
+
+@enduml
