@@ -3,3 +3,5 @@ export interface CurrencyDto {
   symbol: string;
   name: string;
 }
+
+//zmiany
