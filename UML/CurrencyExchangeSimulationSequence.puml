@@ -1,0 +1,63 @@
+@startuml CurrencyExchangeSimulationSequence
+
+title Diagram Sekwencyjny Procesu Wymiany Walut
+
+actor User
+participant "UserService" as UserService
+participant "CurrencyExchangeSimulationService" as SimulationService
+participant "WalletService" as WalletService
+participant "ExchangeRateService" as ExchangeRateService
+participant "TransactionService" as TransactionService
+participant "DbContext" as DbContext
+
+User -> UserService: Wyślij żądanie wymiany walut
+activate UserService
+
+UserService -> SimulationService: Utwórz nową symulację wymiany
+activate SimulationService
+
+SimulationService -> ExchangeRateService: Pobierz aktualny kurs wymiany
+activate ExchangeRateService
+
+ExchangeRateService -> DbContext: Pobierz kurs walutowy
+activate DbContext
+DbContext --> ExchangeRateService: Zwróć kurs walutowy
+deactivate DbContext
+
+ExchangeRateService --> SimulationService: Zwróć kurs walutowy
+deactivate ExchangeRateService
+
+SimulationService -> WalletService: Sprawdź dostępną kwotę w portfelu
+activate WalletService
+
+WalletService -> DbContext: Pobierz saldo portfela
+activate DbContext
+DbContext --> WalletService: Zwróć saldo portfela
+deactivate DbContext
+
+WalletService --> SimulationService: Zwróć dostępną kwotę
+deactivate WalletService
+
+SimulationService -> DbContext: Zaktualizuj stan symulacji
+activate DbContext
+DbContext --> SimulationService: Potwierdź aktualizację
+deactivate DbContext
+
+SimulationService -> TransactionService: Utwórz transakcję
+activate TransactionService
+
+TransactionService -> DbContext: Zarejestruj transakcję
+activate DbContext
+DbContext --> TransactionService: Potwierdź rejestrację
+deactivate DbContext
+
+TransactionService --> SimulationService: Potwierdź utworzenie transakcji
+deactivate TransactionService
+
+SimulationService --> UserService: Zwróć wynik symulacji
+deactivate SimulationService
+
+UserService --> User: Zwróć wynik wymiany
+deactivate UserService
+
+@enduml

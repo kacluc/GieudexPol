@@ -13,7 +13,6 @@ class CurrencyExchangeSimulation {
   - string ToCurrencyCode
   - decimal ExchangeRate
   - string Status
-  + CurrencyExchangeSimulation()
 }
 
 class Currency {
@@ -43,7 +42,6 @@ class User {
 class Wallet {
   - Guid Id
   - decimal Balance
-  - decimal ReservedBalance
   - string CurrencyCode
   - Guid UserId
 }
@@ -58,11 +56,11 @@ class Transaction {
 }
 
 ' Relacje
-CurrencyExchangeSimulation "1" *-- "1" User : wykonuje
-CurrencyExchangeSimulation "1" *-- "1" Wallet : pochodzi z
-CurrencyExchangeSimulation "1" *-- "1" Currency : waluta źródłowa
-CurrencyExchangeSimulation "1" *-- "1" Currency : waluta docelowa
-CurrencyExchangeSimulation "1" *-- "1" ExchangeRate : używa kursu
-CurrencyExchangeSimulation "1" *-- "1" Transaction : generuje transakcję
+CurrencyExchangeSimulation "1" --> "1" User : wykonuje
+CurrencyExchangeSimulation "1" --> "1" Wallet : pochodzi z
+CurrencyExchangeSimulation "1" --> "1" Currency : waluta źródłowa
+CurrencyExchangeSimulation "1" --> "1" Currency : waluta docelowa
+CurrencyExchangeSimulation "1" --> "1" ExchangeRate : używa kursu
+CurrencyExchangeSimulation "1" --> "1" Transaction : generuje transakcję
 
 @enduml
