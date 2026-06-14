@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { ReactiveFormsModule } from '@angular/forms';
 import { Transaction } from '../../../../models/transaction.model';
 import { TransactionService } from '../../../../services/transaction.service';
 import { PaginatedResult } from '../../../../models/paginated-result.model';
@@ -14,7 +14,7 @@ import { CeilPipe } from "../../../../transaction-transfer/transaction-transfer.
 @Component({
   selector: 'app-transaction-history',
   standalone: true,
-  imports: [CommonModule, RouterLink, CeilPipe],
+  imports: [CommonModule, RouterLink, CeilPipe, ReactiveFormsModule],
   templateUrl: './transaction-history.component.html',
   styleUrl: './transaction-history.component.scss',
 })
@@ -34,19 +34,15 @@ export class TransactionHistoryComponent implements OnInit {
     private readonly transactionService: TransactionService,
     private readonly changeDetector: ChangeDetectorRef,
   ) {
-        this.transactionHistoryForm = this.fb.group({
+    this.transactionHistoryForm = this.fb.group({
       transactionType: [null],
       currencyId: [null],
       startDate: [null],
       endDate: [null]
-    })
-}
-
-  ngOnInit(): void {
-    void this.loadTransactions();
+    });
   }
 
-  async loadTransactions(): Promise<void> {
+  ngOnInit(): void {
     const userId = Number(localStorage.getItem('userId'));
 
     if (!Number.isInteger(userId) || userId <= 0) {
@@ -55,22 +51,53 @@ export class TransactionHistoryComponent implements OnInit {
       return;
     }
 
-    try {
-      const result = await firstValueFrom(this.transactionService.getUserTransactions(userId));
-      this.transactions = result.items;
-    } catch (error) {
-      console.error('Nie udało się załadować historii transakcji:', error);
-      this.errorMessage = 'Nie można pobrać historii transakcji z API.';
-    } finally {
-      this.isLoading = false;
-      this.changeDetector.detectChanges();
-    }
+    this.currentUserId = userId;
+    this.loadUserTransactions(1);
+
+    this.transactionHistoryForm.valueChanges.subscribe(() => {
+      this.loadUserTransactions(1);
+    });
+  }
+
+  loadUserTransactions(pageNumber: number = this.paginatedResult.pageNumber, pageSize: number = this.paginatedResult.pageSize): void {
+    if (!this.currentUserId) return;
+
+    this.isLoading = true;
+    const filters = this.transactionHistoryForm.value;
+
+    this.transactionService.getUserTransactions(
+      this.currentUserId,
+      pageNumber,
+      pageSize,
+      filters.transactionType,
+      filters.currencyId,
+      filters.startDate,
+      filters.endDate
+    ).subscribe({
+      next: (result) => {
+        this.paginatedResult = result;
+        this.transactions = result.items;
+        this.isLoading = false;
+        this.changeDetector.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading transactions:', error);
+        this.errorMessage = 'Nie można pobrać historii transakcji z API.';
+        this.isLoading = false;
+        this.changeDetector.detectChanges();
+      }
+    });
+  }
+
+  onPageChange(pageNumber: number): void {
+    this.loadUserTransactions(pageNumber, this.paginatedResult.pageSize);
   }
 
   transactionTypeLabel(type: string): string {
     const labels: Record<string, string> = {
       OrderBookBuy: 'Kupno na rynku walut',
       OrderBookSell: 'Sprzedaż na rynku walut',
+      Transfer: 'Transfer środków'
     };
 
     return labels[type] ?? type;
@@ -90,35 +117,5 @@ export class TransactionHistoryComponent implements OnInit {
     return `#${transaction.tradeExecutionId}, ${transaction.tradingPair} po ${
       transaction.executionPrice?.toFixed(4) ?? '-'
     }`;
-  }
-
-  loadUserTransactions(pageNumber: number = this.paginatedResult.pageNumber, pageSize: number = this.paginatedResult.pageSize): void {
-    if (this.currentUserId) {
-      const filters = this.transactionHistoryForm.value;
-      this.transactionService.getUserTransactions(
-        this.currentUserId,
-        pageNumber,
-        pageSize,
-        filters.transactionType,
-        filters.currencyId,
-        filters.startDate,
-        filters.endDate
-      ).subscribe(
-        (result) => {
-          this.paginatedResult = result;
-          this.transactions = result.items;
-          this.changeDetector.detectChanges();
-        },
-        (error) => {
-          console.error('Error loading transactions:', error);
-          this.errorMessage = 'Failed to load transaction history.';
-          this.changeDetector.detectChanges();
-        }
-      );
-    }
-  }
-
-   onPageChange(pageNumber: number): void {
-    this.loadUserTransactions(pageNumber, this.paginatedResult.pageSize);
   }
 }
