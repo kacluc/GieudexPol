@@ -340,6 +340,20 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        await DevelopmentDataSeeder.SeedAsync(services);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Wystąpił błąd podczas zasilania bazy danych (Seeding).");
+    }
+}
+
 if (hasSpaIndex)
 {
     app.MapFallbackToFile("index.html");
